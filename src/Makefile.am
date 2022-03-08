@@ -1,2 +1,2 @@
-SUBDIRS = core
+SUBDIRS = core tools
 

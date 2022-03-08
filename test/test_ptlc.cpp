@@ -4,6 +4,7 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "tools/config.hpp"
 #include "core/chain_api.hpp"
 #include "core/wallet_api.hpp"
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[])
 
 struct TestConfigFactory
 {
-//    config::Config conf;
+    Config conf;
     TestConfigFactory(const std::string& confpath)
     {
 //        conf.ParseConfig({"--config=" + confpath});

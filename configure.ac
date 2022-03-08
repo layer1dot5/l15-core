@@ -17,7 +17,6 @@ AX_CXX_COMPILE_STDCXX([17], [noext], [mandatory])
 # Checks for libraries.
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
-AX_BOOST_PROGRAM_OPTIONS(,[AC_MSG_ERROR([libboost_program_options is required, but it was not found in your system])])
 AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -33,6 +32,7 @@ AC_CHECK_FUNCS([dup2 memset pow select socket sqrt strtoul strtoull])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/core/Makefile
+                 src/tools/Makefile
                  test/Makefile])
 
 
