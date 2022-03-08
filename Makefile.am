@@ -1,0 +1,2 @@
+
+SUBDIRS = node src test
