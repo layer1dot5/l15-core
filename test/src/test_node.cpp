@@ -5,6 +5,7 @@
 #include "catch.hpp"
 
 #include "tools/config.hpp"
+#include "tools/nodehelper.hpp"
 #include "core/chain_api.hpp"
 #include "core/wallet_api.hpp"
 
@@ -24,7 +25,7 @@ int main(int argc, char* argv[])
             = session.cli() // Get Catch's composite command line parser
               | Opt(configpath, "Config path" ) // bind variable to a new option, with a hint string
               ["--config"]    // the option names it will respond to
-                      ("Path to bitcoin config");
+                      ("Path to node config");
 
     session.cli( cli );
 
@@ -35,8 +36,14 @@ int main(int argc, char* argv[])
 
     if(configpath.empty())
     {
-        std::cerr << "Bitcoin config is not passed!" << std::endl;
+        std::cerr << "Config path is not passed!" << std::endl;
         return 1;
+    }
+
+    std::filesystem::path p(configpath);
+    if(p.is_relative())
+    {
+        configpath = (std::filesystem::current_path() / p).string();
     }
 
     return session.run();
@@ -49,35 +56,20 @@ struct TestConfigFactory
     Config conf;
     TestConfigFactory(const std::string& confpath)
     {
-//        conf.ParseConfig({"--config=" + confpath});
+        std::clog << "Config: " << confpath << std::endl;
+        conf.ProcessConfig({"--conf=" + confpath});
     }
     api::ChainMode GetChainMode() const
     {
-//        auto chainmode_it = conf.Options().find(config::params::CHAINMODE);
-//        const auto& chainmodestr = chainmode_it->second.as<std::string>();
-//        api::ChainMode chainmode = api::ChainMode::MODE_UNKNOWN;
-//
-//        if(chainmodestr == "testnet")
-//        {
-//            chainmode = api::ChainMode::MODE_TESTNET;
-//        }
-//        else if(chainmodestr == "regtest")
-//        {
-//            chainmode = api::ChainMode::MODE_REGTEST;
-//        }
-//        else
-//        {
-//            FAIL("Wrong block chain mode for tests: " + chainmodestr);
-//        }
-//        return chainmode;
         return api::ChainMode::MODE_REGTEST;
     }
-    const std::string& GetDataDir() const
+    const std::string GetDataDir() const
     {
-//        auto datadir_it = conf.Options().find(config::params::BTC_DATADIR);
-//        return datadir_it->second.as<std::string>();
-		static const std::string stab = "stab";
-		return stab;
+        auto datadir_opt = conf.Subcommand(config::L15NODE).get_option(config::option::DATADIR);
+        if(!datadir_opt->empty())
+            return datadir_opt->as<std::string>();
+        else
+            return std::string();
     }
 };
 
@@ -86,19 +78,15 @@ struct TestcaseWrapper
     TestConfigFactory mConfFactory;
     api::ChainMode mMode;
     std::string mDatadir;
-    api::WalletApi mWallet;
 //    api::ChainApi mBtc;
-//    channelhtlc_ptr mChannelForAliceSide;
-//    channelhtlc_ptr mChannelForCarolSide;
 
     TestcaseWrapper(const std::string& confpath) :
         mConfFactory(confpath),
         mMode(mConfFactory.GetChainMode()),
-        mDatadir(mConfFactory.GetDataDir()),
-        mWallet(mConfFactory.GetChainMode())//,
+        mDatadir(mConfFactory.GetDataDir())
         //mBtc(mWallet, std::vector<std::string>(mConfFactory.conf.BitcoinValues()))
     {
-//        btc().StartNode(mConfFactory.GetChainMode(), mDatadir);
+        StartNode(mMode, "l15d", conf().Subcommand(config::L15NODE));
 
 //        if (btc().GetChainHeight() < 50)
 //        {
@@ -109,26 +97,26 @@ struct TestcaseWrapper
 
     ~TestcaseWrapper()
     {
-//        mBtc.StopNode();
+        StopNode(mMode, "l15-cli", conf().Subcommand(config::L15CLIENT));
         std::filesystem::remove_all(mDatadir + "/regtest");
     }
 
-//    config::Config& conf() { return mConfFactory.conf; }
-    api::WalletApi& wallet() { return mWallet; }
+    Config& conf() { return mConfFactory.conf; }
+ //   api::WalletApi& wallet() { return mWallet; }
 //    api::ChainApi& btc() { return mBtc; }
-//    ChannelHtlc& channel_for_alice() { return *mChannelForAliceSide; }
-//    ChannelHtlc& channel_for_carol() { return *mChannelForCarolSide; }
 
     void ResetMemPool()
     {
-//        btc().StopNode();
+        StopNode(mMode, "l15-cli", conf().Subcommand(config::L15CLIENT));
+
         std::filesystem::remove(mDatadir + "/regtest/mempool.dat");
-//        btc().StartNode(mMode, mDatadir);
+
+        StartNode(mConfFactory.GetChainMode(), "l15d", conf().Subcommand(config::L15NODE));
     }
 
 };
 
-TEST_CASE("PTLC simple positive cases") {
+TEST_CASE("Run l15-node") {
     TestcaseWrapper w(configpath);
 }
 

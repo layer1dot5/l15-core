@@ -38,7 +38,6 @@ public:
         return m_wallet;
     }
 
-    void StartNode(ChainMode mode, const std::string& datadir) const;
     void StopNode() const;
 
     void CreateWallet(std::string&& name) const;

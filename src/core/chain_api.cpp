@@ -370,17 +370,6 @@ void ChainApi::Log(const T& tx)
 template void ChainApi::Log<CTransaction>(const CTransaction& );
 template void ChainApi::Log<CMutableTransaction>(const CMutableTransaction& );
 
-void ChainApi::StartNode(ChainMode mode, const std::string& datadir) const
-{
-    ExecHelper btc_exec(m_daemon_path, false);
-    btc_exec.Arguments() = {"-daemon", "-datadir=" + datadir, "-conf=" + datadir + "/bitcoin.conf"};
-    if(mode == ChainMode::MODE_REGTEST) btc_exec.Arguments().push_back("-regtest");
-    else if (mode == ChainMode::MODE_TESTNET) btc_exec.Arguments().push_back("-testnet");
-
-    btc_exec.Run();
-
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-}
 
 void ChainApi::StopNode() const
 {
