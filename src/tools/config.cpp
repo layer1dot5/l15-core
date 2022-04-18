@@ -10,6 +10,7 @@ namespace config {
     const char * const L15NODE = "l15node";
     const char * const L15CLIENT = "l15client";
     const char * const BITCOIN = "bitcoin";
+    const char * const BITCOIND = "bitcoind";
 
 namespace option {
 
@@ -31,6 +32,18 @@ namespace mode {
 
 }
 
+namespace {
+
+std::string make_absolute_path(const std::string& v) {
+    std::filesystem::path p(v);
+    if(p.is_relative())
+        return (std::filesystem::current_path() / p).string();
+    else
+        return v;
+}
+
+}
+
 using namespace ::l15::config;
 
 Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
@@ -41,44 +54,67 @@ Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
 
     mApp.add_option(option::CHAINMODE, "Mode to operate: mainnet, testnet, regtest")->check([](const std::string& s){
             if (s != option::mode::MAINNET && s != option::mode::TESTNET && s != option::mode::REGTEST) throw CLI::ValidationError("Unknown chain mode: " + s);
-            return s;
+            return std::string();
         })->default_str(option::mode::MAINNET);
 
-    auto l15node = mApp.add_subcommand(L15NODE);
-    l15node->group("Config File Sections");
-    /*auto datadir = */l15node->add_option(option::DATADIR, "Path to store files for L15 node daemon")
-//        ->default_str(".l15")
-//        ->capture_default_str()
-        ->transform([](const std::string& v)
-        {
-            std::clog << "datadir: " << v << std::endl;
+    //-------------------------------------------------------------------------
+    // [l15node]
+    {
+        auto l15node = mApp.add_subcommand(L15NODE);
+        l15node->configurable();
+        l15node->group("Config File Sections");
+        l15node->add_option(option::DATADIR, "Path to store files for L15 node daemon")->configurable(true);
+                //->default_str(".l15")
+                //->transform(make_absolute_path);
 
-            std::filesystem::path p(v);
-            if(p.is_relative())
-                return (std::filesystem::current_path() / p).string();
-            else
-                return v;
-        });
-    l15node->add_option(option::CONF, "L15 node configuration file. Relative paths will be prefixed by datadir path")
-        ->default_str("l15.conf")
-//        ->capture_default_str()
-        ->transform([&](const std::string& v)
-        {
-//            std::filesystem::path p(v);
-//            if(p.is_relative())
-//                return (std::filesystem::path(datadir->as<std::string>()) / p).string();
-//            else
-                return v;
-        });
+        l15node->add_option(option::CONF, "L15 node configuration file. Relative paths will be prefixed by datadir path")->configurable(true);
+                //->default_str("l15.conf")
+                //->transform(make_absolute_path);
+    }
 
-    auto l15client = mApp.add_subcommand(L15CLIENT);
-    l15client->group("Config File Sections");
-    l15client->add_option(option::RPCHOST, "Node RPC host")->default_str("127.0.0.1")->capture_default_str();
-    l15client->add_option(option::RPCPORT, "Node RPC port")->default_str("18332")->capture_default_str();
-    l15client->add_option(option::RPCUSER, "Node RPC user")->default_str("rpcuser")->capture_default_str();
-    l15client->add_option(option::RPCPASS, "Node RPC password");
+    //-------------------------------------------------------------------------
+    // [l15client]
+    {
+        auto l15client = mApp.add_subcommand(L15CLIENT);
+        l15client->group("Config File Sections");
+        l15client->add_option(option::RPCHOST, "L15 node RPC host");
+                //->default_str("127.0.0.1")->capture_default_str();
+        l15client->add_option(option::RPCPORT, "L15 node RPC port");
+                //->default_str("18332")->capture_default_str();
+        l15client->add_option(option::RPCUSER, "L15 node RPC user");
+                //->default_str("rpcuser")->capture_default_str();
+        l15client->add_option(option::RPCPASS, "L15 node RPC password");
+    }
+
+
+//    //-------------------------------------------------------------------------
+//    // [bitcoind]
+//    {
+//        auto bitcoind = mApp.add_subcommand(BITCOIND);
+//        bitcoind->group("Config File Sections");
+//        /*auto datadir = */bitcoind->add_option(option::DATADIR, "Path to store files for bitcoin daemon");
+//                //->default_str(".bitcoin")
+//                //->transform(make_absolute_path);
+//
+//        bitcoind->add_option(option::CONF, "L15 node configuration file. Relative paths will be prefixed by datadir path")
+//                //->default_str("bitcoin.conf")
+//                ->transform(make_absolute_path);
+//    }
+//
+//    //-------------------------------------------------------------------------
+//    // [bitcoin]
+//    {
+//        auto bitcoin = mApp.add_subcommand(BITCOIN);
+//        bitcoin->group("Config File Sections");
+//        bitcoin->add_option(option::RPCHOST, "Bitcoin RPC host")->default_str("127.0.0.1")->capture_default_str();
+//        bitcoin->add_option(option::RPCPORT, "Bitcoin RPC port")->default_str("18332")->capture_default_str();
+//        bitcoin->add_option(option::RPCUSER, "Bitcoin RPC user")->default_str("rpcuser")->capture_default_str();
+//        bitcoin->add_option(option::RPCPASS, "Bitcoin RPC password");
+//    }
+
 
     auto print = mApp.add_subcommand("print");
+    print->configurable(false);
     print->callback([&](){
         std::cout << "Current configuration:" << std::endl;
 

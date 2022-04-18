@@ -16,6 +16,7 @@ void StartNode(ChainMode mode, const std::string &path, const CLI::App& options)
 
     for(const auto opt: options.get_options([](const CLI::Option* o){ return o && !o->check_name("--help"); }))
     {
+        std::clog << opt->get_name() << " == " << opt->as<std::string>() << std::endl;
         node_exec.Arguments().emplace_back(opt->get_name() + "=" + opt->as<std::string>());
     }
     if(mode == ChainMode::MODE_REGTEST) node_exec.Arguments().emplace_back("-regtest");
@@ -30,7 +31,7 @@ void StopNode(ChainMode mode, const std::string &path, const CLI::App& options)
 {
     ExecHelper cli_exec(path.c_str(), false);
 
-    for(const auto opt: options.get_options([](const CLI::Option* o){ return o; }))
+    for(const auto opt: options.get_options([](const CLI::Option* o){ return o&& !o->check_name("--help"); }))
     {
         cli_exec.Arguments().emplace_back(opt->get_name() + "=" + opt->as<std::string>());
     }

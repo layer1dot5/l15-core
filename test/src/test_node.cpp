@@ -54,10 +54,11 @@ int main(int argc, char* argv[])
 struct TestConfigFactory
 {
     Config conf;
-    TestConfigFactory(const std::string& confpath)
+    explicit TestConfigFactory(const std::string& confpath)
     {
         std::clog << "Config: " << confpath << std::endl;
         conf.ProcessConfig({"--conf=" + confpath});
+        std::clog << "Config has been processed" << std::endl;
     }
     api::ChainMode GetChainMode() const
     {
@@ -77,16 +78,13 @@ struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
     api::ChainMode mMode;
-    std::string mDatadir;
 //    api::ChainApi mBtc;
 
-    TestcaseWrapper(const std::string& confpath) :
+    explicit TestcaseWrapper(const std::string& confpath) :
         mConfFactory(confpath),
-        mMode(mConfFactory.GetChainMode()),
-        mDatadir(mConfFactory.GetDataDir())
+        mMode(mConfFactory.GetChainMode())
         //mBtc(mWallet, std::vector<std::string>(mConfFactory.conf.BitcoinValues()))
     {
-        StartNode(mMode, "l15d", conf().Subcommand(config::L15NODE));
 
 //        if (btc().GetChainHeight() < 50)
 //        {
@@ -97,26 +95,25 @@ struct TestcaseWrapper
 
     ~TestcaseWrapper()
     {
-        StopNode(mMode, "l15-cli", conf().Subcommand(config::L15CLIENT));
-        std::filesystem::remove_all(mDatadir + "/regtest");
+        StopNode(mConfFactory.GetChainMode(), "l15node-cli", conf().Subcommand(config::L15CLIENT));
+        std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
+
+    void startNode() {
+        StartNode(mConfFactory.GetChainMode(), "l15noded", conf().Subcommand(config::L15NODE));
+    }
+
 
     Config& conf() { return mConfFactory.conf; }
  //   api::WalletApi& wallet() { return mWallet; }
 //    api::ChainApi& btc() { return mBtc; }
 
-    void ResetMemPool()
-    {
-        StopNode(mMode, "l15-cli", conf().Subcommand(config::L15CLIENT));
-
-        std::filesystem::remove(mDatadir + "/regtest/mempool.dat");
-
-        StartNode(mConfFactory.GetChainMode(), "l15d", conf().Subcommand(config::L15NODE));
-    }
-
 };
 
 TEST_CASE("Run l15-node") {
     TestcaseWrapper w(configpath);
+
+    w.startNode();
+
 }
 
