@@ -86,31 +86,34 @@ Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
         l15client->add_option(option::RPCPASS, "L15 node RPC password");
     }
 
+    //-------------------------------------------------------------------------
+    // [bitcoin node]
+    {
+        auto bitcoind = mApp.add_subcommand(BITCOIND);
+        bitcoind->configurable();
+        bitcoind->group("Config File Sections");
+        bitcoind->add_option(option::DATADIR, "Path to store files for bitcoin daemon")->configurable(true);
+        //->default_str(".l15")
+        //->transform(make_absolute_path);
 
-//    //-------------------------------------------------------------------------
-//    // [bitcoind]
-//    {
-//        auto bitcoind = mApp.add_subcommand(BITCOIND);
-//        bitcoind->group("Config File Sections");
-//        /*auto datadir = */bitcoind->add_option(option::DATADIR, "Path to store files for bitcoin daemon");
-//                //->default_str(".bitcoin")
-//                //->transform(make_absolute_path);
-//
-//        bitcoind->add_option(option::CONF, "L15 node configuration file. Relative paths will be prefixed by datadir path")
-//                //->default_str("bitcoin.conf")
-//                ->transform(make_absolute_path);
-//    }
-//
-//    //-------------------------------------------------------------------------
-//    // [bitcoin]
-//    {
-//        auto bitcoin = mApp.add_subcommand(BITCOIN);
-//        bitcoin->group("Config File Sections");
-//        bitcoin->add_option(option::RPCHOST, "Bitcoin RPC host")->default_str("127.0.0.1")->capture_default_str();
-//        bitcoin->add_option(option::RPCPORT, "Bitcoin RPC port")->default_str("18332")->capture_default_str();
-//        bitcoin->add_option(option::RPCUSER, "Bitcoin RPC user")->default_str("rpcuser")->capture_default_str();
-//        bitcoin->add_option(option::RPCPASS, "Bitcoin RPC password");
-//    }
+        bitcoind->add_option(option::CONF, "Bitcoin node configuration file. Relative paths will be prefixed by datadir path")->configurable(true);
+        //->default_str("bitcoin.conf")
+        //->transform(make_absolute_path);
+    }
+
+    //-------------------------------------------------------------------------
+    // [bitcoin client]
+    {
+        auto bitcoincli = mApp.add_subcommand(BITCOIN);
+        bitcoincli->group("Config File Sections");
+        bitcoincli->add_option(option::RPCHOST, "Bitcoin RPC host");
+        //->default_str("127.0.0.1")->capture_default_str();
+        bitcoincli->add_option(option::RPCPORT, "Bitcoin RPC port");
+        //->default_str("18332")->capture_default_str();
+        bitcoincli->add_option(option::RPCUSER, "Bitcoin RPC user");
+        //->default_str("rpcuser")->capture_default_str();
+        bitcoincli->add_option(option::RPCPASS, "Bitcoin RPC password");
+    }
 
 
     auto print = mApp.add_subcommand("print");
@@ -124,4 +127,29 @@ Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
 
 }
 
+stringvector Config::BitcoinValues() const
+{
+    auto& btccli = Subcommand(config::BITCOIN);
+
+    stringvector values;
+
+    for(const auto opt: btccli.get_options([](const CLI::Option* o){ return o&& !o->check_name("--help"); }))
+    {
+        values.emplace_back(opt->get_name() + "=" + opt->as<std::string>());
+    }
+
+    return values;
 }
+
+
+
+}
+
+
+
+
+
+
+
+
+

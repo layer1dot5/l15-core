@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+//TODO: Move to tools folder after migrating API to JSON RPC
+
 namespace l15 {
 
 class NoOutputException : public std::exception {

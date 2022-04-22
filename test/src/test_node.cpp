@@ -4,6 +4,7 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "util/translation.h"
 #include "tools/config.hpp"
 #include "tools/nodehelper.hpp"
 #include "core/chain_api.hpp"

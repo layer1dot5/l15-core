@@ -10,6 +10,7 @@ namespace config {
 extern const char* const L15NODE;
 extern const char* const L15CLIENT;
 extern const char* const BITCOIN;
+extern const char* const BITCOIND;
 
 namespace command {
 
@@ -65,7 +66,7 @@ public:
         return *mApp.get_subcommand(name);
     }
 
-    //void ProcessConfig(std::istream& stream);
+    stringvector BitcoinValues() const;
 
 };
 
