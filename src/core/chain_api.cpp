@@ -400,4 +400,60 @@ void ChainApi::CreateWallet(std::string&& name) const
     btc_exec.Run();
 }
 
+std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const string address) const
+{
+    std::string strTXOut;
+    std::string txValue;
+
+    int nout = 0;
+    CAmount amount;
+    CScript scriptPubKey;
+    int attempts = 0;
+
+    for(;attempts < 6; ++nout)
+    {
+        std::clog << "Checking output number " << nout << std::endl;
+
+        strTXOut = GetTxOut(txid, std::to_string(nout));
+
+        if(!strTXOut.empty())
+        {
+            //std::clog << strTXOut << std::endl;
+
+            UniValue uniValues;
+            uniValues.read(strTXOut);
+
+            string a = uniValues["scriptPubKey"]["address"].getValStr();
+
+            if(!a.empty() && a == address)
+            {
+                amount = ParseAmount(uniValues["value"].getValStr());
+
+                bytevector scriptbytes = ParseHex(uniValues["scriptPubKey"]["hex"].getValStr());
+                scriptPubKey = CScript(scriptbytes.begin(), scriptbytes.end());
+
+                break;
+            }
+        }
+
+        if(nout >= 2)
+        {
+            nout = -1;
+            ++attempts;
+
+            std::clog << "Waiting some time to allow bitcoin to process the transaction" << std::endl;
+
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+        }
+    }
+
+    if (nout >= 2)
+    {
+        throw std::runtime_error(std::string("channel UTXO nout not found. txid=")+txid);
+    }
+
+    return { COutPoint(uint256S(txid), nout), CTxOut(amount, scriptPubKey) };
+
+}
+
 }

@@ -6,7 +6,6 @@
 #include "wallet_api.hpp"
 
 #include "util/strencodings.h"
-#include "key.h"
 #include "core_io.h"
 #include "primitives/transaction.h"
 #include "script/interpreter.h"
@@ -86,6 +85,46 @@ bytevector WalletApi::SignSegwitTx(const bytevector &privkey, const CMutableTran
     return SignTxHash(sighash, hashtype, privkey);
 }
 
+bytevector WalletApi::SignTaprootTx(const CKey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, int hashtype) const
+{
+    uint256 sighash;
+    PrecomputedTransactionData txdata;
+    txdata.Init(tx, std::move(spent_outputs), true);
+
+    ScriptExecutionData execdata;
+    execdata.m_annex_init = true;
+    execdata.m_annex_present = false; // Only support annex-less signing for now.
+
+    //    if (sigversion == SigVersion::TAPSCRIPT) {
+//        execdata.m_codeseparator_pos_init = true;
+//        execdata.m_codeseparator_pos = 0xFFFFFFFF; // Only support non-OP_CODESEPARATOR BIP342 signing for now.
+//        if (!leaf_hash) return false; // BIP342 signing needs leaf hash.
+//        execdata.m_tapleaf_hash_init = true;
+//        execdata.m_tapleaf_hash = *leaf_hash;
+//    }
+
+    if(!SignatureHashSchnorr(sighash, execdata, tx, nin, hashtype, SigVersion::TAPROOT, txdata, MissingDataBehavior::FAIL))
+    {
+        throw SignatureError();
+    }
+
+    bytevector sig;
+    sig.resize(64);
+
+    if(!sk.SignSchnorr(sighash, sig))
+    {
+        throw SignatureError();
+    }
+
+    if(hashtype)
+    {
+        sig.push_back(hashtype);
+    }
+
+    return sig;
+}
+
+
 std::string WalletApi::CreateP2WPKHAddress(const bytevector &pubkeydata, const bytevector &privkeydata) const
 {
     auto pubkey = CPubKey(pubkeydata);
@@ -121,9 +160,17 @@ bytevector WalletApi::Bech32Decode(const std::string& addrstr) const
     {
         throw std::runtime_error(std::string("Bech32 prefix should be ") + GetHRP() + ". Address: " + addrstr);
     }
-    if(bech_result.data.size() < 1 || bech_result.data[0] != 0)
+    if(bech_result.data.size() < 1)
     {
-        throw std::runtime_error(std::string("Wrong bech32 data: ") + addrstr);
+        throw std::runtime_error(std::string("Wrong bech32 data (no data decoded): ") + addrstr);
+    }
+    if(bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
+    {
+        throw std::runtime_error("Version 0 witness address must use Bech32 checksum");
+    }
+    if(bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
+    {
+        throw std::runtime_error("Version 1+ witness address must use Bech32m checksum");
     }
 
     bytevector data;
@@ -174,6 +221,13 @@ void WalletApi::AddTxIn(CMutableTransaction &tx, const TxInputContainer txin) co
 void WalletApi::AddTxOut(CMutableTransaction &tx, const std::string &address, CAmount amount) const
 {
     tx.vout.emplace_back(CTxOut(amount, ExtractScriptPubKey(address)));
+}
+
+CKey WalletApi::CreateNewKey() const
+{
+    CKey key;
+    key.MakeNewKey(true);
+    return key;
 }
 
 

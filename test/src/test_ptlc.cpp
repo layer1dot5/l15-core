@@ -9,6 +9,7 @@
 #include "tools/nodehelper.hpp"
 #include "core/chain_api.hpp"
 #include "core/wallet_api.hpp"
+#include "utils.hpp"
 
 using namespace l15;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -137,8 +138,50 @@ struct TestcaseWrapper
 
 };
 
-TEST_CASE("PTLC simple positive cases")
+TEST_CASE("Taproot transaction test cases")
 {
     TestcaseWrapper w(configpath);
-}
 
+    //get key pair
+    CKey sk = w.wallet().CreateNewKey();
+    XOnlyPubKey pk(sk.GetPubKey());
+
+    //create address from key pair
+    string addr = w.wallet().Bech32mEncode(pk.begin(), pk.end());
+
+    //send to the address
+    string txid = w.btc().SendToAddress(addr, "1.001");
+
+    auto prevout = w.btc().CheckOutput(txid, addr);
+    uint32_t nout = std::get<0>(prevout).n;
+
+    // create new wallet associated address
+    string backaddr = w.btc().GetNewAddress();
+
+    //spend first transaction to the last address
+
+    bytevector backpk = w.wallet().Bech32Decode(backaddr);
+
+    std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+
+    CMutableTransaction tx;
+
+    CScript outpubkeyscript;
+    outpubkeyscript << 1;
+    outpubkeyscript << backpk;
+
+    CTxOut out(ParseAmount("1"), outpubkeyscript);
+    tx.vout.emplace_back(out);
+
+    tx.vin.emplace_back(CTxIn(std::get<0>(prevout)));
+
+    std::vector<CTxOut> prevtxouts = { std::get<1>(prevout) };
+
+    bytevector sig = w.wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
+
+    std::clog << "Signature: " << HexStr(sig) << std::endl;
+
+    tx.vin.front().scriptWitness.stack.emplace_back(sig);
+
+    w.btc().SpendTx(CTransaction(tx));
+}
