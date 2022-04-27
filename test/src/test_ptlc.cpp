@@ -66,7 +66,7 @@ struct TestConfigFactory
         return api::ChainMode::MODE_REGTEST;
     }
 
-    const std::string GetBitcoinDataDir() const
+    std::string GetBitcoinDataDir() const
     {
         auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
         if(!datadir_opt->empty())
@@ -85,8 +85,8 @@ struct TestcaseWrapper
 //    channelhtlc_ptr mChannelForAliceSide;
 //    channelhtlc_ptr mChannelForCarolSide;
 
-    explicit TestcaseWrapper(const std::string &confpath) :
-            mConfFactory(confpath),
+    explicit TestcaseWrapper() :
+            mConfFactory(configpath),
             mMode(mConfFactory.GetChainMode()),
             mWallet(mConfFactory.GetChainMode()),
             mBtc(mWallet, std::move(mConfFactory.conf.BitcoinValues()), "l15node-cli")
@@ -138,29 +138,27 @@ struct TestcaseWrapper
 
 };
 
-TEST_CASE("Taproot transaction test cases")
+TEST_CASE_METHOD(TestcaseWrapper, "Taproot transaction test cases")
 {
-    TestcaseWrapper w(configpath);
-
     //get key pair
-    CKey sk = w.wallet().CreateNewKey();
+    CKey sk = wallet().CreateNewKey();
     XOnlyPubKey pk(sk.GetPubKey());
 
     //create address from key pair
-    string addr = w.wallet().Bech32mEncode(pk.begin(), pk.end());
+    string addr = wallet().Bech32mEncode(pk.begin(), pk.end());
 
     //send to the address
-    string txid = w.btc().SendToAddress(addr, "1.001");
+    string txid = btc().SendToAddress(addr, "1.001");
 
-    auto prevout = w.btc().CheckOutput(txid, addr);
+    auto prevout = btc().CheckOutput(txid, addr);
     uint32_t nout = std::get<0>(prevout).n;
 
     // create new wallet associated address
-    string backaddr = w.btc().GetNewAddress();
+    string backaddr = btc().GetNewAddress();
 
     //spend first transaction to the last address
 
-    bytevector backpk = w.wallet().Bech32Decode(backaddr);
+    bytevector backpk = wallet().Bech32Decode(backaddr);
 
     std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
 
@@ -177,11 +175,11 @@ TEST_CASE("Taproot transaction test cases")
 
     std::vector<CTxOut> prevtxouts = { std::get<1>(prevout) };
 
-    bytevector sig = w.wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
+    bytevector sig = wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
 
     std::clog << "Signature: " << HexStr(sig) << std::endl;
 
     tx.vin.front().scriptWitness.stack.emplace_back(sig);
 
-    w.btc().SpendTx(CTransaction(tx));
+    btc().SpendTx(CTransaction(tx));
 }
