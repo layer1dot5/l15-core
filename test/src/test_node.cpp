@@ -7,8 +7,7 @@
 #include "util/translation.h"
 #include "tools/config.hpp"
 #include "tools/nodehelper.hpp"
-#include "core/chain_api.hpp"
-#include "core/wallet_api.hpp"
+#include "core/exechelper.hpp"
 
 using namespace l15;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -79,42 +78,31 @@ struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
     api::ChainMode mMode;
-//    api::ChainApi mBtc;
 
-    explicit TestcaseWrapper(const std::string& confpath) :
-        mConfFactory(confpath),
+    explicit TestcaseWrapper() :
+        mConfFactory(configpath),
         mMode(mConfFactory.GetChainMode())
-        //mBtc(mWallet, std::vector<std::string>(mConfFactory.conf.BitcoinValues()))
     {
-
-//        if (btc().GetChainHeight() < 50)
-//        {
-//            btc().CreateWallet("testwallet");
-//            btc().GenerateToOwnAddress("250");
-//        }
     }
 
     ~TestcaseWrapper()
     {
-        StopNode(mConfFactory.GetChainMode(), "l15node-cli", conf().Subcommand(config::L15CLIENT));
+        ExecHelper cli("l15node-cli", false);
+        StopNode(mConfFactory.GetChainMode(), cli, conf().Subcommand(config::L15CLIENT));
         std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
 
     void startNode() {
-        StartNode(mConfFactory.GetChainMode(), "l15noded", conf().Subcommand(config::L15NODE));
+        ExecHelper node("l15noded", false);
+        StartNode(mConfFactory.GetChainMode(), node, conf().Subcommand(config::L15NODE));
     }
 
-
     Config& conf() { return mConfFactory.conf; }
- //   api::WalletApi& wallet() { return mWallet; }
-//    api::ChainApi& btc() { return mBtc; }
-
 };
 
-TEST_CASE("Run l15-node") {
-    TestcaseWrapper w(configpath);
+TEST_CASE_METHOD(TestcaseWrapper, "Run l15-node") {
 
-    w.startNode();
+    startNode();
 
 }
 

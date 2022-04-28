@@ -9,9 +9,9 @@ namespace l15 {
 
 using namespace api;
 
-void StartNode(ChainMode mode, const std::string &path, const CLI::App& options)
+void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
 {
-    ExecHelper node_exec(path.c_str(), false);
+    node_exec.Arguments().clear();
     node_exec.Arguments().emplace_back("-daemon");
 
     for(const auto opt: options.get_options([](const CLI::Option* o){ return o && !o->check_name("--help"); }))
@@ -27,9 +27,9 @@ void StartNode(ChainMode mode, const std::string &path, const CLI::App& options)
     std::this_thread::sleep_for(std::chrono::seconds(5));
 }
 
-void StopNode(ChainMode mode, const std::string &path, const CLI::App& options)
+void StopNode(ChainMode mode, ExecHelper& cli_exec, const CLI::App& options)
 {
-    ExecHelper cli_exec(path.c_str(), false);
+    cli_exec.Arguments().clear();
 
     for(const auto opt: options.get_options([](const CLI::Option* o){ return o&& !o->check_name("--help"); }))
     {

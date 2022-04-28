@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <memory>
 
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
@@ -9,48 +10,16 @@
 #include "tools/nodehelper.hpp"
 #include "core/chain_api.hpp"
 #include "core/wallet_api.hpp"
+#include "core/exechelper.hpp"
 #include "utils.hpp"
 
 using namespace l15;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
+class TestcaseWrapper;
+
 std::string configpath;
-
-int main(int argc, char* argv[])
-{
-    Catch::Session session;
-
-
-    // Build a new parser on top of Catch's
-    using namespace Catch::clara;
-    auto cli
-            = session.cli() // Get Catch's composite command line parser
-              | Opt(configpath, "Config path") // bind variable to a new option, with a hint string
-              ["--config"]    // the option names it will respond to
-                      ("Path to bitcoin config");
-
-    session.cli(cli);
-
-    // Let Catch (using Clara) parse the command line
-    int returnCode = session.applyCommandLine(argc, argv);
-    if(returnCode != 0) // Indicates a command line error
-        return returnCode;
-
-    if(configpath.empty())
-    {
-        std::cerr << "Bitcoin config is not passed!" << std::endl;
-        return 1;
-    }
-
-    std::filesystem::path p(configpath);
-    if(p.is_relative())
-    {
-        configpath = (std::filesystem::current_path() / p).string();
-    }
-
-    return session.run();
-}
-
+std::unique_ptr<TestcaseWrapper> w;
 
 struct TestConfigFactory
 {
@@ -82,6 +51,8 @@ struct TestcaseWrapper
     api::ChainMode mMode;
     api::WalletApi mWallet;
     api::ChainApi mBtc;
+    ExecHelper mCli;
+    ExecHelper mBtcd;
 //    channelhtlc_ptr mChannelForAliceSide;
 //    channelhtlc_ptr mChannelForCarolSide;
 
@@ -89,7 +60,10 @@ struct TestcaseWrapper
             mConfFactory(configpath),
             mMode(mConfFactory.GetChainMode()),
             mWallet(mConfFactory.GetChainMode()),
-            mBtc(mWallet, std::move(mConfFactory.conf.BitcoinValues()), "l15node-cli")
+            mBtc(mWallet, std::move(mConfFactory.conf.BitcoinValues()), "l15node-cli"),
+            mCli("l15node-cli", false),
+            mBtcd("bitcoind", false)
+
     {
         StartBitcoinNode();
 
@@ -100,7 +74,7 @@ struct TestcaseWrapper
         }
     }
 
-    ~TestcaseWrapper()
+    virtual ~TestcaseWrapper()
     {
         StopBitcoinNode();
         std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
@@ -108,12 +82,12 @@ struct TestcaseWrapper
 
     void StartBitcoinNode()
     {
-        StartNode(mConfFactory.GetChainMode(), "bitcoind", conf().Subcommand(config::BITCOIND));
+        StartNode(mConfFactory.GetChainMode(), mBtcd, conf().Subcommand(config::BITCOIND));
     }
 
     void StopBitcoinNode()
     {
-        StopNode(mMode, "l15node-cli", conf().Subcommand(config::BITCOIN));
+        StopNode(mMode, mCli, conf().Subcommand(config::BITCOIN));
     }
 
     Config &conf()
@@ -138,48 +112,100 @@ struct TestcaseWrapper
 
 };
 
-TEST_CASE_METHOD(TestcaseWrapper, "Taproot transaction test cases")
+int main(int argc, char* argv[])
 {
-    //get key pair
-    CKey sk = wallet().CreateNewKey();
-    XOnlyPubKey pk(sk.GetPubKey());
+    Catch::Session session;
 
-    //create address from key pair
-    string addr = wallet().Bech32mEncode(pk.begin(), pk.end());
 
-    //send to the address
-    string txid = btc().SendToAddress(addr, "1.001");
+    // Build a new parser on top of Catch's
+    using namespace Catch::clara;
+    auto cli
+            = session.cli() // Get Catch's composite command line parser
+              | Opt(configpath, "Config path") // bind variable to a new option, with a hint string
+              ["--config"]    // the option names it will respond to
+                      ("Path to L15 config");
 
-    auto prevout = btc().CheckOutput(txid, addr);
-    uint32_t nout = std::get<0>(prevout).n;
+    session.cli(cli);
 
-    // create new wallet associated address
-    string backaddr = btc().GetNewAddress();
+    // Let Catch (using Clara) parse the command line
+    int returnCode = session.applyCommandLine(argc, argv);
+    if(returnCode != 0) // Indicates a command line error
+        return returnCode;
 
-    //spend first transaction to the last address
+    if(configpath.empty())
+    {
+        std::cerr << "Bitcoin config is not passed!" << std::endl;
+        return 1;
+    }
 
-    bytevector backpk = wallet().Bech32Decode(backaddr);
+    std::filesystem::path p(configpath);
+    if(p.is_relative())
+    {
+        configpath = (std::filesystem::current_path() / p).string();
+    }
 
-    std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+    w = std::make_unique<TestcaseWrapper>();
 
-    CMutableTransaction tx;
+    return session.run();
+}
 
-    CScript outpubkeyscript;
-    outpubkeyscript << 1;
-    outpubkeyscript << backpk;
 
-    CTxOut out(ParseAmount("1"), outpubkeyscript);
-    tx.vout.emplace_back(out);
 
-    tx.vin.emplace_back(CTxIn(std::get<0>(prevout)));
 
-    std::vector<CTxOut> prevtxouts = { std::get<1>(prevout) };
+TEST_CASE("Taproot transaction test cases")
+{
 
-    bytevector sig = wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
+    SECTION("Taproot public key path spending")
+    {
+        //get key pair
+        CKey sk = w->wallet().CreateNewKey();
+        XOnlyPubKey pk(sk.GetPubKey());
 
-    std::clog << "Signature: " << HexStr(sig) << std::endl;
+        //create address from key pair
+        string addr = w->wallet().Bech32mEncode(pk.begin(), pk.end());
 
-    tx.vin.front().scriptWitness.stack.emplace_back(sig);
+        //send to the address
+        string txid = w->btc().SendToAddress(addr, "1.001");
 
-    btc().SpendTx(CTransaction(tx));
+        auto prevout = w->btc().CheckOutput(txid, addr);
+        uint32_t nout = std::get<0>(prevout).n;
+
+        // create new wallet associated address
+        string backaddr = w->btc().GetNewAddress();
+
+        //spend first transaction to the last address
+
+        bytevector backpk = w->wallet().Bech32Decode(backaddr);
+
+        std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+
+        CMutableTransaction tx;
+
+        CScript outpubkeyscript;
+        outpubkeyscript << 1;
+        outpubkeyscript << backpk;
+
+        CTxOut out(ParseAmount("1"), outpubkeyscript);
+        tx.vout.emplace_back(out);
+
+        tx.vin.emplace_back(CTxIn(std::get<0>(prevout)));
+
+        std::vector<CTxOut> prevtxouts = {std::get<1>(prevout)};
+
+        bytevector sig = w->wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
+
+        std::clog << "Signature: " << HexStr(sig) << std::endl;
+
+        tx.vin.front().scriptWitness.stack.emplace_back(sig);
+
+        w->btc().SpendTx(CTransaction(tx));
+    }
+
+    SECTION("Taproot script path spending")
+    {
+        //get key pair
+        CKey sk = w->wallet().CreateNewKey();
+        XOnlyPubKey pk(sk.GetPubKey());
+
+    }
 }

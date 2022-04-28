@@ -14,6 +14,12 @@ namespace fs = boost::filesystem;
 
 ExecHelper::ExecHelper(const char* command, bool autorun) : m_command(command), m_exitcode(std::numeric_limits<int>::min())
 {
+    auto path = pr::search_path(command);
+    if(path.empty()) {
+        throw std::runtime_error(std::string("Command not found: ") + m_command);
+    }
+    m_command = path.string();
+
     if(autorun)
     {
         RunInternal();
@@ -37,13 +43,7 @@ void ExecHelper::RunInternal() {
         }
         std::clog << std::endl;
 
-        auto path = pr::search_path(m_command);
-        if(path.empty()) {
-            throw std::runtime_error(std::string("Command not found: ") + m_command);
-        }
-
-        pr::child check(path, m_args, pr::std_out > is, pr::std_in < pr::null);
-        //pr::child check(path, pr::args = {"--rpcconnect=10.1.10.240", "--rpcport=18334", "--rpcuser=rpcuser", "--rpcpassword=r89869mAMNFiwFDwdrpt24DDf8mbZ", "getblockcount"}, pr::std_out > is, pr::std_in < pr::null);
+        pr::child check(m_command, m_args, pr::std_out > is, pr::std_in < pr::null);
 
         unsigned nline = 0;
         while(check.running() && std::getline(is, line) && !line.empty())
