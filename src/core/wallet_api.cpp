@@ -111,7 +111,7 @@ bytevector WalletApi::SignTaprootTx(const CKey &sk, const CMutableTransaction &t
     bytevector sig;
     sig.resize(64);
 
-    if(!sk.SignSchnorr(sighash, sig))
+    if(!sk.SignSchnorr(sighash, sig, nullptr, {}))
     {
         throw SignatureError();
     }
