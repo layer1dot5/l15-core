@@ -4,6 +4,7 @@
 
 #include "utils.hpp"
 #include "wallet_api.hpp"
+#include "script_merkle_tree.hpp"
 
 #include "util/strencodings.h"
 #include "core_io.h"
@@ -85,7 +86,7 @@ bytevector WalletApi::SignSegwitTx(const bytevector &privkey, const CMutableTran
     return SignTxHash(sighash, hashtype, privkey);
 }
 
-bytevector WalletApi::SignTaprootTx(const CKey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, int hashtype) const
+bytevector WalletApi::SignTaprootTx(const CKey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script, int hashtype) const
 {
     uint256 sighash;
     PrecomputedTransactionData txdata;
@@ -95,15 +96,14 @@ bytevector WalletApi::SignTaprootTx(const CKey &sk, const CMutableTransaction &t
     execdata.m_annex_init = true;
     execdata.m_annex_present = false; // Only support annex-less signing for now.
 
-    //    if (sigversion == SigVersion::TAPSCRIPT) {
-//        execdata.m_codeseparator_pos_init = true;
-//        execdata.m_codeseparator_pos = 0xFFFFFFFF; // Only support non-OP_CODESEPARATOR BIP342 signing for now.
-//        if (!leaf_hash) return false; // BIP342 signing needs leaf hash.
-//        execdata.m_tapleaf_hash_init = true;
-//        execdata.m_tapleaf_hash = *leaf_hash;
-//    }
+    if(!spend_script.empty()) {
+        execdata.m_codeseparator_pos_init = true;
+        execdata.m_codeseparator_pos = 0xFFFFFFFF; // Only support non-OP_CODESEPARATOR BIP342 signing for now.
+        execdata.m_tapleaf_hash_init = true;
+        execdata.m_tapleaf_hash = TapLeafHash(spend_script);
+    }
 
-    if(!SignatureHashSchnorr(sighash, execdata, tx, nin, hashtype, SigVersion::TAPROOT, txdata, MissingDataBehavior::FAIL))
+    if(!SignatureHashSchnorr(sighash, execdata, tx, nin, hashtype, execdata.m_tapleaf_hash_init ? SigVersion::TAPSCRIPT : SigVersion::TAPROOT, txdata, MissingDataBehavior::FAIL))
     {
         throw SignatureError();
     }

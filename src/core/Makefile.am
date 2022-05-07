@@ -2,6 +2,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/node/src -I$(top_srcdir)/node/src/univalue/include
 
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \
+	script_merkle_tree.cpp \
 	chain_api.cpp \
 	wallet_api.cpp \
 	utils.cpp \

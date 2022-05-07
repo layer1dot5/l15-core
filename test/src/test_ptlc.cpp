@@ -1,9 +1,10 @@
 #include <iostream>
 #include <filesystem>
 #include <memory>
+#include <algorithm>
 
 #define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "util/translation.h"
 #include "tools/config.hpp"
@@ -12,6 +13,7 @@
 #include "core/wallet_api.hpp"
 #include "core/exechelper.hpp"
 #include "utils.hpp"
+#include "script_merkle_tree.hpp"
 
 using namespace l15;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
@@ -151,7 +153,6 @@ int main(int argc, char* argv[])
 
 
 
-
 TEST_CASE("Taproot transaction test cases")
 {
 
@@ -192,7 +193,7 @@ TEST_CASE("Taproot transaction test cases")
 
         std::vector<CTxOut> prevtxouts = {std::get<1>(prevout)};
 
-        bytevector sig = w->wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts));
+        bytevector sig = w->wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts), {});
 
         std::clog << "Signature: " << HexStr(sig) << std::endl;
 
@@ -203,9 +204,118 @@ TEST_CASE("Taproot transaction test cases")
 
     SECTION("Taproot script path spending")
     {
-        //get key pair
+        //get key pair Taproot
+        CKey internal_sk = w->wallet().CreateNewKey();
+        XOnlyPubKey internal_pk(internal_sk.GetPubKey());
+
+        std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
+
+        //get key pair script
         CKey sk = w->wallet().CreateNewKey();
         XOnlyPubKey pk(sk.GetPubKey());
+        bytevector pkbytes(pk.begin(), pk.end());
+
+
+        //Create script merkle tree
+        CScript script;
+        script << pkbytes;
+        script << OP_CHECKSIG;
+
+        ScriptMerkleTree tap_tree (TreeBalanceType::WEIGHTED, {script});
+        uint256 root = tap_tree.CalculateRoot();
+
+        std::clog << "TapLeaf hash: " << HexStr(TapLeafHash(script)) << std::endl;
+
+        std::clog << "TapTree root: " << HexStr(root) << std::endl;
+
+        auto taptweak = internal_pk.CreateTapTweak(&root);
+        XOnlyPubKey address_pk = taptweak->first;
+
+        std::clog << "Taptweak parity flag: " << (taptweak->second ? 1 : 0) << std::endl;
+
+        std::clog << "Taproot PK: " << HexStr(address_pk) << std::endl;
+
+        string addr = w->wallet().Bech32mEncode(address_pk.begin(), address_pk.end());
+
+        //send to the address
+        string txid = w->btc().SendToAddress(addr, "1.001");
+
+        auto prevout = w->btc().CheckOutput(txid, addr);
+
+
+        // create new wallet associated address
+        string backaddr = w->btc().GetNewAddress();
+
+        //spend first transaction to the last address
+
+        bytevector backpk = w->wallet().Bech32Decode(backaddr);
+
+        std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+
+        CMutableTransaction tx;
+
+        CScript outpubkeyscript;
+        outpubkeyscript << 1;
+        outpubkeyscript << backpk;
+
+        CTxOut out(ParseAmount("1"), outpubkeyscript);
+        tx.vout.emplace_back(out);
+
+        tx.vin.emplace_back(CTxIn(std::get<0>(prevout)));
+
+        std::vector<CTxOut> prevtxouts = {std::get<1>(prevout)};
+
+        bytevector sig = w->wallet().SignTaprootTx(sk, tx, 0, std::move(prevtxouts), script);
+
+        std::clog << "Signature: " << HexStr(sig) << std::endl;
+
+        tx.vin.front().scriptWitness.stack.emplace_back(sig);
+        tx.vin.front().scriptWitness.stack.emplace_back(bytevector(script.begin(), script.end()));
+
+
+
+        auto scriptpath = tap_tree.CalculateScriptPath(script);
+
+        bytevector controlblock = {static_cast<uint8_t>(0xc0 | (taptweak->second ? 1 : 0))};
+        controlblock.reserve(1 + internal_pk.size() + scriptpath.size() * uint256::size());
+        controlblock.insert(controlblock.end(), internal_pk.begin(), internal_pk.end());
+
+
+        //std::copy(internal_pk.begin(), internal_pk.end(), cex::smartinserter(controlblock, controlblock.end()));
+
+        //auto ins = cex::smartinserter(controlblock, controlblock.end());
+        std::for_each(scriptpath.begin(), scriptpath.end(), [&](uint256 &branchhash)
+            {
+                controlblock.insert(controlblock.end(), branchhash.begin(), branchhash.end());
+                //std::copy(branchhash.begin(), branchhash.end(), ins);
+            });
+
+        tx.vin.front().scriptWitness.stack.emplace_back(controlblock);
+
+
+        //--------------------------------------------------------------------------------------------------------------------------------------
+        // script verification
+        //--------------------------------------------------------------------------------------------------------------------------------------
+//        {
+//
+//            CScript scriptToVerify;
+//            scriptToVerify << 1;
+//            scriptToVerify << bytevector(address_pk.begin(), address_pk.end());
+//
+//            MutableTransactionSignatureChecker sigChecker(&tx, std::get<0>(prevout).n, ParseAmount("1"), MissingDataBehavior::ASSERT_FAIL); // TO CALC EXACT VALUE( prev output)
+//            ScriptError error;
+//            //unsigned flags = SCRIPT_VERIFY_NULLDUMMY | SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | SCRIPT_VERIFY_CHECKSEQUENCEVERIFY | SCRIPT_VERIFY_MINIMALDATA;
+//            unsigned flags = SCRIPT_VERIFY_TAPROOT | SCRIPT_VERIFY_WITNESS ;
+//            bool txres = VerifyScript(CScript(), scriptToVerify, &(tx.vin[0].scriptWitness), flags, sigChecker, &error);
+//
+//            CHECK(txres);
+//
+//        }
+
+
+
+
+        w->btc().SpendTx(CTransaction(tx));
 
     }
 }

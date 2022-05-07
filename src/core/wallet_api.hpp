@@ -97,7 +97,7 @@ public:
     std::string CreateP2WPKHAddress(const bytevector &pubkey, const bytevector &privkey = bytevector()) const;
     std::string CreateP2WSHAddress(const CScript& script) const;
     bytevector SignSegwitTx(const bytevector &privkey, const CMutableTransaction &tx, const CAmount amount, int hashtype = SIGHASH_ALL) const;
-    bytevector SignTaprootTx(const CKey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, int hashtype = SIGHASH_DEFAULT) const;
+    bytevector SignTaprootTx(const CKey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script, int hashtype = SIGHASH_DEFAULT) const;
 
     void AddTxIn(CMutableTransaction& tx, const TxInputContainer txin) const;
     void AddTxOut(CMutableTransaction& tx, const std::string &address, CAmount amount) const;
