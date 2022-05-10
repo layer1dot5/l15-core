@@ -16,7 +16,7 @@ const CSHA256 TAPSIG_HASH = PrecalculatedTaggedHash("TapSighash");
 const CSHA256 TAPLEAF_HASH = PrecalculatedTaggedHash("TapLeaf");
 const CSHA256 TAPBRANCH_HASH = PrecalculatedTaggedHash("TapBranch");
 
-constexpr uint8_t TAPROOT_LEAF_TAPSCRIPT = 0xc0;
+constexpr uint8_t TAPLEAF_VERSION = 0xc0;
 
 
 uint256 TapBranchHash(const uint256& a, const uint256& b)
@@ -33,7 +33,7 @@ uint256 TapBranchHash(const uint256& a, const uint256& b)
 uint256 TapLeafHash(const CScript &script)
 {
     HashWriter writer(TAPLEAF_HASH);
-    writer << TAPROOT_LEAF_TAPSCRIPT << script;
+    writer << TAPLEAF_VERSION << script;
     return writer;
 }
 
