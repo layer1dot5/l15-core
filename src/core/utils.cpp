@@ -36,7 +36,7 @@ bytevector CreatePreimage()
     std::vector<uint8_t> random;
     random.resize(32);
 
-    GetStrongRandBytes(random.data(), random.size());
+    GetStrongRandBytes(Span(random.data(), random.size()));
 
     return random;
 }

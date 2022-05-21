@@ -1,36 +1,62 @@
 #pragma once
 
-#include <vector>
+#include "secp256k1.h"
+#include "secp256k1_extrakeys.h"
+//#include "secp256k1_musig.h"
 
-#include "script/script.h"
+#include "random.h"
+
+#include "common.hpp"
+
+#include "wallet_api.hpp"
 
 namespace l15 {
 
+class KeyError
+{
+
+};
+
+class WrongKeyError : public KeyError
+{
+
+};
+
 class ChannelKeys
 {
-    vector<uint8_t> mRawLocalPrivKey;
-    vector<uint8_t> mRawRemotePubKey;
+    const api::WalletApi& mWallet;
+    bytevector m_local_sk;
+    bytevector m_local_pk;
+
+    secp256k1_xonly_pubkey m_xonly_pubkey_agg;
+
+    void MakeNewPrivKey();
 public:
-    ChannelKeys(vector<uint8_t> &&localkey, vector<uint8_t> &&remotepubkey)
-            : mRawLocalPrivKey(std::move(localkey)), mRawRemotePubKey(remotepubkey)
-    {}
+    explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet), m_local_sk(), m_xonly_pubkey_agg{} { MakeNewPrivKey(); }
+    explicit ChannelKeys(const api::WalletApi& wallet, bytevector&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)), m_xonly_pubkey_agg{} {}
 
-    ChannelKeys(ChannelKeys &&old) noexcept
-            : mRawLocalPrivKey(std::move(old.mRawLocalPrivKey)), mRawRemotePubKey(std::move(old.mRawRemotePubKey))
-    {}
+    void SetRemotePubKeys(const std::vector<bytevector>& pubkeys);
+//    ChannelKeys(const ChannelKeys&) = delete;
+//    ChannelKeys(ChannelKeys &&old) noexcept
+//            : m_local_sk(std::move(old.m_local_sk)), m_remote_pk(std::move(old.m_remote_pk))
+//    {}
+//
+//    ChannelKeys(CKey&& local_sk, XOnlyPubKey &&remote_pk)
+//            : m_local_sk(std::move(local_sk)), m_remote_pk(std::move(remote_pk))
+//    {}
+//
+//    ChannelKeys& operator=(const ChannelKeys& ) = delete;
+//    ChannelKeys& operator=(ChannelKeys&& ) = delete;
+//
+    const bytevector& GetLocalPrivKey() const
+    { return m_local_sk; }
 
-    ChannelKeys& operator=(const ChannelKeys& ) = delete;
-    ChannelKeys& operator=(ChannelKeys&& ) = delete;
+    const bytevector& GetLocalPubKey() const
+    { return m_local_pk; }
 
-    CScript MakeMultiSigScript() const;
+    bytevector GetPubKey() const;
 
-    const bytevector &RawLocalPrivKey() const
-    { return mRawLocalPrivKey; }
-
-    const bytevector &RawLocalPubKey() const;
-
-    const bytevector &RawRemotePubKey() const
-    { return mRawRemotePubKey; }
+    std::pair<bytevector, uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
 };
 
 }

@@ -8,9 +8,12 @@
 #include "util/translation.h"
 #include "util/strencodings.h"
 #include "script/interpreter.h"
+#include "script/standard.h"
+#include "pubkey.h"
 
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
+#include "channel_keys.hpp"
 #include "common.hpp"
 
 using namespace l15;
@@ -59,3 +62,65 @@ TEST_CASE("TapLeaf hash")
     CHECK(bitcoin_hash == reference_hash);
     CHECK(result_hash == reference_hash);
 }
+
+TEST_CASE("TapTweak")
+{
+    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+
+    ChannelKeys key(wallet);
+
+    // Lets just simulate some uint256
+    HashWriter hash(TAPBRANCH_HASH);
+    hash  << "test test test";
+    uint256 fake_root = hash;
+
+    auto taprootkey = key.AddTapTweak(fake_root);
+
+
+    XOnlyPubKey xonlypubkey(taprootkey.first);
+
+    CHECK(xonlypubkey.CheckTapTweak(XOnlyPubKey(key.GetPubKey()), fake_root, taprootkey.second));
+
+}
+
+TEST_CASE("TapRoot single script")
+{
+    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+
+    //get key pair Taproot
+    auto internal_sk = wallet.CreateNewKey();
+    const auto& internal_pk = internal_sk.GetLocalPubKey();
+
+    std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
+
+    //get key pair script
+    auto script_sk = wallet.CreateNewKey();
+    const auto& script_pk = script_sk.GetPubKey();
+
+    std::clog << "Script PK: " << HexStr(script_pk) << std::endl;
+
+    CScript script;
+    script << script_pk;
+    script << OP_CHECKSIG;
+
+
+    ScriptMerkleTree tap_tree (TreeBalanceType::WEIGHTED, {script});
+    uint256 root = tap_tree.CalculateRoot();
+
+    auto tap_root = internal_sk.AddTapTweak(std::make_optional(root));
+
+
+    XOnlyPubKey xonly_internal_pubkey(internal_pk);
+    TaprootBuilder builder;
+    builder.Add(0, script, TAPROOT_LEAF_TAPSCRIPT);
+
+    CHECK(builder.IsComplete());
+
+    builder.Finalize(xonly_internal_pubkey);
+
+    auto TapRootKeyBtc = builder.GetOutput();
+
+    CHECK(std::equal(TapRootKeyBtc.begin(), TapRootKeyBtc.end(), tap_root.first.begin()));
+
+}
+

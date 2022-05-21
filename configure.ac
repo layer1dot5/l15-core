@@ -27,7 +27,7 @@ AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS([dup2 memset pow select socket sqrt strtoul strtoull])
+AC_CHECK_FUNCS([dup2 memset pow sqrt strtoul strtoull])
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
@@ -57,7 +57,8 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/core/Makefile
                  src/tools/Makefile
-                 test/Makefile])
+                 test/Makefile
+                 contrib/Makefile])
 
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
@@ -84,8 +85,25 @@ PKGCONFIG_LIBDIR_TEMP="$PKG_CONFIG_LIBDIR"
 unset PKG_CONFIG_LIBDIR
 PKG_CONFIG_LIBDIR="$PKGCONFIG_LIBDIR_TEMP"
 
-ac_configure_args="${ac_configure_args} --enable-static --disable-shared --enable-c++17 --with-gui=no --with-incompatible-bdb --disable-tests --disable-bench --with-tests=no"
-AC_CONFIG_SUBDIRS([node])
+dnl AC_CONFIG_SUBDIRS does not support custom arguments per subproject
+dnl so that is the reason to use more flexible AX_SUBDIRS_CONFIGURE.
+dnl Unfortunately AX_SUBDIRS_CONFIGURE does not allow 'autoreconf' be called recursively for all subprojects (just does it for 'configure' script only)
+dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh', placed at the source tree root.
+
+AX_SUBDIRS_CONFIGURE(
+    [node],
+    [[--enable-static], [--disable-shared], [--enable-c++17], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
+    [[--disable-tests], [--disable-bench]],
+    [],
+    [])
+
+
+AX_SUBDIRS_CONFIGURE(
+    [contrib/secp256k1],
+    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-musig], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
+    [[--disable-tests], [--disable-benchmark], [--enable-examples]],
+    [],
+    [[--disable-bench]])
 
 AC_OUTPUT
 

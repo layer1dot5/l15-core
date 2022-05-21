@@ -70,6 +70,12 @@ public:
     using Writer<H>::operator<<;
 };
 
+inline CSHA256 PrecalculatedTaggedHash(const std::string &tag) noexcept
+{
+    uint256 taghash;
+    CSHA256().Write((const unsigned char*)tag.data(), tag.size()).Finalize(taghash.data());
+    return CSHA256().Write(taghash.data(), uint256::size()).Write(taghash.data(), uint256::size());
+}
 
 
 }
