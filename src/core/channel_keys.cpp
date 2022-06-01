@@ -3,6 +3,8 @@
 #include "channel_keys.hpp"
 #include "hash_helper.hpp"
 
+#include "uint256.h"
+
 namespace l15 {
 
 const CSHA256 TAPTWEAK_HASH = PrecalculatedTaggedHash("TapTweak");
@@ -34,23 +36,39 @@ void ChannelKeys::MakeNewPrivKey()
 
 void ChannelKeys::SetRemotePubKeys(const std::vector<bytevector>& pubkeys)
 {
-//    secp256k1_xonly_pubkey* xonly_pubkeys[pubkeys.size()];
-//    secp256k1_xonly_pubkey xonly_pubkey_buf[pubkeys.size() + 1];
-//
-//    for (size_t i = 0; i < pubkeys.size(); ++i) {
-//        xonly_pubkeys[i] = &xonly_pubkey_buf[i];
-//        if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), xonly_pubkeys[i], pubkeys[i].data())) {
-//            throw WrongKeyError();
-//        }
-//    }
-//    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), xonly_pubkeys[pubkeys.size()], GetLocalPubKey().data())) {
-//        throw WrongKeyError();
-//    }
-//
-//    if (!secp256k1_musig_pubkey_agg(mWallet.GetSecp256k1Context(), NULL, &m_xonly_pubkey_agg, NULL, xonly_pubkeys, pubkeys.size()+1)) {
-//        throw WrongKeyError();
-//    }
-//
+    size_t n = pubkeys.size() + 1;
+    secp256k1_xonly_pubkey* xonly_pubkeys[n];
+    secp256k1_xonly_pubkey xonly_pubkey_buf[n];
+
+    for (size_t i = 0; i < n-1; ++i) {
+        xonly_pubkeys[i] = &xonly_pubkey_buf[i];
+        if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), xonly_pubkeys[i], pubkeys[i].data())) {
+            throw WrongKeyError();
+        }
+    }
+    xonly_pubkeys[n-1] = &xonly_pubkey_buf[n-1];
+    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), xonly_pubkeys[n-1], GetLocalPubKey().data())) {
+        throw WrongKeyError();
+    }
+
+    if (!secp256k1_xonly_sort(mWallet.GetSecp256k1Context(), (const secp256k1_xonly_pubkey **)xonly_pubkeys, n)) {
+        throw WrongKeyError();
+    }
+
+    std::vector<bytevector> outpubkeys;
+    outpubkeys.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+        outpubkeys[i].resize(32);
+        secp256k1_xonly_pubkey_serialize(mWallet.GetSecp256k1Context(), outpubkeys[i].data(), xonly_pubkeys[i]);
+        std::clog << "Key " << i << ": " << HexStr(outpubkeys[i]) << std::endl;
+    }
+
+    if (!secp256k1_musig_pubkey_agg(mWallet.GetSecp256k1Context(), NULL, &m_xonly_pubkey_agg, NULL, xonly_pubkeys, pubkeys.size()+1)) {
+        throw WrongKeyError();
+    }
+
+    std::clog << "Aggregated key: " << HexStr(GetPubKey()) << std::endl;
+
 }
 
 bytevector ChannelKeys::GetPubKey() const
@@ -98,4 +116,9 @@ std::pair<bytevector, uint8_t> ChannelKeys::AddTapTweak(std::optional<uint256>&&
     return ret;
 }
 
+
+bool pubkey_less(const bytevector & a, const bytevector & b)
+{
+    return uint256(a) < uint256(b);
+}
 }
