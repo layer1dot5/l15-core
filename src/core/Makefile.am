@@ -19,4 +19,5 @@ libl15_core_la_SOURCES = \
 	chain_api.cpp \
 	wallet_api.cpp \
 	utils.cpp \
-	exechelper.cpp
+	exechelper.cpp \
+	signer_service.cpp

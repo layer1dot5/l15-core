@@ -35,7 +35,8 @@ public:
     explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet) { MakeNewPrivKey(); }
     //explicit ChannelKeys(const api::WalletApi& wallet, bytevector&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)) {}
 
-    void SetRemotePubKeys(const std::vector<bytevector>& pubkeys);
+    void SetAggregatePubKey(const bytevector& pubkey);
+    void AggregateMuSigPubKey(const std::vector<bytevector>& pubkeys);
     ChannelKeys(const ChannelKeys& other) : mWallet(other.mWallet), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk)
     {
         std::memcpy(m_xonly_pubkey_agg.data, other.m_xonly_pubkey_agg.data, sizeof(m_xonly_pubkey_agg.data));

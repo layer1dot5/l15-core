@@ -17,7 +17,7 @@ L15_LIBS = -lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
 $(top_builddir)/contrib/secp256k1/libsecp256k1.la $(top_builddir)/node/src/univalue/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB) $(PTHREAD_LIBS)
 
-bin_PROGRAMS = test_taptree test_taproot test_node
+bin_PROGRAMS = test_threshold_sign test_taptree test_taproot test_node
 #test_ptlc
 
 
@@ -36,3 +36,5 @@ test_taproot_LDADD = $(top_builddir)/src/tools/libl15-tools.la $(top_builddir)/s
 test_node_SOURCES = src/test_node.cpp
 test_node_LDADD = $(top_builddir)/src/tools/libl15-tools.la $(top_builddir)/src/core/libl15-core.la $(L15_LIBS)
 
+test_threshold_sign_SOURCES = src/test_threshold_sign.cpp
+test_threshold_sign_LDADD = $(top_builddir)/src/core/libl15-core.la $(L15_LIBS)

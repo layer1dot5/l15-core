@@ -32,9 +32,14 @@ void ChannelKeys::MakeNewPrivKey()
     }
 }
 
+void ChannelKeys::SetAggregatePubKey(const bytevector& pubkey)
+{
+    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &m_xonly_pubkey_agg, pubkey.data())) {
+        throw WrongKeyError();
+    }
+}
 
-
-void ChannelKeys::SetRemotePubKeys(const std::vector<bytevector>& pubkeys)
+void ChannelKeys::AggregateMuSigPubKey(const std::vector<bytevector>& pubkeys)
 {
     size_t n = pubkeys.size() + 1;
     secp256k1_xonly_pubkey* xonly_pubkeys[n];
