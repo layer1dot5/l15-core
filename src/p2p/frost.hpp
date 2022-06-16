@@ -2,6 +2,7 @@
 
 #include "protocol.hpp"
 #include "link.hpp"
+#include "common_frost.hpp"
 
 namespace l15::p2p {
 
@@ -19,14 +20,13 @@ enum class FROST_MESSAGE: uint16_t {
 struct RemoteSigner : public Message
 {
     uint32_t index;
-    bytevector pubkey;
+    xonly_pubkey pubkey;
 };
 
 struct NonceCommitments : public Message
 {
     uint32_t index;
-    std::vector<bytevector> nonce_commitments;
-
+    std::vector<frost_pubnonce> nonce_commitments;
 };
 
 }

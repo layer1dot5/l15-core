@@ -22,11 +22,14 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 TEST_CASE("2-of-3")
 {
+    const size_t N = 3;
+    const size_t K = 2;
+
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
-    SignerService signer0(0, ChannelKeys(wallet), 3);
-    SignerService signer1(1, ChannelKeys(wallet), 3);
-    SignerService signer2(2, ChannelKeys(wallet), 3);
+    SignerService signer0(wallet, 0, ChannelKeys(wallet), N, K);
+    SignerService signer1(wallet, 1, ChannelKeys(wallet), N, K);
+    SignerService signer2(wallet, 2, ChannelKeys(wallet), N, K);
 
     p2p::link_ptr link1 = p2p::link_ptr(new p2p::LocalLink(signer0));
     p2p::link_ptr link2 = p2p::link_ptr(new p2p::LocalLink(signer1));
@@ -52,11 +55,40 @@ TEST_CASE("2-of-3")
     CHECK(signer0.Peers()[2].pubkey == signer2.GetLocalPubKey());
     CHECK(signer1.Peers()[2].pubkey == signer2.GetLocalPubKey());
 
-    /* serv1.CommitNonces(10);
-    /* serv2.CommitNonces(10);
-    /* serv3.CommitNonces(10);
-    /*
-    /*
+    CHECK_NOTHROW(signer0.CommitNonces(3));
+    CHECK_NOTHROW(signer1.CommitNonces(3));
+    CHECK_NOTHROW(signer2.CommitNonces(3));
+
+    CHECK(signer0.GetNonceCount() == 3);
+    CHECK(signer1.GetNonceCount() == 3);
+    CHECK(signer2.GetNonceCount() == 3);
+
+    CHECK(signer0.Peers()[0].ephemeral_pubkeys.size() == 3);
+    CHECK(signer0.Peers()[1].ephemeral_pubkeys.size() == 3);
+    CHECK(signer0.Peers()[2].ephemeral_pubkeys.size() == 3);
+
+    CHECK(signer1.Peers()[0].ephemeral_pubkeys.size() == 3);
+    CHECK(signer1.Peers()[1].ephemeral_pubkeys.size() == 3);
+    CHECK(signer1.Peers()[2].ephemeral_pubkeys.size() == 3);
+
+    CHECK(signer2.Peers()[0].ephemeral_pubkeys.size() == 3);
+    CHECK(signer2.Peers()[1].ephemeral_pubkeys.size() == 3);
+    CHECK(signer2.Peers()[2].ephemeral_pubkeys.size() == 3);
+
+    CHECK(signer0.Peers()[0].ephemeral_pubkeys == signer1.Peers()[0].ephemeral_pubkeys);
+    CHECK(signer0.Peers()[0].ephemeral_pubkeys == signer2.Peers()[0].ephemeral_pubkeys);
+
+    CHECK(signer0.Peers()[1].ephemeral_pubkeys == signer1.Peers()[1].ephemeral_pubkeys);
+    CHECK(signer0.Peers()[1].ephemeral_pubkeys == signer2.Peers()[1].ephemeral_pubkeys);
+
+    CHECK(signer0.Peers()[2].ephemeral_pubkeys == signer1.Peers()[2].ephemeral_pubkeys);
+    CHECK(signer0.Peers()[2].ephemeral_pubkeys == signer2.Peers()[2].ephemeral_pubkeys);
+
+
+
+
+
+
     /* Negotiate pubkey
     /*
     /*

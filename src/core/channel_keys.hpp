@@ -25,8 +25,8 @@ class WrongKeyError : public KeyError
 class ChannelKeys
 {
     const api::WalletApi& mWallet;
-    bytevector m_local_sk;
-    bytevector m_local_pk;
+    seckey m_local_sk;
+    xonly_pubkey m_local_pk;
 
     secp256k1_xonly_pubkey m_xonly_pubkey_agg;
 
@@ -35,8 +35,8 @@ public:
     explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet) { MakeNewPrivKey(); }
     //explicit ChannelKeys(const api::WalletApi& wallet, bytevector&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)) {}
 
-    void SetAggregatePubKey(const bytevector& pubkey);
-    void AggregateMuSigPubKey(const std::vector<bytevector>& pubkeys);
+    void SetAggregatePubKey(const xonly_pubkey& pubkey);
+    void AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys);
     ChannelKeys(const ChannelKeys& other) : mWallet(other.mWallet), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk)
     {
         std::memcpy(m_xonly_pubkey_agg.data, other.m_xonly_pubkey_agg.data, sizeof(m_xonly_pubkey_agg.data));
@@ -54,17 +54,23 @@ public:
 //    ChannelKeys& operator=(const ChannelKeys& ) = delete;
 //    ChannelKeys& operator=(ChannelKeys&& ) = delete;
 //
-    const bytevector& GetLocalPrivKey() const
+    const seckey& GetLocalPrivKey() const
     { return m_local_sk; }
 
-    const bytevector& GetLocalPubKey() const
+    const xonly_pubkey & GetLocalPubKey() const
     { return m_local_pk; }
 
-    bytevector GetPubKey() const;
+    xonly_pubkey GetPubKey() const;
 
-    std::pair<bytevector, uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
+    std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
+
+    seckey GetStrongRandomKey();
+
+    template<size_t N>
+    static bool IsZeroArray(const std::array<uint8_t, N> a)
+    { bool res = false; std::for_each(a.cbegin(), a.cend(), [&](const uint8_t& el){ res |= el; }); return !res;}
 };
 
-bool pubkey_less(const bytevector&, const bytevector&);
+bool pubkey_less(const xonly_pubkey &, const xonly_pubkey &);
 
 }

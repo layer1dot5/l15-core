@@ -104,7 +104,7 @@ WalletApi::~WalletApi()
 //    return SignTxHash(sighash, hashtype, privkey);
 //}
 
-bytevector WalletApi::SignTaprootTx(const bytevector &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script, int hashtype) const
+bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script, int hashtype) const
 {
     uint256 sighash;
     PrecomputedTransactionData txdata;

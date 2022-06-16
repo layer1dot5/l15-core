@@ -96,11 +96,12 @@ TEST_CASE("TapRoot single script")
     //get key pair script
     auto script_sk = wallet.CreateNewKey();
     const auto& script_pk = script_sk.GetPubKey();
+    std::string script_pk_str = HexStr(script_pk);
 
-    std::clog << "Script PK: " << HexStr(script_pk) << std::endl;
+    std::clog << "Script PK: " << script_pk_str << std::endl;
 
     CScript script;
-    script << script_pk;
+    script << ParseHex(script_pk_str);
     script << OP_CHECKSIG;
 
 

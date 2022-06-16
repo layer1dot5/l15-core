@@ -213,12 +213,13 @@ TEST_CASE("Taproot transaction test cases")
         //get key pair script
         auto sk = w->wallet().CreateNewKey();
         const auto& pk = sk.GetLocalPubKey();
+        std::string pk_str = HexStr(pk);
 
-        std::clog << "\nScript pubkey: " << HexStr(pk) << std::endl;
+        std::clog << "\nScript pubkey: " << pk_str << std::endl;
 
         //Create script merkle tree
         CScript script;
-        script << pk;
+        script << ParseHex(pk_str);
         script << OP_CHECKSIG;
 
         ScriptMerkleTree tap_tree (TreeBalanceType::WEIGHTED, {script});
@@ -227,7 +228,7 @@ TEST_CASE("Taproot transaction test cases")
         std::clog << "\nTapLeaf hash: " << HexStr(TapLeafHash(script)) << std::endl;
         std::clog << "TapTree root: " << HexStr(root) << std::endl;
 
-        bytevector taprootpubkey;
+        xonly_pubkey taprootpubkey;
         uint8_t taprootpubkeyparity;
 
         std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(root);
