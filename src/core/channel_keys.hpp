@@ -12,15 +12,8 @@
 
 namespace l15 {
 
-class KeyError
-{
-
-};
-
-class WrongKeyError : public KeyError
-{
-
-};
+class KeyError {};
+class WrongKeyError : public KeyError {};
 
 class ChannelKeys
 {

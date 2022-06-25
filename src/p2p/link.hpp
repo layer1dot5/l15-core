@@ -23,6 +23,7 @@ struct WrongMessageData
 
 struct Message
 {
+    Message(uint16_t protocol, uint16_t msg) : protocol_id(protocol), id(msg) {}
     uint16_t protocol_id;
     uint16_t id;
 };

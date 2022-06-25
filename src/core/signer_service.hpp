@@ -17,9 +17,8 @@
 
 namespace l15 {
 
-struct SignerError {
-
-};
+struct SignerError {};
+struct KeyAggregationError : public KeyError {};
 
 
 struct RemoteSignerData
@@ -27,14 +26,11 @@ struct RemoteSignerData
     mutable std::shared_ptr<p2p::Link> link;
     xonly_pubkey pubkey;
     std::list<frost_pubnonce> ephemeral_pubkeys;
+
+    std::vector<compressed_pubkey> share_commitment; // k
+    seckey share;
 };
 
-
-struct PubKeyShare
-{
-    std::vector<secp256k1_pubkey> pubkoef; // k
-    std::vector<secp256k1_frost_share> shares; // n
-};
 
 class SignerService
 {
@@ -46,21 +42,41 @@ class SignerService
     size_t m_nonce_count;
     size_t m_operation_index;
 
-
+    const size_t m_threshold_size;
     std::vector<RemoteSignerData> m_peers_data;
+    size_t m_keyshare_count;
+    uint256 m_vss_hash;
+
     std::list<frost_secnonce> m_secnonces;
 
-    std::list<PubKeyShare> m_shares_for_peers;
-
-    std::array<void(SignerService::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers{};
+    std::array<void(SignerService::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
     template<typename DATA>
     void SendToPeers(const DATA& data) {
-        std::for_each(/*std::execution::par_unseq, */m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
+        std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
         {
             size_t peer_index = &peer - &(m_peers_data.front());
             if (m_signer_index != peer_index) {
                 peer.link->Send(data);
+            }
+            else {
+                Accept(data);
+            }
+        });
+    }
+
+    template<typename DATA>
+    void SendToPeers(std::function<void(DATA&, size_t)> datagen) {
+        std::for_each(/*std::execution::par_unseq, */m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
+        {
+            size_t peer_index = &peer - &(m_peers_data.front());
+            DATA data(m_signer_index);
+            datagen(data, peer_index);
+            if (m_signer_index != peer_index) {
+                peer.link->Send(data);
+            }
+            else {
+                Accept(data);
             }
         });
     }
@@ -94,10 +110,16 @@ public:
 
     void RegisterToPeers();
     void CommitNonces(size_t count);
+    void CommitKeyShares();
 
 private:
+    void AggregateKeyShares();
+
+
     void AcceptRemoteSigner(const p2p::Message& m);
     void AcceptNonceCommitments(const p2p::Message& m);
+    void AcceptKeyShareCommitment(const p2p::Message& m);
+    void AcceptKeyShare(const p2p::Message& m);
 
 
 };
