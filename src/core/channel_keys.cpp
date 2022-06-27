@@ -8,12 +8,10 @@ namespace l15 {
 const CSHA256 TAPTWEAK_HASH = PrecalculatedTaggedHash("TapTweak");
 
 
-void ChannelKeys::MakeNewPrivKey()
+void ChannelKeys::CachePubkey()
 {
-    m_local_sk = GetStrongRandomKey();
-
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_create(mWallet.GetSecp256k1Context(), &pubkey, GetLocalPrivKey().data())) {
+    if (!secp256k1_ec_pubkey_create(mWallet.GetSecp256k1Context(), &pubkey, m_local_sk.data())) {
         throw WrongKeyError();
     }
 

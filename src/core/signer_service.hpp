@@ -37,6 +37,7 @@ class SignerService
     api::WalletApi& mWallet;
 
     ChannelKeys mKeypair;
+    ChannelKeys mKeyShare;
 
     const size_t m_signer_index;
     size_t m_nonce_count;
@@ -67,7 +68,7 @@ class SignerService
 
     template<typename DATA>
     void SendToPeers(std::function<void(DATA&, size_t)> datagen) {
-        std::for_each(/*std::execution::par_unseq, */m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
+        std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
         {
             size_t peer_index = &peer - &(m_peers_data.front());
             DATA data(m_signer_index);
@@ -87,6 +88,10 @@ public:
 
     const xonly_pubkey & GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }
+
+    const xonly_pubkey GetAggregatedPubKey() const
+    { return mKeyShare.GetPubKey(); }
+
 
     size_t GetNonceCount() const
     { return m_nonce_count; }

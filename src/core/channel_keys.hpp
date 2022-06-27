@@ -23,13 +23,11 @@ class ChannelKeys
 
     secp256k1_xonly_pubkey m_xonly_pubkey_agg;
 
-    void MakeNewPrivKey();
+    void CachePubkey();
 public:
-    explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet) { MakeNewPrivKey(); }
-    //explicit ChannelKeys(const api::WalletApi& wallet, bytevector&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)) {}
+    explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
+    explicit ChannelKeys(const api::WalletApi& wallet, seckey&& local_sk): mWallet(wallet), m_local_sk(local_sk) { CachePubkey(); }
 
-    void SetAggregatePubKey(const xonly_pubkey& pubkey);
-    void AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys);
     ChannelKeys(const ChannelKeys& other) : mWallet(other.mWallet), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk)
     {
         std::memcpy(m_xonly_pubkey_agg.data, other.m_xonly_pubkey_agg.data, sizeof(m_xonly_pubkey_agg.data));
@@ -45,8 +43,18 @@ public:
 //    {}
 //
 //    ChannelKeys& operator=(const ChannelKeys& ) = delete;
-//    ChannelKeys& operator=(ChannelKeys&& ) = delete;
+    ChannelKeys& operator=(ChannelKeys&& old) noexcept
+    {
+        m_local_sk = std::move(old.m_local_sk);
+        m_local_pk = std::move(old.m_local_pk);
+        std::memcpy(m_xonly_pubkey_agg.data, old.m_xonly_pubkey_agg.data, sizeof(m_xonly_pubkey_agg.data));
+
+        return *this;
+    }
 //
+    void SetAggregatePubKey(const xonly_pubkey& pubkey);
+    void AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys);
+
     const seckey& GetLocalPrivKey() const
     { return m_local_sk; }
 

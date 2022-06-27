@@ -97,13 +97,10 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK_NOTHROW(signer1.CommitKeyShares());
     CHECK_NOTHROW(signer2.CommitKeyShares());
 
+    CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
+    CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
 
 
-
-
-    /* Negotiate pubkey
-    /*
-    /*
     /* Sign
     /*
      */
