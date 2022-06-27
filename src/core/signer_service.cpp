@@ -140,8 +140,11 @@ void SignerService::CommitNonces(size_t count)
 
 void SignerService::CommitKeyShares()
 {
-    secp256k1_keypair sk;
-    if (!secp256k1_keypair_create(mWallet.GetSecp256k1Context(), &sk, mKeypair.GetLocalPrivKey().data())) {
+    seckey session;
+    GetStrongRandBytes(session);
+
+    secp256k1_keypair keypair;
+    if (!secp256k1_keypair_create(mWallet.GetSecp256k1Context(), &keypair, mKeypair.GetLocalPrivKey().data())) {
         throw WrongKeyError();
     }
 
@@ -158,21 +161,21 @@ void SignerService::CommitKeyShares()
             throw WrongKeyError();
         }
 
-        if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(), share_commitment.data(), &(shares[i]), &sk, &index_pubkey, m_threshold_size)) {
+        if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(),
+                                       (i == 0) ? share_commitment.data() : NULL, &(shares[i]),
+                                       session.data(), &keypair, &index_pubkey, m_threshold_size)) {
             throw SignerError();
         }
-
-        if (i == m_signer_index) {
-            message.share_commitment.resize(share_commitment.size());
-            std::transform(share_commitment.cbegin(), share_commitment.cend(), message.share_commitment.begin(),
-                           [&](const secp256k1_pubkey& pk) {
-                compressed_pubkey pk_out;
-                size_t out_len = pk_out.size();
-                secp256k1_ec_pubkey_serialize(mWallet.GetSecp256k1Context(), pk_out.data(), &out_len, &pk, SECP256K1_EC_COMPRESSED);
-                return pk_out;
-            } );
-        }
     }
+
+    message.share_commitment.resize(share_commitment.size());
+    std::transform(share_commitment.cbegin(), share_commitment.cend(), message.share_commitment.begin(),
+                   [&](const secp256k1_pubkey& pk) {
+                       compressed_pubkey pk_out;
+                       size_t out_len = pk_out.size();
+                       secp256k1_ec_pubkey_serialize(mWallet.GetSecp256k1Context(), pk_out.data(), &out_len, &pk, SECP256K1_EC_COMPRESSED);
+                       return pk_out;
+                   } );
 
     SendToPeers(message);
 
