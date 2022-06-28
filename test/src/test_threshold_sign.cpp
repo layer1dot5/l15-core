@@ -59,6 +59,17 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK(signer0.Peers()[2].pubkey == signer2.GetLocalPubKey());
     CHECK(signer1.Peers()[2].pubkey == signer2.GetLocalPubKey());
 
+
+    // Negotiate Aggregated Pubkey
+
+    CHECK_NOTHROW(signer0.CommitKeyShares());
+    CHECK_NOTHROW(signer1.CommitKeyShares());
+    CHECK_NOTHROW(signer2.CommitKeyShares());
+
+    CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
+    CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
+
+
     //Commit Nonces
 
     CHECK_NOTHROW(signer0.CommitNonces(3));
@@ -90,15 +101,6 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK(signer0.Peers()[2].ephemeral_pubkeys == signer1.Peers()[2].ephemeral_pubkeys);
     CHECK(signer0.Peers()[2].ephemeral_pubkeys == signer2.Peers()[2].ephemeral_pubkeys);
 
-    // Negotiate Aggregated Pubkey
-    // TODO: Move before Nonce Commit
-
-    CHECK_NOTHROW(signer0.CommitKeyShares());
-    CHECK_NOTHROW(signer1.CommitKeyShares());
-    CHECK_NOTHROW(signer2.CommitKeyShares());
-
-    CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
-    CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
 
 
     /* Sign
