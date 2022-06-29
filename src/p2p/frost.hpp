@@ -11,8 +11,9 @@ namespace l15::p2p {
 enum class FROST_MESSAGE: uint16_t {
     REMOTE_SIGNER,
     NONCE_COMMITMENTS,
-    KEYSHARE_COMMITMENT,
-    KEYSHARE,
+    KEY_SHARE_COMMITMENT,
+    KEY_SHARE,
+    SIGNATURE_SHARE,
 
     MESSAGE_ID_COUNT
 };
@@ -21,30 +22,38 @@ enum class FROST_MESSAGE: uint16_t {
 
 struct RemoteSigner : public Message
 {
-    RemoteSigner(uint32_t idx, const xonly_pubkey& pk) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::REMOTE_SIGNER), index(idx), pubkey(pk) {}
-    uint32_t index;
+    RemoteSigner(uint32_t idx, const xonly_pubkey& pk) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::REMOTE_SIGNER), peer_index(idx), pubkey(pk) {}
+    uint32_t peer_index;
     xonly_pubkey pubkey;
 };
 
 struct NonceCommitments : public Message
 {
-    NonceCommitments(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::NONCE_COMMITMENTS), index(idx) {}
-    uint32_t index;
+    NonceCommitments(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::NONCE_COMMITMENTS), peer_index(idx) {}
+    uint32_t peer_index;
     std::vector<frost_pubnonce> nonce_commitments;
 };
 
 struct KeyShareCommitment : public Message
 {
-    KeyShareCommitment(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEYSHARE_COMMITMENT), index(idx) {}
-    uint32_t index;
+    KeyShareCommitment(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_SHARE_COMMITMENT), peer_index(idx) {}
+    uint32_t peer_index;
     std::vector<compressed_pubkey> share_commitment;
 };
 
 struct KeyShare : public Message
 {
-    KeyShare(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEYSHARE), index(idx) {}
-    uint32_t index;
+    KeyShare(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_SHARE), peer_index(idx) {}
+    uint32_t peer_index;
     seckey share;
+};
+
+struct SignatureShare : public Message
+{
+    SignatureShare(uint32_t idx, uint32_t opid) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::SIGNATURE_SHARE), peer_index(idx), operation_id(opid) {}
+    uint32_t peer_index;
+    uint32_t operation_id;
+    frost_sigshare share;
 };
 
 }

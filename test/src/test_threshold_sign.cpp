@@ -62,9 +62,9 @@ TEST_CASE("2-of-3 FROST signature")
 
     // Negotiate Aggregated Pubkey
 
-    CHECK_NOTHROW(signer0.CommitKeyShares());
-    CHECK_NOTHROW(signer1.CommitKeyShares());
-    CHECK_NOTHROW(signer2.CommitKeyShares());
+    CHECK_NOTHROW(signer0.DistributeKeyShares());
+    CHECK_NOTHROW(signer1.DistributeKeyShares());
+    CHECK_NOTHROW(signer2.DistributeKeyShares());
 
     CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
     CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
@@ -102,8 +102,44 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK(signer0.Peers()[2].ephemeral_pubkeys == signer2.Peers()[2].ephemeral_pubkeys);
 
 
+    // Sign
 
-    /* Sign
-    /*
-     */
+    signature sig0, sig1, sig2;
+    std::optional<SignatureError> err0, err1, err2;
+    bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
+    REQUIRE(message_data32.size() == 32);
+
+    uint256 m(message_data32);
+
+    signer0.InitSignature(0, m, [&](size_t op, signature &&s, std::optional<SignatureError> e) {
+        sig0 = s;
+        err0 = e;
+    });
+    signer1.InitSignature(0, m, [&](size_t op, signature &&s, std::optional<SignatureError> e) {
+        sig1 = s;
+        err1 = e;
+    });
+    signer2.InitSignature(0, m, [&](size_t op, signature &&s, std::optional<SignatureError> e) {
+        sig2 = s;
+        err2 = e;
+    });
+
+    CHECK_NOTHROW(signer0.DistributeSigShares());
+    CHECK_NOTHROW(signer1.DistributeSigShares());
+
+    // This combination does not work due to bug in the FROST lib
+    //CHECK_NOTHROW(signer2.DistributeSigShares());
+    //CHECK_NOTHROW(signer1.DistributeSigShares());
+
+    CHECK_FALSE(err0.has_value());
+    CHECK_FALSE(err1.has_value());
+    CHECK_FALSE(err2.has_value());
+
+    REQUIRE_FALSE(ChannelKeys(wallet).IsZeroArray(sig0));
+    CHECK(sig0 == sig1);
+    CHECK(sig0 == sig2);
+
+    CHECK_NOTHROW(signer0.Verify(m, sig0));
+    CHECK_NOTHROW(signer1.Verify(m, sig0));
+    CHECK_NOTHROW(signer2.Verify(m, sig0));
 }
