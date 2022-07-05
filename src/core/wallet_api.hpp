@@ -16,7 +16,7 @@ class CScript;
 
 namespace l15 {
     class ChannelKeys;
-    class SignerService;
+    class SignerApi;
 }
 
 namespace l15::api {
@@ -39,7 +39,7 @@ class SignatureError
 class WalletApi
 {
     friend class ::l15::ChannelKeys;
-    friend class ::l15::SignerService;
+    friend class ::l15::SignerApi;
 
     const ChainMode m_mode;
 
@@ -91,8 +91,6 @@ public:
     bytevector Bech32Decode(const std::string& addrstr) const;
 
 //    CScript ExtractScriptPubKey(const std::string& address) const;
-
-    ChannelKeys CreateNewKey() const;
 
 
 //    std::string CreateKeyPair() const;

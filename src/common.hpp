@@ -6,6 +6,8 @@
 #include <memory>
 #include <iostream>
 
+#include "fixsizevector.hpp"
+
 #include "primitives/transaction.h"
 
 using std::string;
@@ -19,11 +21,10 @@ namespace l15 {
 typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;
 
-//TODO: replace array with move enabled constant size container
-typedef std::array<uint8_t, 32> seckey;
-typedef std::array<uint8_t, 33> compressed_pubkey;
-typedef std::array<uint8_t, 32> xonly_pubkey;
-typedef std::array<uint8_t, 64> signature;
+typedef cex::fixsize_vector<uint8_t, 32> seckey;
+typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
+typedef cex::fixsize_vector<uint8_t, 32> xonly_pubkey;
+typedef cex::fixsize_vector<uint8_t, 64> signature;
 
 typedef std::unique_ptr<CMutableTransaction> transaction_ptr;
 typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;

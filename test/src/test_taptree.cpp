@@ -88,13 +88,13 @@ TEST_CASE("TapRoot single script")
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
     //get key pair Taproot
-    auto internal_sk = wallet.CreateNewKey();
+    auto internal_sk = ChannelKeys(wallet);
     const auto& internal_pk = internal_sk.GetLocalPubKey();
 
     std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
 
     //get key pair script
-    auto script_sk = wallet.CreateNewKey();
+    auto script_sk = ChannelKeys(wallet);
     const auto& script_pk = script_sk.GetPubKey();
     std::string script_pk_str = HexStr(script_pk);
 

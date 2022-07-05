@@ -1,8 +1,8 @@
-#include "signer_service.hpp"
+#include "signer_api.hpp"
 
 #include <utility>
 
-#include "cex/smartinserter.hpp"
+#include "smartinserter.hpp"
 #include "secp256k1_schnorrsig.h"
 
 
@@ -14,23 +14,23 @@ namespace {
 
 using namespace p2p;
 
-SignerService::SignerService(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size)
+SignerApi::SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size)
 : mWallet(wallet), mKeypair(keypair), mKeyShare(wallet), m_signer_index(index), m_nonce_count(0), m_opid(0), m_threshold_size(threshold_size)
 , m_peers_data(cluster_size), m_keyshare_count(0), m_vss_hash()
 {
-    mHandlers[(size_t)FROST_MESSAGE::REMOTE_SIGNER] = &SignerService::AcceptRemoteSigner;
-    mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerService::AcceptNonceCommitments;
-    mHandlers[(size_t)FROST_MESSAGE::KEY_SHARE_COMMITMENT] = &SignerService::AcceptKeyShareCommitment;
-    mHandlers[(size_t)FROST_MESSAGE::KEY_SHARE] = &SignerService::AcceptKeyShare;
-    mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerService::AcceptSignatureShare;
+    mHandlers[(size_t)FROST_MESSAGE::REMOTE_SIGNER] = &SignerApi::AcceptRemoteSigner;
+    mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
+    mHandlers[(size_t)FROST_MESSAGE::KEY_SHARE_COMMITMENT] = &SignerApi::AcceptKeyShareCommitment;
+    mHandlers[(size_t)FROST_MESSAGE::KEY_SHARE] = &SignerApi::AcceptKeyShare;
+    mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerApi::AcceptSignatureShare;
 }
 
-void SignerService::AddPeer(size_t index, link_ptr link)
+void SignerApi::AddPeer(size_t index, link_ptr link)
 {
     m_peers_data[index].link = std::move(link);
 }
 
-void SignerService::Accept(const Message& m)
+void SignerApi::Accept(const Message& m)
 {
     if (m.protocol_id != (uint16_t)PROTOCOL::FROST) {
         throw WrongProtocol{m.protocol_id};
@@ -44,7 +44,7 @@ void SignerService::Accept(const Message& m)
     }
 }
 
-void SignerService::AcceptRemoteSigner(const Message &m)
+void SignerApi::AcceptRemoteSigner(const Message &m)
 {
     const auto &message = reinterpret_cast<const RemoteSigner &>(m);
 
@@ -57,7 +57,7 @@ void SignerService::AcceptRemoteSigner(const Message &m)
     }
 }
 
-void SignerService::AcceptNonceCommitments(const Message &m)
+void SignerApi::AcceptNonceCommitments(const Message &m)
 {
     const auto& message = reinterpret_cast<const NonceCommitments&>(m);
 
@@ -71,7 +71,7 @@ void SignerService::AcceptNonceCommitments(const Message &m)
     }
 }
 
-void SignerService::AcceptKeyShareCommitment(const Message &m)
+void SignerApi::AcceptKeyShareCommitment(const Message &m)
 {
     const auto& message = reinterpret_cast<const KeyShareCommitment&>(m);
 
@@ -84,7 +84,7 @@ void SignerService::AcceptKeyShareCommitment(const Message &m)
     }
 }
 
-void SignerService::AcceptKeyShare(const Message &m)
+void SignerApi::AcceptKeyShare(const Message &m)
 {
     const auto& message = reinterpret_cast<const KeyShare&>(m);
 
@@ -103,7 +103,7 @@ void SignerService::AcceptKeyShare(const Message &m)
     }
 }
 
-void SignerService::AcceptSignatureShare(const Message &m)
+void SignerApi::AcceptSignatureShare(const Message &m)
 {
     const auto& message = reinterpret_cast<const SignatureShare&>(m);
 
@@ -120,13 +120,13 @@ void SignerService::AcceptSignatureShare(const Message &m)
     }
 }
 
-void SignerService::RegisterToPeers()
+void SignerApi::RegisterToPeers()
 {
     RemoteSigner message((uint32_t)m_signer_index, mKeypair.GetLocalPubKey());
     SendToPeers(message);
 }
 
-void SignerService::CommitNonces(size_t count)
+void SignerApi::CommitNonces(size_t count)
 {
 
     m_secnonces.resize(m_nonce_count);
@@ -162,7 +162,7 @@ void SignerService::CommitNonces(size_t count)
     m_nonce_count += count;
 }
 
-void SignerService::DistributeKeyShares()
+void SignerApi::DistributeKeyShares()
 {
     seckey session;
     GetStrongRandBytes(session);
@@ -209,7 +209,7 @@ void SignerService::DistributeKeyShares()
 
 }
 
-void SignerService::AggregateKeyShares()
+void SignerApi::AggregateKeyShares()
 {
     std::vector<secp256k1_frost_share> shares_data(m_peers_data.size());
     std::vector<secp256k1_frost_share*> shares(m_peers_data.size());
@@ -269,7 +269,7 @@ void SignerService::AggregateKeyShares()
     mKeyShare.SetAggregatePubKey(agg_pubkey);
 }
 
-void SignerService::AggregateSignatureShares()
+void SignerApi::AggregateSignatureShares()
 {
     signature sig_agg;
     std::vector<secp256k1_frost_partial_sig> sigshares_data(m_threshold_size);
@@ -292,7 +292,7 @@ void SignerService::AggregateSignatureShares()
     }
 }
 
-void SignerService::InitSignature(operation_id opid, const uint256 &datahash, signature_handler handler)
+void SignerApi::InitSignature(operation_id opid, const uint256 &datahash, signature_handler handler)
 {
     if (opid != 0 && opid <= m_opid) {
         throw WrongOperationId(opid);
@@ -339,7 +339,7 @@ void SignerService::InitSignature(operation_id opid, const uint256 &datahash, si
 
 }
 
-void SignerService::DistributeSigShares()
+void SignerApi::DistributeSigShares()
 {
     secp256k1_frost_session* session = &(std::get<SIGSESSION>(m_sig_handlers[m_opid]));
 
@@ -362,7 +362,7 @@ void SignerService::DistributeSigShares()
     SendToPeers(message);
 }
 
-void SignerService::Verify(const uint256 &message, const signature &signature)
+void SignerApi::Verify(const uint256 &message, const signature &signature)
 {
     secp256k1_xonly_pubkey pubkey;
 

@@ -42,7 +42,7 @@ struct RemoteSignerData
 };
 
 
-class SignerService
+class SignerApi
 {
     api::WalletApi& mWallet;
 
@@ -60,7 +60,7 @@ class SignerService
 
     std::list<frost_secnonce> m_secnonces;
 
-    std::array<void(SignerService::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
+    std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
     std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
 
@@ -101,7 +101,7 @@ class SignerService
 
 
 public:
-    SignerService(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size);
+    SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size);
 
     const xonly_pubkey & GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }

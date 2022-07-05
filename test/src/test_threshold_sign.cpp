@@ -11,7 +11,7 @@
 #include "script/standard.h"
 
 #include "common.hpp"
-#include "signer_service.hpp"
+#include "signer_api.hpp"
 #include "wallet_api.hpp"
 #include "channel_keys.hpp"
 
@@ -29,9 +29,9 @@ TEST_CASE("2-of-3 FROST signature")
 
     // Create peers
 
-    SignerService signer0(wallet, 0, ChannelKeys(wallet), N, K);
-    SignerService signer1(wallet, 1, ChannelKeys(wallet), N, K);
-    SignerService signer2(wallet, 2, ChannelKeys(wallet), N, K);
+    SignerApi signer0(wallet, 0, ChannelKeys(wallet), N, K);
+    SignerApi signer1(wallet, 1, ChannelKeys(wallet), N, K);
+    SignerApi signer2(wallet, 2, ChannelKeys(wallet), N, K);
 
     p2p::link_ptr link1 = p2p::link_ptr(new p2p::LocalLink(signer0));
     p2p::link_ptr link2 = p2p::link_ptr(new p2p::LocalLink(signer1));

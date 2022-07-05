@@ -2,15 +2,15 @@
 
 #include "p2p/link.hpp"
 #include "p2p/frost.hpp"
-#include "core/signer_service.hpp"
+#include "core/signer_api.hpp"
 
 namespace l15::p2p {
 
 class LocalLink : public Link
 {
-    SignerService& mSigner;
+    SignerApi& mSigner;
 public:
-    explicit LocalLink(SignerService& signer) : mSigner(signer) {}
+    explicit LocalLink(SignerApi& signer) : mSigner(signer) {}
 
     void Send(const Message& m) override
     {

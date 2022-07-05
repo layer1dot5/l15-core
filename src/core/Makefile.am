@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/src \
  -I$(top_srcdir)/src/core \
- -I$(top_srcdir)/contrib
+ -I$(top_srcdir)/contrib/cex
 
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \
@@ -20,4 +20,4 @@ libl15_core_la_SOURCES = \
 	wallet_api.cpp \
 	utils.cpp \
 	exechelper.cpp \
-	signer_service.cpp
+	signer_api.cpp

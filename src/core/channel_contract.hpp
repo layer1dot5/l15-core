@@ -4,7 +4,7 @@
 #include <vector>
 #include <iterator>
 
-#include "cex/smartinserter.hpp"
+#include "smartinserter.hpp"
 
 #include "consensus/amount.h"
 #include "script/script.h"

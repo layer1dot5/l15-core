@@ -267,10 +267,5 @@ bytevector WalletApi::Bech32Decode(const std::string& addrstr) const
 //    tx.vout.emplace_back(CTxOut(amount, ExtractScriptPubKey(address)));
 //}
 
-ChannelKeys WalletApi::CreateNewKey() const
-{
-    return ChannelKeys(*this);
-}
-
 
 }

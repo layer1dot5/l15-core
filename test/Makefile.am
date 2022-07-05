@@ -6,6 +6,7 @@ AM_CPPFLAGS= \
  -I$(top_srcdir)/src \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib \
+ -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/contrib/secp256k1/include
 

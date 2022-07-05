@@ -160,7 +160,7 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot public key path spending")
     {
         //get key pair
-        auto sk = w->wallet().CreateNewKey();
+        auto sk = ChannelKeys(w->wallet());
         auto& pk = sk.GetLocalPubKey();
 
         //create address from key pair
@@ -205,13 +205,13 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot script path spending")
     {
         //get key pair Taproot
-        auto internal_sk = w->wallet().CreateNewKey();
+        auto internal_sk = ChannelKeys(w->wallet());
         const auto& internal_pk = internal_sk.GetLocalPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
         //get key pair script
-        auto sk = w->wallet().CreateNewKey();
+        auto sk = ChannelKeys(w->wallet());
         const auto& pk = sk.GetLocalPubKey();
         std::string pk_str = HexStr(pk);
 
