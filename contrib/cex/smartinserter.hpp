@@ -2,22 +2,23 @@
 
 #include <iterator>
 
+#include "cex_defs.hpp"
+
 namespace cex {
 
 template<typename Container, typename Iter>
 struct insert_reference {
     typedef std::iterator_traits<Iter>		traits_type;
     typedef typename traits_type::value_type value_type;
-    typedef typename traits_type::reference reference;
 
     Container& mContainer;
     Iter& mIt;
 
-    insert_reference(Container& c, Iter& it) noexcept
+    insert_reference(Container& c, Iter& it) CEXCXX_NOEXCEPT
             : mContainer(c), mIt(it) {}
 
-    insert_reference(const insert_reference& ) noexcept = default;
-    insert_reference(insert_reference&&) noexcept = default;
+    insert_reference(const insert_reference& ) CEXCXX_NOEXCEPT = default;
+    insert_reference(insert_reference&&) CEXCXX_NOEXCEPT = default;
 
     insert_reference& operator=(const value_type& v)
     { mIt = mContainer.insert(mIt, v); return *this; }
@@ -25,16 +26,22 @@ struct insert_reference {
     insert_reference& operator=(value_type&& v)
     { mIt = mContainer.insert(mIt, std::move(v)); return *this; }
 
+    insert_reference& operator=(value_type&& v) const
+    { mIt = mContainer.insert(mIt, std::move(v)); return *this; }
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"
     operator value_type()
     { return *mIt; }
 
-    operator reference()
+    operator value_type&() & CEXCXX_NOEXCEPT
     { return *mIt;}
 
-    operator const reference() const
+    operator value_type const &() const CEXCXX_NOEXCEPT
     { return *mIt; }
+
+    operator value_type&&() && CEXCXX_NOEXCEPT
+    { return std::forward(*mIt); }
 #pragma clang diagnostic pop
 };
 
@@ -52,60 +59,83 @@ protected:
 
 public:
     typedef Container container_type;
+    typedef insert_iterator<container_type, Iter> iterator_type;
     typedef typename traits_type::iterator_category iterator_category;
     typedef typename traits_type::value_type  	value_type;
     typedef typename traits_type::difference_type 	difference_type;
     typedef insert_reference<container_type, Iter> 	reference;
     typedef typename traits_type::pointer   	pointer;
 
-    insert_iterator(Container& c, Iter it) noexcept
+#if __cplusplus > 201703L && __cpp_lib_concepts
+    using iterator_concept = std::__detail::__iter_concept<iterator_type>;
+#endif
+
+
+    CEXCXX20_CONSTEXPR
+    insert_iterator(Container& c, Iter it) CEXCXX_NOEXCEPT
             : mContainer(&c), mIt(it) {}
 
-    insert_iterator(const insert_iterator& ) noexcept = default;
-    insert_iterator(insert_iterator&& ) noexcept = default;
+    CEXCXX20_CONSTEXPR
+    insert_iterator(const insert_iterator& ) CEXCXX_NOEXCEPT = default;
 
-    insert_iterator& operator=(const insert_iterator& ) noexcept = default;
-    insert_iterator& operator=(insert_iterator&& ) noexcept = default;
+    CEXCXX20_CONSTEXPR
+    insert_iterator(insert_iterator&& ) CEXCXX_NOEXCEPT = default;
 
-    insert_reference<Container, Iter> operator*() noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator=(const insert_iterator& ) CEXCXX_NOEXCEPT = default;
+
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator=(insert_iterator&& ) CEXCXX_NOEXCEPT = default;
+
+    insert_reference<Container, Iter> operator*() CEXCXX_NOEXCEPT
     { return insert_reference<Container, Iter>(*mContainer, mIt); }
 
-    pointer operator->() const noexcept
+    CEXCXX20_CONSTEXPR
+    pointer operator->() const CEXCXX_NOEXCEPT
     { return mIt.operator->(); }
 
-    insert_iterator& operator++() noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator++() CEXCXX_NOEXCEPT
     { ++mIt; return *this; }
 
-    insert_iterator& operator--() noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator--() CEXCXX_NOEXCEPT
     { --mIt; return *this; }
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "cert-dcl21-cpp"
-    insert_iterator operator++(int) noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator operator++(int) CEXCXX_NOEXCEPT
     { return insert_iterator(*mContainer, mIt++); }
 
-    insert_iterator operator--(int) noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator operator--(int) CEXCXX_NOEXCEPT
     { return insert_iterator(*mContainer, mIt--); }
 #pragma clang diagnostic pop
 
-    reference operator[](difference_type n) const noexcept
+    CEXCXX20_CONSTEXPR
+    reference operator[](difference_type n) const CEXCXX_NOEXCEPT
     { return insert_reference<Container, Iter>(*mContainer, mIt[n]); }
 
-    insert_iterator& operator+=(difference_type n) noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator+=(difference_type n) CEXCXX_NOEXCEPT
     { mIt += n; return *this; }
 
-    insert_iterator operator+(difference_type n) const noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator operator+(difference_type n) const CEXCXX_NOEXCEPT
     { return insert_iterator(*mContainer, mIt + n); }
 
-    insert_iterator& operator-=(difference_type n) noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator& operator-=(difference_type n) CEXCXX_NOEXCEPT
     { mIt -= n; return *this; }
 
-    insert_iterator operator-(difference_type n) const noexcept
+    CEXCXX20_CONSTEXPR
+    insert_iterator operator-(difference_type n) const CEXCXX_NOEXCEPT
     { return insert_iterator(*mContainer, mIt - n); }
 };
 
 template<typename Container, typename Iter>
-insert_iterator<Container, Iter> smartinserter(Container& c, Iter i) noexcept
+insert_iterator<Container, Iter> smartinserter(Container& c, Iter i) CEXCXX_NOEXCEPT
 { return insert_iterator(c, i); }
 
 }
