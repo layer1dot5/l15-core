@@ -1,5 +1,5 @@
 
-AM_CPPFLAGS= \
+AM_CPPFLAGS= $(DEBUG_CPPFLAGS)\
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
  -I$(top_srcdir)/node/src/consensus \
@@ -10,6 +10,7 @@ AM_CPPFLAGS= \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/contrib/secp256k1/include
 
+AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
 AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 

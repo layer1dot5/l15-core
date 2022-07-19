@@ -8,11 +8,30 @@ LT_INIT([static])
 
 AM_INIT_AUTOMAKE([1.16 foreign subdir-objects])
 
+dnl Compiler checks (here before libtool).
+if test "x${CXXFLAGS}" != "x"; then
+  CXXFLAGS_overridden=yes
+else
+  CXXFLAGS_overridden=
+fi
+
+if test "x${CPPFLAGS}" != "x"; then
+  CPPFLAGS_overridden=yes
+else
+  CPPFLAGS_overridden=
+fi
+
+if test "x${LDFLAGS}" != "x"; then
+  LDFLAGS_overridden=yes
+else
+  LDFLAGS_overridden=
+fi
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_MKDIR_P
 
-AX_CXX_COMPILE_STDCXX([17], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 # Checks for libraries.
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
@@ -36,22 +55,31 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
-if test "x$enable_debug" = xyes; then
+if test "$enable_debug" = "yes"; then
+  dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
+  dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
+  dnl with "-O0 -g3 -g -O2".
+  if test "$CXXFLAGS_overridden" != "yes"; then
+  CXXFLAGS=""
+  fi
+
   dnl Disable all optimizations
-  AX_CHECK_COMPILE_FLAG([-O0], [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"]],,[[$CXXFLAG_WERROR]])
+  AX_CHECK_COMPILE_FLAG([-O0], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"], [], [$CXXFLAG_WERROR])
 
   dnl Prefer -g3, fall back to -g if that is unavailable.
   AX_CHECK_COMPILE_FLAG(
     [-g3],
-    [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -g3"]],
-    [AX_CHECK_COMPILE_FLAG([-g],[[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -g"]],,[[$CXXFLAG_WERROR]])],
-    [[$CXXFLAG_WERROR]])
+    [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -g3"],
+    [AX_CHECK_COMPILE_FLAG([-g], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -g"], [], [$CXXFLAG_WERROR])],
+    [$CXXFLAG_WERROR])
 
-  AX_CHECK_PREPROC_FLAG([-DDEBUG],[[DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DDEBUG"]],,[[$CXXFLAG_WERROR]])
-  AX_CHECK_PREPROC_FLAG([-DDEBUG_LOCKORDER],[[DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DDEBUG_LOCKORDER"]],,[[$CXXFLAG_WERROR]])
-  AX_CHECK_PREPROC_FLAG([-DABORT_ON_FAILED_ASSUME],[[DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DABORT_ON_FAILED_ASSUME"]],,[[$CXXFLAG_WERROR]])
-  AX_CHECK_COMPILE_FLAG([-ftrapv],[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -ftrapv"],,[[$CXXFLAG_WERROR]])
+  AX_CHECK_PREPROC_FLAG([-DDEBUG], [DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DDEBUG"], [], [$CXXFLAG_WERROR])
+  AX_CHECK_COMPILE_FLAG([-ftrapv], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -ftrapv"], [], [$CXXFLAG_WERROR])
 fi
+
+AC_SUBST(DEBUG_CPPFLAGS)
+AC_SUBST(DEBUG_CXXFLAGS)
+
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -92,7 +120,7 @@ dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh',
 
 AX_SUBDIRS_CONFIGURE(
     [node],
-    [[--enable-static], [--disable-shared], [--enable-c++17], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
+    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
     [[--disable-tests], [--disable-bench]],
     [],
     [])
@@ -107,3 +135,20 @@ AX_SUBDIRS_CONFIGURE(
 
 AC_OUTPUT
 
+echo
+echo "  ==============================================================================================================="
+echo "  L15 config result:"
+echo
+echo "  debug enabled   = $enable_debug"
+echo "  werror          = $enable_werror"
+echo
+echo "  target os       = $host_os"
+echo "  build os        = $build_os"
+echo
+echo "  CPPFLAGS        = $DEBUG_CPPFLAGS $CPPFLAGS"
+echo "  CXX             = $CXX"
+echo "  CXXFLAGS        = $DEBUG_CXXFLAGS $CXXFLAGS"
+echo "  LDFLAGS         = $LDFLAGS"
+echo "  ARFLAGS         = $ARFLAGS"
+echo "  ==============================================================================================================="
+echo

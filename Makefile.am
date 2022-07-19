@@ -1,11 +1,13 @@
 SUBDIRS = contrib node src test
 
-AM_CPPFLAGS = \
+AM_CPPFLAGS = $(DEBUG_CPPFLAGS) \
  -I$(top_srcdir)/src \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/node/src
+
+AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
 AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
