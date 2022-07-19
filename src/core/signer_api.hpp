@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <execution>
 #include <unordered_map>
+#include <atomic>
+#include <mutex>
 
 
 #include "common.hpp"
@@ -55,13 +57,14 @@ class SignerApi
 
     const size_t m_threshold_size;
     std::vector<RemoteSignerData> m_peers_data;
-    size_t m_keyshare_count;
+    std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
 
     std::list<frost_secnonce> m_secnonces;
 
     std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
+    std::mutex m_sig_share_mutex;
     std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
 
     enum {SIGSESSION, SIGHANDLER};
@@ -102,6 +105,9 @@ class SignerApi
 
 public:
     SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size);
+
+    size_t GetIndex() const noexcept
+    { return m_signer_index; }
 
     const xonly_pubkey & GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }

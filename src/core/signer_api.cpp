@@ -108,11 +108,14 @@ void SignerApi::AcceptSignatureShare(const Message &m)
     const auto& message = reinterpret_cast<const SignatureShare&>(m);
 
     if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
-        && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].keyshare))
+        && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].keyshare)
+        && GetOpId() == message.operation_id)
     {
-        if (GetOpId() != message.operation_id) { return; }
+        const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
 
         m_sig_shares[message.operation_id][message.peer_index] = message.share;
+
+        //std::clog << "Sigshare(" << message.peer_index << "): " << HexStr(message.share) << std::endl;
 
         if (m_sig_shares[message.operation_id].size() == m_threshold_size) {
             AggregateSignatureShares();
