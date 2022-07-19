@@ -13,6 +13,7 @@
 
 #include "common.hpp"
 #include "channel_keys.hpp"
+#include "core_error.hpp"
 
 #include "p2p/link.hpp"
 #include "p2p/frost.hpp"
@@ -22,15 +23,38 @@ namespace l15 {
 
 typedef size_t operation_id;
 
-struct SignatureError {};
-struct KeyAggregationError : public KeyError {};
-struct WrongOperationId
-{
+class SignatureError : public core::Error {
+public:
+    ~SignatureError() override = default;
+
+    const char* what() const override
+    { return "SignatureError"; }
+
+};
+class KeyAggregationError : public KeyError {
+public:
+    ~KeyAggregationError() override = default;
+
+    const char* what() const override
+    { return "KeyAggregationError"; }
+
+};
+class WrongOperationId : public core::Error {
+public:
     WrongOperationId(operation_id id) : opid(id) {}
+    ~WrongOperationId() override = default;
+
+    const char* what() const override
+    { return "WrongOperationId"; }
+
     operation_id opid;
 };
 
-typedef std::function<void(operation_id, signature&&, std::optional<SignatureError> )> signature_handler;
+class SignerApi;
+
+typedef std::function<void(core::Error&&)> error_handler;
+typedef std::function<void(SignerApi&)> aggregate_key_handler;
+typedef std::function<void(SignerApi&)> aggregate_sig_handler;
 
 
 struct RemoteSignerData
@@ -59,6 +83,7 @@ class SignerApi
     std::vector<RemoteSignerData> m_peers_data;
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
+    aggregate_key_handler m_key_handler;
 
     std::list<frost_secnonce> m_secnonces;
 
@@ -68,9 +93,10 @@ class SignerApi
     std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
 
     enum {SIGSESSION, SIGHANDLER};
-    typedef std::tuple<secp256k1_frost_session, signature_handler> sigstate;
+    typedef std::tuple<secp256k1_frost_session, aggregate_sig_handler> sigstate;
     std::unordered_map<operation_id, sigstate> m_sig_handlers;
 
+    const error_handler m_err_handler;
 
     template<typename DATA>
     void SendToPeers(const DATA& data) {
@@ -104,7 +130,7 @@ class SignerApi
 
 
 public:
-    SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size);
+    SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size, error_handler e);
 
     size_t GetIndex() const noexcept
     { return m_signer_index; }
@@ -139,18 +165,20 @@ public:
 
     void Accept(const p2p::Message& m);
 
-    void RegisterToPeers();
-    void CommitNonces(size_t count);
+    void RegisterToPeers(aggregate_key_handler handler);
     void DistributeKeyShares();
 
-    void InitSignature(operation_id opid, const uint256 &datahash, signature_handler handler);
+    void CommitNonces(size_t count);
+
+
+    void InitSignature(operation_id opid, const uint256 &datahash, aggregate_sig_handler handler);
     void DistributeSigShares();
 
     void Verify(const uint256& message, const signature& signature);
 
-private:
     void AggregateKeyShares();
-    void AggregateSignatureShares();
+    signature AggregateSignatureShares();
+private:
 
 
     void AcceptRemoteSigner(const p2p::Message& m);

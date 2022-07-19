@@ -14,9 +14,9 @@ namespace {
 
 using namespace p2p;
 
-SignerApi::SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size)
+SignerApi::SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size, error_handler e)
 : mWallet(wallet), mKeypair(keypair), mKeyShare(wallet), m_signer_index(index), m_nonce_count(0), m_opid(0), m_threshold_size(threshold_size)
-, m_peers_data(cluster_size), m_keyshare_count(0), m_vss_hash()
+, m_peers_data(cluster_size), m_keyshare_count(0), m_vss_hash(), m_err_handler(e)
 {
     mHandlers[(size_t)FROST_MESSAGE::REMOTE_SIGNER] = &SignerApi::AcceptRemoteSigner;
     mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
@@ -33,14 +33,14 @@ void SignerApi::AddPeer(size_t index, link_ptr link)
 void SignerApi::Accept(const Message& m)
 {
     if (m.protocol_id != (uint16_t)PROTOCOL::FROST) {
-        throw WrongProtocol{m.protocol_id};
+        m_err_handler(WrongProtocol(m.protocol_id));
     }
 
     if (m.id < (size_t)FROST_MESSAGE::MESSAGE_ID_COUNT) {
         (this->*mHandlers[m.id])(m);
     }
     else {
-        throw WrongMessage{m.protocol_id, m.id};
+        m_err_handler(WrongMessage(m));
     }
 }
 
@@ -53,7 +53,7 @@ void SignerApi::AcceptRemoteSigner(const Message &m)
         m_peers_data[message.peer_index].pubkey = message.pubkey;
     }
     else {
-        throw WrongMessageData{m.protocol_id, m.id};
+        m_err_handler(WrongMessageData(m));
     }
 }
 
@@ -67,7 +67,7 @@ void SignerApi::AcceptNonceCommitments(const Message &m)
                                  message.nonce_commitments.end());
     }
     else {
-        throw WrongMessageData{m.protocol_id, m.id};
+        m_err_handler(WrongMessageData(m));
     }
 }
 
@@ -80,7 +80,7 @@ void SignerApi::AcceptKeyShareCommitment(const Message &m)
         m_peers_data[message.peer_index].keyshare_commitment = message.share_commitment;
     }
     else {
-        throw WrongMessageData{m.protocol_id, m.id};
+        m_err_handler(WrongMessageData(m));
     }
 }
 
@@ -95,11 +95,11 @@ void SignerApi::AcceptKeyShare(const Message &m)
         m_peers_data[message.peer_index].keyshare = message.share;
 
         if (++m_keyshare_count >= m_peers_data.size()) {
-            AggregateKeyShares();
+            m_key_handler(*this);
         }
     }
     else {
-        throw WrongMessageData{m.protocol_id, m.id};
+        m_err_handler(WrongMessageData(m));
     }
 }
 
@@ -118,13 +118,18 @@ void SignerApi::AcceptSignatureShare(const Message &m)
         //std::clog << "Sigshare(" << message.peer_index << "): " << HexStr(message.share) << std::endl;
 
         if (m_sig_shares[message.operation_id].size() == m_threshold_size) {
-            AggregateSignatureShares();
+            std::get<1>(m_sig_handlers[message.operation_id])(*this);
         }
+    }
+    else {
+        m_err_handler(WrongMessageData(m));
     }
 }
 
-void SignerApi::RegisterToPeers()
+void SignerApi::RegisterToPeers(aggregate_key_handler handler)
 {
+    m_key_handler = handler;
+
     RemoteSigner message((uint32_t)m_signer_index, mKeypair.GetLocalPubKey());
     SendToPeers(message);
 }
@@ -272,7 +277,7 @@ void SignerApi::AggregateKeyShares()
     mKeyShare.SetAggregatePubKey(agg_pubkey);
 }
 
-void SignerApi::AggregateSignatureShares()
+signature SignerApi::AggregateSignatureShares()
 {
     signature sig_agg;
     std::vector<secp256k1_frost_partial_sig> sigshares_data(m_threshold_size);
@@ -288,14 +293,14 @@ void SignerApi::AggregateSignatureShares()
     std::transform(std::execution::par_unseq, sigshares_data.begin(), sigshares_data.end(), sigshares.begin(), [](secp256k1_frost_partial_sig& s) { return &s; });
 
     if (!secp256k1_frost_partial_sig_agg(mWallet.GetSecp256k1Context(), sig_agg.data(), &(std::get<SIGSESSION>(m_sig_handlers[m_opid])), sigshares.data(), m_threshold_size)) {
-        std::get<SIGHANDLER>(m_sig_handlers[m_opid])(m_opid, std::move(sig_agg), std::make_optional(SignatureError()));
+        throw SignatureError();
     }
     else {
-        std::get<SIGHANDLER>(m_sig_handlers[m_opid])(m_opid, std::move(sig_agg), std::optional<SignatureError>());
+        return sig_agg;
     }
 }
 
-void SignerApi::InitSignature(operation_id opid, const uint256 &datahash, signature_handler handler)
+void SignerApi::InitSignature(operation_id opid, const uint256 &datahash, aggregate_sig_handler handler)
 {
     if (opid != 0 && opid <= m_opid) {
         throw WrongOperationId(opid);

@@ -2,24 +2,9 @@
 
 #include <memory>
 
+#include "core_error.hpp"
+
 namespace l15::p2p {
-
-struct WrongProtocol
-{
-    uint16_t protocol_id;
-};
-
-struct WrongMessage
-{
-    uint16_t protocol_id;
-    uint16_t message_id;
-};
-
-struct WrongMessageData
-{
-    uint16_t protocol_id;
-    uint16_t message_id;
-};
 
 struct Message
 {
@@ -27,6 +12,42 @@ struct Message
     uint16_t protocol_id;
     uint16_t id;
 };
+
+class WrongProtocol: public core::Error {
+public:
+    WrongProtocol(uint16_t protocol) : protocol_id(protocol) {}
+    ~WrongProtocol() override = default;
+
+    const char* what() const override
+    { return "WrongProtocol"; }
+
+    uint16_t protocol_id;
+};
+
+class WrongMessage: public core::Error {
+public:
+    WrongMessage(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
+    ~WrongMessage() override = default;
+
+    const char* what() const override
+    { return "WrongMessage"; }
+
+    uint16_t protocol_id;
+    uint16_t message_id;
+};
+
+class WrongMessageData: public core::Error {
+public:
+    WrongMessageData(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
+    ~WrongMessageData() override = default;
+
+    const char* what() const override
+    { return "WrongMessageData"; }
+
+    uint16_t protocol_id;
+    uint16_t message_id;
+};
+
 
 
 

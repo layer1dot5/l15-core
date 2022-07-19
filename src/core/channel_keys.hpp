@@ -7,13 +7,28 @@
 #include "random.h"
 
 #include "common.hpp"
+#include "core_error.hpp"
 
 #include "wallet_api.hpp"
 
 namespace l15 {
 
-class KeyError {};
-class WrongKeyError : public KeyError {};
+class KeyError : public core::Error {
+public:
+    ~KeyError() override = default;
+
+    const char* what() const override
+    { return "KeyError"; }
+};
+
+class WrongKeyError : public KeyError {
+public:
+    ~WrongKeyError() override = default;
+
+    const char* what() const override
+    { return "WrongKeyError"; }
+};
+
 
 class ChannelKeys
 {
