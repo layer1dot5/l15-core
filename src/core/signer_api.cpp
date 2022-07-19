@@ -111,9 +111,10 @@ void SignerApi::AcceptSignatureShare(const Message &m)
         && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].keyshare)
         && GetOpId() == message.operation_id)
     {
-        const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
-
-        m_sig_shares[message.operation_id][message.peer_index] = message.share;
+        {
+            const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
+            m_sig_shares[message.operation_id][message.peer_index] = message.share;
+        }
 
         //std::clog << "Sigshare(" << message.peer_index << "): " << HexStr(message.share) << std::endl;
 

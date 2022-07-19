@@ -20,6 +20,7 @@
 #include "channel_keys.hpp"
 
 #include "local_link.hpp"
+#include "time_measure.hpp"
 
 using namespace l15;
 namespace rs = std::ranges;
@@ -147,8 +148,8 @@ TEST_CASE("2-of-3 FROST signature")
 
 TEST_CASE("Keyshare 1K")
 {
-    const size_t N = 1000;
-    const size_t K = 500;
+    const size_t N = 300;
+    const size_t K = 150;
 
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
@@ -172,46 +173,56 @@ TEST_CASE("Keyshare 1K")
     std::clog << "Signers are initialized" << std::endl;
 
     aggregate_key_handler empty_handler = [](SignerApi& s) { };
-    aggregate_key_handler key_handler = [](SignerApi& s)
-    {
-        std::clog << "Peers' keys are shared" << std::endl;
-        s.AggregateKeyShares();
-        std::clog << "Aggregeted key is created" << std::endl;
-    };
 
-    auto& si = signers.front();
-    for (auto& sj: signers) {
-        if (si != sj) {
-            std::get<0>(si)->AddPeer(std::get<0>(sj)->GetIndex(), std::get<1>(sj));
-        }
-    }
-    std::get<0>(si)->RegisterToPeers(key_handler);
+    TimeMeasure reg_measure("Exchange peer pubkeys");
 
-    CHECK_NOTHROW (
-        std::for_each(std::execution::par_unseq, signers.begin()+1, signers.end(), [&](auto &si) {
-            for (auto& sj: signers) {
-                if (si != sj) {
+    std::for_each(std::execution::par_unseq, signers.begin(), signers.end(), [&](auto &si) {
+        reg_measure.Measure([&]() {
+            for(auto &sj: signers)
+            {
+                if(si != sj)
+                {
                     std::get<0>(si)->AddPeer(std::get<0>(sj)->GetIndex(), std::get<1>(sj));
                 }
             }
             std::get<0>(si)->RegisterToPeers(empty_handler);
-        })
-    );
+            return 0;
+        });
+    });
 
-    std::clog << "Peers are registered" << std::endl;
-
-    CHECK_NOTHROW(std::for_each(signers.begin(), signers.end(), [](auto& s){
-        std::get<0>(s)->DistributeKeyShares();
-        if(std::get<0>(s)->GetIndex() %100 == 0)
-        {
-            std::clog << "Peer " << std::get<0>(s)->GetIndex() << " key share completed" << std::endl;
-        }
-    }));
+    reg_measure.Report(std::clog);
 
 
+    TimeMeasure distrib_measure("Exchange Key shares");
+
+    std::for_each(signers.begin(), signers.end(), [&](auto& s){
+        distrib_measure.Measure([&](){
+            std::get<0>(s)->DistributeKeyShares();
+            if(std::get<0>(s)->GetIndex() % 100 == 0)
+            {
+                std::clog << "Peer " << std::get<0>(s)->GetIndex() << " key share completed" << std::endl;
+            }
+            return 0;
+        });
+    });
+
+    distrib_measure.Report(std::clog);
+
+    TimeMeasure keyagg_measure("Aggregate pubkey");
+    keyagg_measure.Measure([&]() {
+        std::get<0>(signers.front())->AggregateKeyShares();
+        return 0;
+    });
+    keyagg_measure.Measure([&]() {
+        std::get<0>(*(signers.begin()+1))->AggregateKeyShares();
+        return 0;
+    });
+    keyagg_measure.Report(std::clog);
 
     const auto& pubkey0 = std::get<0>(signers.front())->GetAggregatedPubKey();
+    const auto& pubkey1 = std::get<0>(*(signers.begin()+1))->GetAggregatedPubKey();
     CHECK_FALSE(ChannelKeys::IsZeroArray(pubkey0));
+    CHECK(HexStr(pubkey0) == HexStr(pubkey1));
 
 //    for (auto& s : signers) {
 //        CHECK(HexStr(std::get<0>(s)->GetAggregatedPubKey()) == HexStr(pubkey0));

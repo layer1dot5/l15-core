@@ -6,7 +6,8 @@
 #include <cmath>
 #include <algorithm>
 #include <execution>
-#include <unordered_map>
+//#include <unordered_map>
+#include <boost/container/flat_map.hpp>
 #include <atomic>
 #include <mutex>
 
@@ -90,11 +91,13 @@ class SignerApi
     std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
     std::mutex m_sig_share_mutex;
-    std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
+    //std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
+    boost::container::flat_map<operation_id, boost::container::flat_map<size_t, frost_sigshare>> m_sig_shares;
 
     enum {SIGSESSION, SIGHANDLER};
     typedef std::tuple<secp256k1_frost_session, aggregate_sig_handler> sigstate;
-    std::unordered_map<operation_id, sigstate> m_sig_handlers;
+    //std::unordered_map<operation_id, sigstate> m_sig_handlers;
+    boost::container::flat_map<operation_id, sigstate> m_sig_handlers;
 
     const error_handler m_err_handler;
 
