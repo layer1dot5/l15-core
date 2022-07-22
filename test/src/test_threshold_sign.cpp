@@ -148,8 +148,8 @@ TEST_CASE("2-of-3 FROST signature")
 
 TEST_CASE("Keyshare 1K")
 {
-    const size_t N = 300;
-    const size_t K = 150;
+    const size_t N = 600;
+    const size_t K = 300;
 
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
@@ -198,7 +198,7 @@ TEST_CASE("Keyshare 1K")
     std::for_each(signers.begin(), signers.end(), [&](auto& s){
         distrib_measure.Measure([&](){
             std::get<0>(s)->DistributeKeyShares();
-            if(std::get<0>(s)->GetIndex() % 100 == 0)
+            if(std::get<0>(s)->GetIndex() % 100 == 99)
             {
                 std::clog << "Peer " << std::get<0>(s)->GetIndex() << " key share completed" << std::endl;
             }
@@ -209,23 +209,21 @@ TEST_CASE("Keyshare 1K")
     distrib_measure.Report(std::clog);
 
     TimeMeasure keyagg_measure("Aggregate pubkey");
-    keyagg_measure.Measure([&]() {
-        std::get<0>(signers.front())->AggregateKeyShares();
-        return 0;
-    });
-    keyagg_measure.Measure([&]() {
-        std::get<0>(*(signers.begin()+1))->AggregateKeyShares();
-        return 0;
+    std::for_each(std::execution::par_unseq, signers.begin(), signers.end(), [&](auto &si) {
+        keyagg_measure.Measure([&]() {
+            std::get<0>(si)->AggregateKeyShares();
+            return 0;
+        });
     });
     keyagg_measure.Report(std::clog);
 
     const auto& pubkey0 = std::get<0>(signers.front())->GetAggregatedPubKey();
-    const auto& pubkey1 = std::get<0>(*(signers.begin()+1))->GetAggregatedPubKey();
     CHECK_FALSE(ChannelKeys::IsZeroArray(pubkey0));
-    CHECK(HexStr(pubkey0) == HexStr(pubkey1));
+    for(const auto& si: signers)
+    {
+        CHECK(HexStr(pubkey0) == HexStr(std::get<0>(si)->GetAggregatedPubKey()));
+    }
 
-//    for (auto& s : signers) {
-//        CHECK(HexStr(std::get<0>(s)->GetAggregatedPubKey()) == HexStr(pubkey0));
-//    }
+    std::clog << "Keyshare test completed" << std::endl;
 
 }

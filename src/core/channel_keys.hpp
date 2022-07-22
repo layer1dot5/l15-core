@@ -65,6 +65,9 @@ public:
         return *this;
     }
 
+    bool IsAssigned() const
+    { return !IsZeroArray(m_local_sk); }
+
     void SetAggregatePubKey(const xonly_pubkey& pubkey)
     { m_pubkey_agg = pubkey; }
     //void AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys);

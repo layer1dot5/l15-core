@@ -89,10 +89,9 @@ void SignerApi::AcceptKeyShare(const Message &m)
     const auto& message = reinterpret_cast<const KeyShare&>(m);
 
     if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
-        && !m_peers_data[message.peer_index].keyshare_commitment.empty() && ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].keyshare)) {
+        && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !m_peers_data[message.peer_index].keyshare.has_value()) {
 
-
-        m_peers_data[message.peer_index].keyshare = message.share;
+        m_peers_data[message.peer_index].keyshare.emplace(std::move(message.share));
 
         if (++m_keyshare_count >= m_peers_data.size()) {
             m_key_handler(*this);
@@ -108,7 +107,7 @@ void SignerApi::AcceptSignatureShare(const Message &m)
     const auto& message = reinterpret_cast<const SignatureShare&>(m);
 
     if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
-        && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].keyshare)
+        && mKeyShare.IsAssigned()
         && GetOpId() == message.operation_id)
     {
         {
@@ -229,10 +228,10 @@ void SignerApi::AggregateKeyShares()
     std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& s) {
         size_t i = &s - &(m_peers_data.front());
 
-        if (ChannelKeys::IsZeroArray(s.keyshare)) {
+        if (!s.keyshare.has_value() || ChannelKeys::IsZeroArray(*s.keyshare)) {
             throw KeyAggregationError();
         }
-        std::copy(s.keyshare.cbegin(), s.keyshare.cend(), shares_data[i].data);
+        std::copy(s.keyshare->cbegin(), s.keyshare->cend(), shares_data[i].data);
         shares[i] = &shares_data[i];
 
         commitments_data[i].reserve(m_threshold_size);
@@ -267,6 +266,12 @@ void SignerApi::AggregateKeyShares()
 
         throw KeyAggregationError();
     }
+
+    std::for_each(m_peers_data.begin(), m_peers_data.end(), [](auto & s)
+    {
+        s.keyshare_commitment.clear();
+        s.keyshare.reset();
+    });
 
     seckey share;
     std::copy(agg_share.data, agg_share.data + sizeof(agg_share.data), share.begin());

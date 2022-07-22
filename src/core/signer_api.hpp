@@ -65,7 +65,10 @@ struct RemoteSignerData
     std::list<frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<compressed_pubkey> keyshare_commitment; // k
-    seckey keyshare;
+    std::optional<seckey> keyshare;
+
+    RemoteSignerData() : link(nullptr), pubkey(), ephemeral_pubkeys(), keyshare_commitment(), keyshare(std::nullopt) {}
+
 };
 
 
