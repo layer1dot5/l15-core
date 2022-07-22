@@ -342,7 +342,7 @@ void SignerApi::InitSignature(operation_id opid, const uint256 &datahash, aggreg
     }
 
     if (!secp256k1_frost_nonce_process(mWallet.GetSecp256k1Context(), session, pubnonces.data(), m_threshold_size,
-                                       datahash.data(), &pubkey_agg, &pubkey, pubkeys.data())) {
+                                       datahash.data(), &pubkey_agg, &pubkey, pubkeys.data(), nullptr, nullptr)) {
         throw SignatureError();
     }
 
@@ -361,7 +361,7 @@ void SignerApi::DistributeSigShares()
     std::copy(mKeyShare.GetLocalPrivKey().begin(), mKeyShare.GetLocalPrivKey().end(), keyshare.data);
 
     secp256k1_frost_partial_sig sigshare;
-    if (!secp256k1_frost_partial_sign(mWallet.GetSecp256k1Context(), &sigshare, &secnonce, &keyshare, session)) {
+    if (!secp256k1_frost_partial_sign(mWallet.GetSecp256k1Context(), &sigshare, &secnonce, &keyshare, session, nullptr)) {
         throw SignatureError();
     }
 
