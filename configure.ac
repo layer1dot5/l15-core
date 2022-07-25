@@ -37,6 +37,7 @@ AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
 AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
+AX_TBB
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT32_T
@@ -149,6 +150,7 @@ echo "  CPPFLAGS        = $DEBUG_CPPFLAGS $CPPFLAGS"
 echo "  CXX             = $CXX"
 echo "  CXXFLAGS        = $DEBUG_CXXFLAGS $CXXFLAGS"
 echo "  LDFLAGS         = $LDFLAGS"
+echo "  LIBS            = $LIBS"
 echo "  ARFLAGS         = $ARFLAGS"
 echo "  ==============================================================================================================="
 echo

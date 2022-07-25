@@ -17,7 +17,7 @@ AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 L15_LIBS = -lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
 -lbitcoin_crypto_base -lbitcoin_crypto_avx2 -lbitcoin_crypto_shani -lbitcoin_crypto_x86_shani -lbitcoin_crypto_sse41 \
 $(top_builddir)/contrib/secp256k1/libsecp256k1.la $(top_builddir)/node/src/univalue/libunivalue.la \
-$(BOOST_FILESYSTEM_LIB) $(PTHREAD_LIBS) -ltbb
+$(BOOST_FILESYSTEM_LIB) $(PTHREAD_LIBS)
 
 bin_PROGRAMS = test_threshold_sign test_taptree test_taproot test_node
 #test_ptlc
