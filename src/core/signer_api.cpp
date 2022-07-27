@@ -357,12 +357,14 @@ signature SignerApi::AggregateSignature(operation_id opid)
     }
 }
 
-void SignerApi::InitSignature(operation_id opid)
+void SignerApi::InitSignature(operation_id opid, bool participate)
 {
     SigOpSigShareCount(opid) = 0;
 
-    SignatureCommitment message(m_signer_index, opid);
-    SendToPeers(message);
+    if (participate) {
+        SignatureCommitment message(m_signer_index, opid);
+        SendToPeers(message);
+    }
 }
 
 void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)

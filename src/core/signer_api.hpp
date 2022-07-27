@@ -191,7 +191,7 @@ public:
     void CommitNonces(size_t count);
 
 
-    void InitSignature(operation_id opid);
+    void InitSignature(operation_id opid, bool participate = true);
     void PreprocessSignature(const uint256 &datahash, operation_id opid);
     void DistributeSigShares(operation_id opid);
 

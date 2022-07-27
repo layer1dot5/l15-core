@@ -122,10 +122,11 @@ TEST_CASE("2-of-3 FROST signature")
 
     uint256 m(message_data32);
 
-//    CHECK_NOTHROW(signer0.InitSignature(0));
+    CHECK_NOTHROW(signer0.InitSignature(0, false));
     CHECK_NOTHROW(signer1.InitSignature(0));
     CHECK_NOTHROW(signer2.InitSignature(0));
 
+    signer0.PreprocessSignature(m, 0);
     signer1.PreprocessSignature(m, 0);
     signer2.PreprocessSignature(m, 0);
 
@@ -134,16 +135,16 @@ TEST_CASE("2-of-3 FROST signature")
 
     CHECK_NOTHROW(sig1 = signer1.AggregateSignature(0));
     CHECK_NOTHROW(sig2 = signer2.AggregateSignature(0));
-    //CHECK_NOTHROW(sig0 = signer0.AggregateSignature(0));
+    CHECK_NOTHROW(sig0 = signer0.AggregateSignature(0));
 
 
     REQUIRE_FALSE(ChannelKeys(wallet).IsZeroArray(sig1));
-    //CHECK(sig0 == sig1);
-    CHECK(sig1 == sig2);
+    CHECK(sig2 == sig1);
+    CHECK(sig0 == sig1);
 
-    //CHECK_NOTHROW(signer0.Verify(m, sig0));
     CHECK_NOTHROW(signer1.Verify(m, sig2));
     CHECK_NOTHROW(signer2.Verify(m, sig1));
+    CHECK_NOTHROW(signer0.Verify(m, sig0));
 }
 
 //TEST_CASE("Keyshare 1K")
