@@ -23,6 +23,7 @@
 namespace l15 {
 
 typedef size_t operation_id;
+typedef size_t peer_index;
 
 class SignatureError : public core::Error {
 public:
@@ -42,7 +43,7 @@ public:
 };
 class WrongOperationId : public core::Error {
 public:
-    WrongOperationId(operation_id id) : opid(id) {}
+    explicit WrongOperationId(operation_id id) : opid(id) {}
     ~WrongOperationId() override = default;
 
     const char* what() const override
@@ -55,7 +56,8 @@ class SignerApi;
 
 typedef std::function<void(core::Error&&)> error_handler;
 typedef std::function<void(SignerApi&)> aggregate_key_handler;
-typedef std::function<void(SignerApi&)> aggregate_sig_handler;
+typedef std::function<void(SignerApi&, operation_id)> new_sigop_handler;
+typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
 
 
 struct RemoteSignerData
@@ -81,7 +83,6 @@ class SignerApi
 
     const size_t m_signer_index;
     size_t m_nonce_count;
-    operation_id m_opid;
 
     const size_t m_threshold_size;
     std::vector<RemoteSignerData> m_peers_data;
@@ -94,13 +95,14 @@ class SignerApi
     std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
     std::mutex m_sig_share_mutex;
-    //std::unordered_map<operation_id, std::unordered_map<size_t, frost_sigshare>> m_sig_shares;
-    boost::container::flat_map<operation_id, boost::container::flat_map<size_t, frost_sigshare>> m_sig_shares;
 
-    enum {SIGSESSION, SIGHANDLER};
-    typedef std::tuple<secp256k1_frost_session, aggregate_sig_handler> sigstate;
-    //std::unordered_map<operation_id, sigstate> m_sig_handlers;
-    boost::container::flat_map<operation_id, sigstate> m_sig_handlers;
+    typedef std::optional<frost_sigshare> sigop_peer_cache;
+    typedef std::tuple<std::optional<secp256k1_frost_session>, boost::container::flat_map<peer_index, sigop_peer_cache>, size_t> sigop_cache;
+
+    boost::container::flat_map<operation_id, sigop_cache> m_sigops_cache;
+
+    const new_sigop_handler m_new_sig_handler;
+    const aggregate_sig_handler m_aggregate_sig_handler;
 
     const error_handler m_err_handler;
 
@@ -134,9 +136,24 @@ class SignerApi
         });
     }
 
+    std::optional<secp256k1_frost_session>& SigOpSession(operation_id opid)
+    { return std::get<0>(m_sigops_cache[opid]); }
+
+    boost::container::flat_map<peer_index, sigop_peer_cache>& SigOpCachedPeers(operation_id opid)
+    { return std::get<1>(m_sigops_cache[opid]); }
+
+    size_t& SigOpSigShareCount(operation_id opid)
+    { return std::get<2>(m_sigops_cache[opid]); }
 
 public:
-    SignerApi(api::WalletApi& wallet, size_t index, ChannelKeys &&keypair, size_t cluster_size, size_t threshold_size, error_handler e);
+    SignerApi(api::WalletApi& wallet,
+              size_t index,
+              ChannelKeys &&keypair,
+              size_t cluster_size,
+              size_t threshold_size,
+              new_sigop_handler sigop,
+              aggregate_sig_handler aggsig,
+              error_handler e);
 
     size_t GetIndex() const noexcept
     { return m_signer_index; }
@@ -149,9 +166,6 @@ public:
 
     size_t GetNonceCount() const noexcept
     { return m_nonce_count; }
-
-    operation_id GetOpId() const noexcept
-    { return m_opid; }
 
 
     // Methods to access internal data to use by tests
@@ -171,19 +185,22 @@ public:
 
     void Accept(const p2p::Message& m);
 
-    void RegisterToPeers(aggregate_key_handler handler);
+    void RegisterToPeers(aggregate_key_handler key_handler);
     void DistributeKeyShares();
 
     void CommitNonces(size_t count);
 
 
-    void InitSignature(operation_id opid, const uint256 &datahash, aggregate_sig_handler handler);
-    void DistributeSigShares();
+    void InitSignature(operation_id opid);
+    void PreprocessSignature(const uint256 &datahash, operation_id opid);
+    void DistributeSigShares(operation_id opid);
 
     void Verify(const uint256& message, const signature& signature);
 
-    void AggregateKeyShares();
-    signature AggregateSignatureShares();
+    void AggregateKey();
+    signature AggregateSignature(operation_id opid);
+
+    void ClearSignatureCache(operation_id opid);
 private:
 
 
@@ -191,6 +208,7 @@ private:
     void AcceptNonceCommitments(const p2p::Message& m);
     void AcceptKeyShareCommitment(const p2p::Message& m);
     void AcceptKeyShare(const p2p::Message& m);
+    void AcceptSignatureCommitment(const p2p::Message& m);
     void AcceptSignatureShare(const p2p::Message& m);
 
 
