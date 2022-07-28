@@ -306,6 +306,7 @@ TEST_CASE("Keyshare 1K")
         aggsig_measure.Report(std::clog);
 
         for (const auto& sig: final_sigs) {
+            CHECK(!ChannelKeys::IsZeroArray(sig));
             CHECK_NOTHROW(std::get<0>(signers.front())->Verify(m, sig));
         }
 
