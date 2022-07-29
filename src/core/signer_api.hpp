@@ -6,7 +6,6 @@
 #include <cmath>
 #include <algorithm>
 #include <execution>
-//#include <unordered_map>
 #include <boost/container/flat_map.hpp>
 #include <atomic>
 #include <mutex>
@@ -72,11 +71,11 @@ typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
 struct RemoteSignerData
 {
     mutable std::shared_ptr<p2p::Link> link;
-    xonly_pubkey pubkey;
-    std::list<frost_pubnonce> ephemeral_pubkeys;
+    secp256k1_xonly_pubkey pubkey;
+    std::list<secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
-    std::vector<compressed_pubkey> keyshare_commitment; // k
-    std::optional<seckey> keyshare;
+    std::vector<secp256k1_pubkey> keyshare_commitment; // k
+    std::optional<secp256k1_frost_share> keyshare;
 
     RemoteSignerData() : link(nullptr), pubkey(), ephemeral_pubkeys(), keyshare_commitment(), keyshare(std::nullopt) {}
 
@@ -99,7 +98,7 @@ class SignerApi
     uint256 m_vss_hash;
     aggregate_key_handler m_key_handler;
 
-    std::list<frost_secnonce> m_secnonces;
+    std::list<secp256k1_frost_secnonce> m_secnonces;
 
     std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
@@ -167,10 +166,10 @@ public:
     size_t GetIndex() const noexcept
     { return m_signer_index; }
 
-    const xonly_pubkey & GetLocalPubKey() const
+    const xonly_pubkey& GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }
 
-    xonly_pubkey GetAggregatedPubKey() const
+    const xonly_pubkey& GetAggregatedPubKey() const
     { return mKeyShare.GetPubKey(); }
 
     size_t GetNonceCount() const noexcept
@@ -183,7 +182,7 @@ public:
     const seckey& GetSecKey() const
     { return mKeypair.GetLocalPrivKey(); }
 
-    const std::list<frost_secnonce>& GetSecNonceList() const
+    const std::list<secp256k1_frost_secnonce>& GetSecNonceList() const
     { return m_secnonces; }
 
     // -----------------------------------------------

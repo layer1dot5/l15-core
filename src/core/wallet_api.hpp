@@ -8,6 +8,7 @@
 #include "bech32.h"
 
 #include "secp256k1.h"
+#include "secp256k1_extrakeys.h"
 
 #include "common.hpp"
 #include "common_api.hpp"
@@ -45,7 +46,6 @@ class WalletApi
 
     secp256k1_context* m_ctx;
 
-    const secp256k1_context* GetSecp256k1Context() const { return m_ctx; }
 
     static const char* const HRP_MAINNET;
     static const char* const HRP_TESTNET;
@@ -69,6 +69,8 @@ class WalletApi
 public:
     explicit WalletApi(ChainMode mode);
     ~WalletApi();
+
+    const secp256k1_context* GetSecp256k1Context() const { return m_ctx; }
 
     template <class I>
     std::string Bech32Encode(I begin, I end) const
@@ -101,6 +103,8 @@ public:
 
 //    void AddTxIn(CMutableTransaction& tx, const TxInputContainer txin) const;
 //    void AddTxOut(CMutableTransaction& tx, const std::string &address, CAmount amount) const;
+
+    xonly_pubkey Serialize(const secp256k1_xonly_pubkey& pk) const;
 };
 
 }

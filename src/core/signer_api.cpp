@@ -69,7 +69,7 @@ void SignerApi::AcceptRemoteSigner(const Message &m)
 {
     const auto &message = reinterpret_cast<const RemoteSigner &>(m);
 
-    if(message.peer_index < m_peers_data.size() && ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey))
+    if(message.peer_index < m_peers_data.size() /*&& ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/)
     {
         m_peers_data[message.peer_index].pubkey = message.pubkey;
     }
@@ -82,7 +82,7 @@ void SignerApi::AcceptNonceCommitments(const Message &m)
 {
     const auto& message = reinterpret_cast<const NonceCommitments&>(m);
 
-    if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)) {
+    if (message.peer_index < m_peers_data.size() /*&& !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/) {
         auto& ephemeral_pubkeys = m_peers_data[message.peer_index].ephemeral_pubkeys;
         ephemeral_pubkeys.insert(ephemeral_pubkeys.end(), message.nonce_commitments.begin(),
                                  message.nonce_commitments.end());
@@ -96,7 +96,7 @@ void SignerApi::AcceptKeyShareCommitment(const Message &m)
 {
     const auto& message = reinterpret_cast<const KeyShareCommitment&>(m);
 
-    if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
+    if (message.peer_index < m_peers_data.size()/* && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/
         && m_peers_data[message.peer_index].keyshare_commitment.empty()) {
         m_peers_data[message.peer_index].keyshare_commitment = message.share_commitment;
     }
@@ -109,7 +109,7 @@ void SignerApi::AcceptKeyShare(const Message &m)
 {
     const auto& message = reinterpret_cast<const KeyShare&>(m);
 
-    if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
+    if (message.peer_index < m_peers_data.size()/* && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/
         && !m_peers_data[message.peer_index].keyshare_commitment.empty() && !m_peers_data[message.peer_index].keyshare.has_value()) {
 
         m_peers_data[message.peer_index].keyshare = message.share;
@@ -127,7 +127,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
 {
     const auto& message = reinterpret_cast<const SignatureCommitment&>(m);
 
-    if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
+    if (message.peer_index < m_peers_data.size()/* && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/
         && mKeyShare.IsAssigned())
     {
         [[maybe_unused]] const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
@@ -148,7 +148,7 @@ void SignerApi::AcceptSignatureShare(const Message &m)
 {
     const auto& message = reinterpret_cast<const SignatureShare&>(m);
 
-    if (message.peer_index < m_peers_data.size() && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey)
+    if (message.peer_index < m_peers_data.size()/* && !ChannelKeys::IsZeroArray(m_peers_data[message.peer_index].pubkey.data)*/
         && mKeyShare.IsAssigned())
     {
         {
@@ -181,7 +181,12 @@ void SignerApi::RegisterToPeers(aggregate_key_handler handler)
 {
     m_key_handler = std::move(handler);
 
-    RemoteSigner message((uint32_t)m_signer_index, mKeypair.GetLocalPubKey());
+    RemoteSigner message((uint32_t)m_signer_index);
+
+    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &message.pubkey, mKeypair.GetLocalPubKey().data())) {
+        throw KeyError();
+    }
+
     SendToPeers(message);
 }
 
@@ -204,16 +209,8 @@ void SignerApi::CommitNonces(size_t count)
             throw SignatureError();
         }
 
-        frost_secnonce secnonce_bytes;
-        frost_pubnonce pubnonce_bytes;
-
-        std::copy(secnonce.data, secnonce.data + sizeof(secnonce.data), secnonce_bytes.begin());
-        std::copy(pubnonce.data, pubnonce.data + sizeof(pubnonce.data), pubnonce_bytes.begin());
-
-        m_secnonces.emplace_back(secnonce_bytes);
-        //m_peers_data[m_signer_index].ephemeral_pubkeys.emplace_back(pubnonce_bytes);
-
-        message.nonce_commitments.push_back(pubnonce_bytes);
+        m_secnonces.emplace_back(secnonce);
+        message.nonce_commitments.emplace_back(pubnonce);
     }
 
     SendToPeers(message);
@@ -233,69 +230,41 @@ void SignerApi::DistributeKeyShares()
 
     //TODO: Optimization is needed by parallelisation (but only when secp256k1_frost is optimized at commitment generation)
 
-    std::vector<secp256k1_frost_share> shares(m_peers_data.size());
-    std::vector<secp256k1_pubkey> share_commitment(m_threshold_size);
+    secp256k1_frost_share tmp_share;
     KeyShareCommitment message(m_signer_index);
+    message.share_commitment.resize(m_threshold_size);
 
-    size_t peer_count = m_peers_data.size();
-    for (size_t i = 0; i < peer_count; ++i) {
-        secp256k1_xonly_pubkey index_pubkey;
-        if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &index_pubkey, m_peers_data[i].pubkey.data())) {
-            throw WrongKeyError();
-        }
-
-        if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(),
-                                       (i == 0) ? share_commitment.data() : nullptr, &(shares[i]),
-                                       session.data(), &keypair, &index_pubkey, m_threshold_size)) {
-            throw SignatureError();
-        }
+    if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(),
+                                   message.share_commitment.data(), &(tmp_share),
+                                   session.data(), &keypair, &m_peers_data[0].pubkey, m_threshold_size)) {
+        throw SignatureError();
     }
-
-    message.share_commitment.resize(share_commitment.size());
-    std::transform(std::execution::par_unseq, share_commitment.cbegin(), share_commitment.cend(), message.share_commitment.begin(),
-                   [&](const secp256k1_pubkey& pk) {
-                       compressed_pubkey pk_out;
-                       size_t out_len = pk_out.size();
-                       secp256k1_ec_pubkey_serialize(mWallet.GetSecp256k1Context(), pk_out.data(), &out_len, &pk, SECP256K1_EC_COMPRESSED);
-                       return pk_out;
-                   } );
 
     SendToPeers(message);
 
     SendToPeers<KeyShare>([&](KeyShare& m, size_t i){
-        std::copy(shares[i].data, shares[i].data + sizeof(shares[i].data), m.share.begin());
+        if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(),
+                                       nullptr, &(m.share),
+                                       session.data(), &keypair, &m_peers_data[i].pubkey, m_threshold_size)) {
+            throw SignatureError();
+        }
     });
 
 }
 
 void SignerApi::AggregateKey()
 {
-    std::vector<secp256k1_frost_share> shares_data(m_peers_data.size());
-    std::vector<secp256k1_frost_share*> shares(m_peers_data.size());
-
-    std::vector<std::vector<secp256k1_pubkey>> commitments_data(m_peers_data.size());
-    std::vector<secp256k1_pubkey*> commitments(m_peers_data.size());
+    std::vector<const secp256k1_frost_share*> shares(m_peers_data.size());
+    std::vector<const secp256k1_pubkey*> commitments(m_peers_data.size());
 
     std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& s) {
         size_t i = &s - &(m_peers_data.front());
 
-        if (!s.keyshare.has_value() || ChannelKeys::IsZeroArray(*s.keyshare)) {
+        if (!s.keyshare.has_value()) {
             throw KeyAggregationError();
         }
-        std::copy(s.keyshare->cbegin(), s.keyshare->cend(), shares_data[i].data);
-        shares[i] = &shares_data[i];
-
-        commitments_data[i].reserve(m_threshold_size);
-        std::transform(s.keyshare_commitment.begin(), s.keyshare_commitment.end(),
-                       cex::smartinserter(commitments_data[i], commitments_data[i].end()),
-                       [&](const compressed_pubkey& p) {
-            secp256k1_pubkey commit;
-            if (!secp256k1_ec_pubkey_parse(mWallet.GetSecp256k1Context(), &commit, p.data(), p.size())) {
-                throw KeyAggregationError();
-            }
-            return commit;
-        } );
-        commitments[i] = commitments_data[i].data();
+        shares[i] = &s.keyshare.value();
+        commitments[i] = s.keyshare_commitment.data();
 
     } );
 
@@ -305,11 +274,11 @@ void SignerApi::AggregateKey()
         throw WrongKeyError();
     }
 
-    std::for_each(m_peers_data.begin(), m_peers_data.end(), [&](auto & s)
+    std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [&](auto & s)
     {
-        size_t sidx = &s - &m_peers_data.front();
+        secp256k1_pubkey* commitment = s.keyshare_commitment.data();
         if (!secp256k1_frost_share_verify(mWallet.GetSecp256k1Context(), m_threshold_size, &signer_pk,
-                                          shares[sidx], &commitments[sidx])) {
+                                          &s.keyshare.value(), &(commitment))) {
             throw KeyShareVerificationError();
         }
     });
@@ -322,12 +291,12 @@ void SignerApi::AggregateKey()
                                    m_vss_hash.data(),
                                    shares.data(), commitments.data(),
                                    m_peers_data.size(), m_threshold_size,
-                                   &signer_pk)) {
+                                   &m_peers_data[m_signer_index].pubkey)) {
 
         throw KeyAggregationError();
     }
 
-    std::for_each(m_peers_data.begin(), m_peers_data.end(), [](auto & s)
+    std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [](auto & s)
     {
         s.keyshare_commitment.clear();
         s.keyshare.reset();
@@ -337,7 +306,9 @@ void SignerApi::AggregateKey()
     std::copy(agg_share.data, agg_share.data + sizeof(agg_share.data), share.begin());
 
     xonly_pubkey agg_pubkey;
-    secp256k1_xonly_pubkey_serialize(mWallet.GetSecp256k1Context(), agg_pubkey.data(), &agg_pk);
+    if (!secp256k1_xonly_pubkey_serialize(mWallet.GetSecp256k1Context(), agg_pubkey.data(), &agg_pk)) {
+        throw KeyAggregationError();
+    }
 
     mKeyShare = ChannelKeys(mWallet, std::move(share));
     mKeyShare.SetAggregatePubKey(agg_pubkey);
@@ -381,34 +352,23 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
     SigOpSession(opid).emplace(secp256k1_frost_session());
     secp256k1_frost_session* session = &(SigOpSession(opid).value());
 
-    std::vector<std::pair<secp256k1_frost_pubnonce, secp256k1_xonly_pubkey>> data(m_threshold_size);
-
-    std::vector<secp256k1_frost_pubnonce*> pubnonces(m_threshold_size);
-    std::vector<secp256k1_xonly_pubkey*> pubkeys(m_threshold_size);
+    std::vector<const secp256k1_frost_pubnonce*> pubnonces(m_threshold_size);
+    std::vector<const secp256k1_xonly_pubkey*> pubkeys(m_threshold_size);
 
     const auto& peers = SigOpCachedPeers(opid);
-    std::transform(std::execution::par_unseq, peers.cbegin(), peers.cend(), data.begin(), [&](const auto& ss)
-    //for(auto it = peers.cbegin(); it != peers.cend(); ++it)
-    {
-        std::pair<secp256k1_frost_pubnonce, secp256k1_xonly_pubkey> item;
-        const RemoteSignerData& peer = m_peers_data[ss.first];
-        //const size_t index = peers.index_of(it);
 
+    std::transform(std::execution::par_unseq, peers.begin(), peers.end(), pubnonces.begin(), [&](const auto& ss)
+    {
+        const RemoteSignerData& peer = m_peers_data[ss.first];
         auto I = peer.ephemeral_pubkeys.begin();
         std::advance(I, opid);
-        std::copy(I->data(), I->data() + I->size(), item.first.data);
-
-        if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &item.second, peer.pubkey.data())) {
-            throw WrongKeyError();
-        }
-
-        return item;
+        return &(*I);
     });
 
-    std::for_each(std::execution::par_unseq, data.begin(), data.end(), [&](auto& d){
-        size_t index = &d - &data.front();
-        pubnonces[index] = &d.first;
-        pubkeys[index] = &d.second;
+    std::transform(std::execution::par_unseq, peers.begin(), peers.end(), pubkeys.begin(), [&](const auto& ss)
+    {
+        const RemoteSignerData& peer = m_peers_data[ss.first];
+        return &(peer.pubkey);
     });
 
     secp256k1_xonly_pubkey pubkey_agg;
@@ -436,16 +396,14 @@ void SignerApi::DistributeSigShares(operation_id opid)
 
     secp256k1_frost_session* session = &(SigOpSession(opid).value());;
 
-    secp256k1_frost_secnonce secnonce;
     auto secnonce_it = m_secnonces.begin();
     std::advance(secnonce_it, opid);
-    std::copy(secnonce_it->begin(), secnonce_it->end(), secnonce.data);
 
     secp256k1_frost_share keyshare;
     std::copy(mKeyShare.GetLocalPrivKey().begin(), mKeyShare.GetLocalPrivKey().end(), keyshare.data);
 
     secp256k1_frost_partial_sig sigshare;
-    if (!secp256k1_frost_partial_sign(mWallet.GetSecp256k1Context(), &sigshare, &secnonce, &keyshare, session, nullptr)) {
+    if (!secp256k1_frost_partial_sign(mWallet.GetSecp256k1Context(), &sigshare, &*secnonce_it, &keyshare, session, nullptr)) {
         throw SignatureError();
     }
 

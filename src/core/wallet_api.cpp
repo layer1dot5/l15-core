@@ -267,5 +267,13 @@ bytevector WalletApi::Bech32Decode(const std::string& addrstr) const
 //    tx.vout.emplace_back(CTxOut(amount, ExtractScriptPubKey(address)));
 //}
 
+xonly_pubkey WalletApi::Serialize(const secp256k1_xonly_pubkey &pk) const
+{
+    xonly_pubkey res;
+    if (!secp256k1_xonly_pubkey_serialize(GetSecp256k1Context(), res.data(), &pk)) {
+        throw WrongKeyError();
+    }
+    return res;
+}
 
 }

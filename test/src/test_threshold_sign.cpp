@@ -28,6 +28,19 @@ using namespace l15;
 namespace rs = std::ranges;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
+
+bool operator== (const std::list<secp256k1_frost_pubnonce>& l1, const std::list<secp256k1_frost_pubnonce>& l2) {
+    if (l1.size() == l2.size()) {
+        auto i1 = l1.cbegin();
+        auto i2 = l2.cbegin();
+        for (; i1 != l1.cend(); ++i1, ++i2) {
+            if (memcmp(i1->data, i2->data, sizeof(secp256k1_frost_pubnonce::data)) != 0) return false;
+        }
+        return true;
+    }
+    else return false;
+}
+
 TEST_CASE("2-of-3 FROST signature")
 {
     const size_t N = 3;
@@ -64,14 +77,14 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK_NOTHROW(signer1.RegisterToPeers(key_hdl));
     CHECK_NOTHROW(signer2.RegisterToPeers(key_hdl));
 
-    CHECK(signer1.Peers()[0].pubkey == signer0.GetLocalPubKey());
-    CHECK(signer2.Peers()[0].pubkey == signer0.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer1.Peers()[0].pubkey) == signer0.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer2.Peers()[0].pubkey) == signer0.GetLocalPubKey());
 
-    CHECK(signer0.Peers()[1].pubkey == signer1.GetLocalPubKey());
-    CHECK(signer2.Peers()[1].pubkey == signer1.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer0.Peers()[1].pubkey) == signer1.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer2.Peers()[1].pubkey) == signer1.GetLocalPubKey());
 
-    CHECK(signer0.Peers()[2].pubkey == signer2.GetLocalPubKey());
-    CHECK(signer1.Peers()[2].pubkey == signer2.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer0.Peers()[2].pubkey) == signer2.GetLocalPubKey());
+    CHECK(wallet.Serialize(signer1.Peers()[2].pubkey) == signer2.GetLocalPubKey());
 
 
     // Negotiate Aggregated Pubkey
@@ -151,8 +164,8 @@ TEST_CASE("2-of-3 FROST signature")
 
 TEST_CASE("Keyshare 1K")
 {
-    const size_t N = 600;
-    const size_t K = 300;
+    const size_t N = 1000;
+    const size_t K = 500;
 
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
