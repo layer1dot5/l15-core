@@ -169,11 +169,10 @@ TEST_CASE("Keyshare 1K")
 
     api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
 
-
     std::vector<std::tuple<std::unique_ptr<SignerApi>, p2p::link_ptr>> signers;
     signers.reserve(N);
 
-    aggregate_key_handler key_hdl = [](SignerApi& s) { s.AggregateKey(); };
+    aggregate_key_handler key_hdl = [](SignerApi& s) { };
     new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
     aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
     error_handler error_hdl = [&](core::Error&& e) { FAIL(e.what()); };
@@ -191,8 +190,6 @@ TEST_CASE("Keyshare 1K")
 
     std::clog << "Signers are initialized" << std::endl;
 
-    aggregate_key_handler empty_handler = [](SignerApi& s) { };
-
     {
         TimeMeasure reg_measure("Exchange peer pubkeys");
         std::for_each(std::execution::par_unseq, signers.begin(), signers.end(), [&](auto &si) {
@@ -202,7 +199,7 @@ TEST_CASE("Keyshare 1K")
                         std::get<0>(si)->AddPeer(std::get<0>(sj)->GetIndex(), std::get<1>(sj));
                     }
                 }
-                std::get<0>(si)->RegisterToPeers(empty_handler);
+                std::get<0>(si)->RegisterToPeers(key_hdl);
                 return 0;
             });
         });

@@ -2,7 +2,6 @@
 
 #include "secp256k1.h"
 #include "secp256k1_extrakeys.h"
-#include "secp256k1_musig.h"
 
 #include "random.h"
 
@@ -41,7 +40,7 @@ class ChannelKeys
     void CachePubkey();
 public:
     explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
-    explicit ChannelKeys(const api::WalletApi& wallet, seckey&& local_sk): mWallet(wallet), m_local_sk(local_sk) { CachePubkey(); }
+    explicit ChannelKeys(const api::WalletApi& wallet, seckey&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)) { CachePubkey(); }
 
     ChannelKeys(const ChannelKeys& other) : mWallet(other.mWallet), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk), m_pubkey_agg(other.m_pubkey_agg)
     {
@@ -50,12 +49,7 @@ public:
     ChannelKeys(ChannelKeys &&old) noexcept : mWallet(old.mWallet), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
     {
     }
-//
-//    ChannelKeys(CKey&& local_sk, XOnlyPubKey &&remote_pk)
-//            : m_local_sk(std::move(local_sk)), m_remote_pk(std::move(remote_pk))
-//    {}
-//
-//    ChannelKeys& operator=(const ChannelKeys& ) = delete;
+
     ChannelKeys& operator=(ChannelKeys&& old) noexcept
     {
         m_local_sk = std::move(old.m_local_sk);
@@ -68,14 +62,13 @@ public:
     bool IsAssigned() const
     { return !IsZeroArray(m_local_sk); }
 
-    void SetAggregatePubKey(const xonly_pubkey& pubkey)
+    void SetAggregatePubKey(const xonly_pubkey&& pubkey)
     { m_pubkey_agg = pubkey; }
-    //void AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys);
 
     const seckey& GetLocalPrivKey() const
     { return m_local_sk; }
 
-    const xonly_pubkey & GetLocalPubKey() const
+    const xonly_pubkey& GetLocalPubKey() const
     { return m_local_pk; }
 
     const xonly_pubkey& GetPubKey() const

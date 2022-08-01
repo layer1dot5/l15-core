@@ -8,10 +8,6 @@
 
 namespace l15 {
 
-namespace {
-    const unsigned char secp256k1_frost_partial_sig_magic[4] = { 0xeb, 0xfb, 0x1a, 0x32 };
-}
-
 using namespace p2p;
 
 SignerApi::SignerApi(api::WalletApi& wallet,
@@ -291,7 +287,7 @@ void SignerApi::AggregateKey()
                                    m_vss_hash.data(),
                                    shares.data(), commitments.data(),
                                    m_peers_data.size(), m_threshold_size,
-                                   &m_peers_data[m_signer_index].pubkey)) {
+                                   &signer_pk)) {
 
         throw KeyAggregationError();
     }
@@ -311,7 +307,7 @@ void SignerApi::AggregateKey()
     }
 
     mKeyShare = ChannelKeys(mWallet, std::move(share));
-    mKeyShare.SetAggregatePubKey(agg_pubkey);
+    mKeyShare.SetAggregatePubKey(std::move(agg_pubkey));
 }
 
 signature SignerApi::AggregateSignature(operation_id opid)
@@ -322,8 +318,7 @@ signature SignerApi::AggregateSignature(operation_id opid)
 
     std::transform(std::execution::par_unseq, SigOpCachedPeers(opid).begin(), SigOpCachedPeers(opid).end(), sigshares_data.begin(), [&](const auto& s)
     {
-        //TODO: Remove init magics when secp256k1_frost_partial_sig_parse is fixed
-        secp256k1_frost_partial_sig share {{0xeb, 0xfb, 0x1a, 0x32}};
+        secp256k1_frost_partial_sig share;
         secp256k1_frost_partial_sig_parse(mWallet.GetSecp256k1Context(), &share, s.second->data());
         return share;
     });
