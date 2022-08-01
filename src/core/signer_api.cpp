@@ -300,16 +300,25 @@ void SignerApi::AggregateKey()
     } );
 
     secp256k1_xonly_pubkey signer_pk;
-    secp256k1_frost_share agg_share;
-    secp256k1_xonly_pubkey agg_pk;
-    secp256k1_pubkey share_pk;
 
-    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &signer_pk, m_peers_data[m_signer_index].pubkey.data())) {
+    if (!secp256k1_xonly_pubkey_parse(mWallet.GetSecp256k1Context(), &signer_pk, GetLocalPubKey()/*m_peers_data[m_signer_index].pubkey*/.data())) {
         throw WrongKeyError();
     }
 
+    std::for_each(m_peers_data.begin(), m_peers_data.end(), [&](auto & s)
+    {
+        size_t sidx = &s - &m_peers_data.front();
+        if (!secp256k1_frost_share_verify(mWallet.GetSecp256k1Context(), m_threshold_size, &signer_pk,
+                                          shares[sidx], &commitments[sidx])) {
+            throw KeyShareVerificationError();
+        }
+    });
+
+    secp256k1_frost_share agg_share;
+    secp256k1_xonly_pubkey agg_pk;
+
     if (!secp256k1_frost_share_agg(mWallet.GetSecp256k1Context(),
-                                   &agg_share, &share_pk, &agg_pk,
+                                   &agg_share, &agg_pk,
                                    m_vss_hash.data(),
                                    shares.data(), commitments.data(),
                                    m_peers_data.size(), m_threshold_size,

@@ -33,6 +33,15 @@ public:
     { return "SignatureError"; }
 
 };
+class KeyShareVerificationError : public KeyError {
+public:
+    ~KeyShareVerificationError() override = default;
+
+    const char* what() const override
+    { return "KeyShareVerificationError"; }
+
+};
+
 class KeyAggregationError : public KeyError {
 public:
     ~KeyAggregationError() override = default;
