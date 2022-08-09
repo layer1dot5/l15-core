@@ -238,10 +238,10 @@ void SignerApi::DistributeKeyShares()
 
     SendToPeers(message);
 
-    SendToPeers<KeyShare>([&](KeyShare& m, size_t i){
+    SendToPeers<KeyShare>([&](KeyShare& m, const RemoteSignerData& s, size_t i){
         if (!secp256k1_frost_share_gen(mWallet.GetSecp256k1Context(),
                                        nullptr, &(m.share),
-                                       session.data(), &keypair, &m_peers_data[i].pubkey, m_threshold_size)) {
+                                       session.data(), &keypair, &s.pubkey, m_threshold_size)) {
             throw SignatureError();
         }
     });

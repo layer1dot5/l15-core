@@ -129,12 +129,12 @@ class SignerApi
     }
 
     template<typename DATA>
-    void SendToPeers(std::function<void(DATA&, size_t)> datagen) {
+    void SendToPeers(std::function<void(DATA&, const RemoteSignerData&, size_t)> datagen) {
         std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
         {
             size_t peer_index = &peer - &(m_peers_data.front());
             DATA data(m_signer_index);
-            datagen(data, peer_index);
+            datagen(data, peer, peer_index);
             if (m_signer_index != peer_index) {
                 peer.link->Send(data);
             }
