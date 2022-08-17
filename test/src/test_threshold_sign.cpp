@@ -25,6 +25,9 @@
 #include "time_measure.hpp"
 
 using namespace l15;
+using namespace l15::core;
+using namespace l15::p2p;
+
 namespace rs = std::ranges;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -46,22 +49,22 @@ TEST_CASE("2-of-3 FROST signature")
     const size_t N = 3;
     const size_t K = 2;
 
-    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+    WalletApi wallet(l15::ChainMode::MODE_REGTEST);
 
     // Create peers
 
     aggregate_key_handler key_hdl = [](SignerApi& s) { s.AggregateKey(); };
     new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
     aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
-    error_handler error_hdl = [](core::Error&& e) { FAIL(e.what()); };
+    error_handler error_hdl = [](Error&& e) { FAIL(e.what()); };
 
-    SignerApi signer0(wallet, 0, ChannelKeys(wallet), N, K, new_sigop_hdl, sig_hdl, error_hdl);
-    SignerApi signer1(wallet, 1, ChannelKeys(wallet), N, K, new_sigop_hdl, sig_hdl, error_hdl);
-    SignerApi signer2(wallet, 2, ChannelKeys(wallet), N, K, new_sigop_hdl, sig_hdl, error_hdl);
+    SignerApi signer0(0, ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
+    SignerApi signer1(1, ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
+    SignerApi signer2(2, ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
 
-    p2p::link_ptr link0 = p2p::link_ptr(new p2p::LocalLink(signer0));
-    p2p::link_ptr link1 = p2p::link_ptr(new p2p::LocalLink(signer1));
-    p2p::link_ptr link2 = p2p::link_ptr(new p2p::LocalLink(signer2));
+    link_ptr link0 = link_ptr(new LocalLink(signer0));
+    link_ptr link1 = link_ptr(new LocalLink(signer1));
+    link_ptr link2 = link_ptr(new LocalLink(signer2));
 
     // Connect peers
 
@@ -153,7 +156,7 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK_NOTHROW(sig0 = signer0.AggregateSignature(0));
 
 
-    REQUIRE_FALSE(ChannelKeys(wallet).IsZeroArray(sig1));
+    REQUIRE_FALSE(ChannelKeys::IsZeroArray(sig1));
     CHECK(sig2 == sig1);
     CHECK(sig0 == sig1);
 
@@ -167,9 +170,9 @@ TEST_CASE("Keyshare 1K")
     const size_t N = 1000;
     const size_t K = 500;
 
-    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+    WalletApi wallet(ChainMode::MODE_REGTEST);
 
-    std::vector<std::tuple<std::unique_ptr<SignerApi>, p2p::link_ptr>> signers;
+    std::vector<std::tuple<std::unique_ptr<SignerApi>, link_ptr>> signers;
     signers.reserve(N);
 
     aggregate_key_handler key_hdl = [](SignerApi& s) { };
@@ -182,9 +185,9 @@ TEST_CASE("Keyshare 1K")
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
            std::unique_ptr<SignerApi> signer(
-                   new SignerApi(wallet, i, ChannelKeys(wallet), N, K, new_sigop_hdl, sig_hdl, error_hdl));
-           p2p::link_ptr link = p2p::link_ptr(new p2p::LocalLink(*signer));
-           return std::tuple<std::unique_ptr<SignerApi>, p2p::link_ptr>(std::move(signer), std::move(link));
+                   new SignerApi(i, ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl));
+           link_ptr link = link_ptr(new LocalLink(*signer));
+           return std::tuple<std::unique_ptr<SignerApi>, link_ptr>(std::move(signer), std::move(link));
        }
     );
 

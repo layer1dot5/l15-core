@@ -14,7 +14,7 @@
 #include "common.hpp"
 
 
-namespace l15 {
+namespace l15::core {
 
 class WalletApi;
 class Channel;

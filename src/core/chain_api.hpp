@@ -8,10 +8,8 @@
 #include "script/script.h"
 #include "common.hpp"
 
-#include "common_api.hpp"
 
-
-namespace l15::api {
+namespace l15::core {
 
 class WalletApi;
 

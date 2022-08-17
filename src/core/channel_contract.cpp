@@ -1,6 +1,6 @@
 #include "channel_contract.hpp"
 
-namespace l15 {
+namespace l15::core {
 
 bool LessByTime(const IChannelContract& first, const IChannelContract& second)
 {

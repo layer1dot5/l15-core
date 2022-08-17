@@ -2,7 +2,9 @@ SUBDIRS = contrib node src test
 
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) \
  -I$(top_srcdir)/src \
+ -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/src/tools \
+ -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/node/src

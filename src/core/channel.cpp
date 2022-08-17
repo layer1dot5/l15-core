@@ -9,7 +9,7 @@
 #include "wallet_api.hpp"
 
 
-namespace l15 {
+namespace l15::core {
 
 CScript TapRootPayContract::CommitPubKeyScript(ContractSideSelector ) const
 {

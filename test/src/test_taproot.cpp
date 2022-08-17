@@ -1,6 +1,5 @@
 #include <iostream>
 #include <filesystem>
-#include <memory>
 #include <algorithm>
 
 #define CATCH_CONFIG_RUNNER
@@ -17,6 +16,8 @@
 #include "script_merkle_tree.hpp"
 
 using namespace l15;
+using namespace l15::core;
+
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 class TestcaseWrapper;
@@ -33,9 +34,9 @@ struct TestConfigFactory
         conf.ProcessConfig({"--conf=" + confpath});
     }
 
-    api::ChainMode GetChainMode() const
+    ChainMode GetChainMode() const
     {
-        return api::ChainMode::MODE_REGTEST;
+        return ChainMode::MODE_REGTEST;
     }
 
     std::string GetBitcoinDataDir() const
@@ -51,9 +52,9 @@ struct TestConfigFactory
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    api::ChainMode mMode;
-    api::WalletApi mWallet;
-    api::ChainApi mBtc;
+    ChainMode mMode;
+    WalletApi mWallet;
+    ChainApi mBtc;
     ExecHelper mCli;
     ExecHelper mBtcd;
 //    channelhtlc_ptr mChannelForAliceSide;
@@ -96,10 +97,10 @@ struct TestcaseWrapper
     Config &conf()
     { return mConfFactory.conf; }
 
-    api::WalletApi &wallet()
+    WalletApi &wallet()
     { return mWallet; }
 
-    api::ChainApi &btc()
+    ChainApi &btc()
     { return mBtc; }
 //    ChannelHtlc& channel_for_alice() { return *mChannelForAliceSide; }
 //    ChannelHtlc& channel_for_carol() { return *mChannelForCarolSide; }
@@ -160,7 +161,7 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot public key path spending")
     {
         //get key pair
-        auto sk = ChannelKeys(w->wallet());
+        auto sk = ChannelKeys(w->wallet().Secp256k1Context());
         auto& pk = sk.GetLocalPubKey();
 
         //create address from key pair
@@ -205,13 +206,13 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot script path spending")
     {
         //get key pair Taproot
-        auto internal_sk = ChannelKeys(w->wallet());
+        auto internal_sk = ChannelKeys(w->wallet().Secp256k1Context());
         const auto& internal_pk = internal_sk.GetLocalPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
         //get key pair script
-        auto sk = ChannelKeys(w->wallet());
+        auto sk = ChannelKeys(w->wallet().Secp256k1Context());
         const auto& pk = sk.GetLocalPubKey();
         std::string pk_str = HexStr(pk);
 

@@ -8,30 +8,15 @@
 #include "common.hpp"
 #include "core_error.hpp"
 
-#include "wallet_api.hpp"
+#include <optional>
 
-namespace l15 {
+namespace l15::core {
 
-class KeyError : public core::Error {
-public:
-    ~KeyError() override = default;
-
-    const char* what() const override
-    { return "KeyError"; }
-};
-
-class WrongKeyError : public KeyError {
-public:
-    ~WrongKeyError() override = default;
-
-    const char* what() const override
-    { return "WrongKeyError"; }
-};
 
 
 class ChannelKeys
 {
-    const api::WalletApi& mWallet;
+    const secp256k1_context* m_ctx;
     seckey m_local_sk;
     xonly_pubkey m_local_pk;
 
@@ -39,16 +24,14 @@ class ChannelKeys
 
     void CachePubkey();
 public:
-    explicit ChannelKeys(const api::WalletApi& wallet): mWallet(wallet), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
-    explicit ChannelKeys(const api::WalletApi& wallet, seckey&& local_sk): mWallet(wallet), m_local_sk(std::move(local_sk)) { CachePubkey(); }
+    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx): m_ctx(secp256k1_ctx), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
+    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx, seckey&& local_sk): m_ctx(secp256k1_ctx), m_local_sk(std::move(local_sk)) { CachePubkey(); }
 
-    ChannelKeys(const ChannelKeys& other) : mWallet(other.mWallet), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk), m_pubkey_agg(other.m_pubkey_agg)
-    {
-    }
+    ChannelKeys(const ChannelKeys& other): m_ctx(other.m_ctx), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk), m_pubkey_agg(other.m_pubkey_agg)
+    {}
 
-    ChannelKeys(ChannelKeys &&old) noexcept : mWallet(old.mWallet), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
-    {
-    }
+    ChannelKeys(ChannelKeys &&old) noexcept: m_ctx(old.m_ctx), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
+    {}
 
     ChannelKeys& operator=(ChannelKeys&& old) noexcept
     {
@@ -58,6 +41,9 @@ public:
 
         return *this;
     }
+
+    const secp256k1_context* Secp256k1Context() const noexcept
+    { return m_ctx; }
 
     bool IsAssigned() const
     { return !IsZeroArray(m_local_sk); }

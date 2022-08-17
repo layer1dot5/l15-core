@@ -7,7 +7,7 @@
 
 namespace l15 {
 
-using namespace api;
+using namespace core;
 
 void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
 {

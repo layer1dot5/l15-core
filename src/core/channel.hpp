@@ -10,7 +10,7 @@
 #include "channel_contract.hpp"
 
 
-namespace l15 {
+namespace l15::core {
 
 class Channel;
 
@@ -60,7 +60,7 @@ struct ChannelStateCommitment {
 class Channel
 {
 private:
-    const api::WalletApi& mWallet;
+    const WalletApi& mWallet;
 
     const CAmount mAmount;
     const uint256 mUtxoTxid;
@@ -82,14 +82,14 @@ private:
     std::tuple<CAmount, CAmount> AddAndReactivateContracts(std::shared_ptr<ChannelContract> contract);
 
 public:
-    Channel(const api::WalletApi& wallet, const CAmount amount, uint256 txid, uint32_t nout,
+    Channel(const WalletApi& wallet, const CAmount amount, uint256 txid, uint32_t nout,
                 ChannelKeys&& keys, string&& localaddr, string&& remoteaddr)
         : mWallet(wallet), mAmount(amount), mUtxoTxid(txid), mUtxoTxNOut(nout),
           mKeys(std::move(keys)),
           mToLocalAddress(std::move(localaddr)), mToRemoteAddress(std::move(remoteaddr))
     {}
 
-    const api::WalletApi& Wallet() const { return mWallet; }
+    const WalletApi& Wallet() const { return mWallet; }
 
     CAmount Amount() const { return mAmount; }
 

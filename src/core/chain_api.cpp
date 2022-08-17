@@ -21,7 +21,7 @@
 #include <thread>
 
 
-namespace l15::api {
+namespace l15::core {
 
 namespace {
 

@@ -8,9 +8,9 @@ namespace l15::p2p {
 
 class LocalLink : public Link
 {
-    SignerApi& mSigner;
+    core::SignerApi& mSigner;
 public:
-    explicit LocalLink(SignerApi& signer) : mSigner(signer) {}
+    explicit LocalLink(core::SignerApi& signer) : mSigner(signer) {}
 
     void Send(const Message& m) override
     {

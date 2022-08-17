@@ -9,14 +9,14 @@
 #include "util/strencodings.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
-#include "pubkey.h"
 
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
+#include "wallet_api.hpp"
 #include "channel_keys.hpp"
-#include "common.hpp"
 
 using namespace l15;
+using namespace l15::core;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 static const std::string TAPLEAF_TAG = "TapLeaf";
@@ -65,9 +65,9 @@ TEST_CASE("TapLeaf hash")
 
 TEST_CASE("TapTweak")
 {
-    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+    WalletApi wallet(ChainMode::MODE_REGTEST);
 
-    ChannelKeys key(wallet);
+    ChannelKeys key(wallet.Secp256k1Context());
 
     // Lets just simulate some uint256
     HashWriter hash(TAPBRANCH_HASH);
@@ -85,16 +85,16 @@ TEST_CASE("TapTweak")
 
 TEST_CASE("TapRoot single script")
 {
-    api::WalletApi wallet(api::ChainMode::MODE_REGTEST);
+    WalletApi wallet(ChainMode::MODE_REGTEST);
 
     //get key pair Taproot
-    auto internal_sk = ChannelKeys(wallet);
+    auto internal_sk = ChannelKeys(wallet.Secp256k1Context());
     const auto& internal_pk = internal_sk.GetLocalPubKey();
 
     std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
 
     //get key pair script
-    auto script_sk = ChannelKeys(wallet);
+    auto script_sk = ChannelKeys(wallet.Secp256k1Context());
     const auto& script_pk = script_sk.GetPubKey();
     std::string script_pk_str = HexStr(script_pk);
 

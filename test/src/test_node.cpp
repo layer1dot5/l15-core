@@ -10,6 +10,8 @@
 #include "core/exechelper.hpp"
 
 using namespace l15;
+using namespace l15::core;
+
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 std::string configpath;
@@ -60,11 +62,11 @@ struct TestConfigFactory
         conf.ProcessConfig({"--conf=" + confpath});
         std::clog << "Config has been processed" << std::endl;
     }
-    api::ChainMode GetChainMode() const
+    ChainMode GetChainMode() const
     {
-        return api::ChainMode::MODE_REGTEST;
+        return ChainMode::MODE_REGTEST;
     }
-    const std::string GetDataDir() const
+    std::string GetDataDir() const
     {
         auto datadir_opt = conf.Subcommand(config::L15NODE).get_option(config::option::DATADIR);
         if(!datadir_opt->empty())
@@ -77,12 +79,13 @@ struct TestConfigFactory
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    api::ChainMode mMode;
+    ChainMode mMode;
 
     explicit TestcaseWrapper() :
         mConfFactory(configpath),
         mMode(mConfFactory.GetChainMode())
     {
+        startNode();
     }
 
     ~TestcaseWrapper()
@@ -100,9 +103,8 @@ struct TestcaseWrapper
     Config& conf() { return mConfFactory.conf; }
 };
 
-TEST_CASE_METHOD(TestcaseWrapper, "Run l15-node") {
+TEST_CASE_METHOD(TestcaseWrapper, "Start/stop l15-node") {
 
-    startNode();
 
 }
 

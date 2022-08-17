@@ -1,5 +1,6 @@
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) \
  -I$(top_srcdir)/node/src \
+ -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/src \

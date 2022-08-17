@@ -15,23 +15,16 @@
 #include "channel_keys.hpp"
 #include "core_error.hpp"
 
+
 #include "p2p/link.hpp"
 #include "p2p/frost.hpp"
 #include "secp256k1_frost.h"
 
-namespace l15 {
+namespace l15::core {
 
 typedef size_t operation_id;
 typedef size_t peer_index;
 
-class SignatureError : public core::Error {
-public:
-    ~SignatureError() override = default;
-
-    const char* what() const override
-    { return "SignatureError"; }
-
-};
 class KeyShareVerificationError : public KeyError {
 public:
     ~KeyShareVerificationError() override = default;
@@ -84,8 +77,7 @@ struct RemoteSignerData
 
 class SignerApi
 {
-    api::WalletApi& mWallet;
-
+    const secp256k1_context* m_ctx;
     ChannelKeys mKeypair;
     ChannelKeys mKeyShare;
 
@@ -154,8 +146,7 @@ class SignerApi
     { return std::get<2>(m_sigops_cache[opid]); }
 
 public:
-    SignerApi(api::WalletApi& wallet,
-              size_t index,
+    SignerApi(size_t index,
               ChannelKeys &&keypair,
               size_t cluster_size,
               size_t threshold_size,

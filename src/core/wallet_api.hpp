@@ -11,16 +11,14 @@
 #include "secp256k1_extrakeys.h"
 
 #include "common.hpp"
-#include "common_api.hpp"
 
 class CScript;
 
-namespace l15 {
-    class ChannelKeys;
-    class SignerApi;
-}
+namespace l15::core {
 
-namespace l15::api {
+class ChannelKeys;
+class SignerApi;
+
 
 //struct TxInputContainer
 //{
@@ -31,16 +29,11 @@ namespace l15::api {
 //    uint32_t sequence;
 //};
 
-class SignatureError
-{
-
-};
-
 
 class WalletApi
 {
-    friend class ::l15::ChannelKeys;
-    friend class ::l15::SignerApi;
+    friend class ChannelKeys;
+    friend class SignerApi;
 
     const ChainMode m_mode;
 
@@ -70,7 +63,7 @@ public:
     explicit WalletApi(ChainMode mode);
     ~WalletApi();
 
-    const secp256k1_context* GetSecp256k1Context() const { return m_ctx; }
+    const secp256k1_context* Secp256k1Context() const { return m_ctx; }
 
     template <class I>
     std::string Bech32Encode(I begin, I end) const
