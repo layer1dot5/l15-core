@@ -97,7 +97,6 @@ public:
 //    void AddTxIn(CMutableTransaction& tx, const TxInputContainer txin) const;
 //    void AddTxOut(CMutableTransaction& tx, const std::string &address, CAmount amount) const;
 
-    xonly_pubkey Serialize(const secp256k1_xonly_pubkey& pk) const;
 };
 
 }

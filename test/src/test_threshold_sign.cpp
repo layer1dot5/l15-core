@@ -80,14 +80,14 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK_NOTHROW(signer1.RegisterToPeers(key_hdl));
     CHECK_NOTHROW(signer2.RegisterToPeers(key_hdl));
 
-    CHECK(wallet.Serialize(signer1.Peers()[0].pubkey) == signer0.GetLocalPubKey());
-    CHECK(wallet.Serialize(signer2.Peers()[0].pubkey) == signer0.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer1.Peers()[0].pubkey) == signer0.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer2.Peers()[0].pubkey) == signer0.GetLocalPubKey());
 
-    CHECK(wallet.Serialize(signer0.Peers()[1].pubkey) == signer1.GetLocalPubKey());
-    CHECK(wallet.Serialize(signer2.Peers()[1].pubkey) == signer1.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer0.Peers()[1].pubkey) == signer1.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer2.Peers()[1].pubkey) == signer1.GetLocalPubKey());
 
-    CHECK(wallet.Serialize(signer0.Peers()[2].pubkey) == signer2.GetLocalPubKey());
-    CHECK(wallet.Serialize(signer1.Peers()[2].pubkey) == signer2.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer0.Peers()[2].pubkey) == signer2.GetLocalPubKey());
+    CHECK(xonly_pubkey(wallet.Secp256k1Context(), signer1.Peers()[2].pubkey) == signer2.GetLocalPubKey());
 
 
     // Negotiate Aggregated Pubkey

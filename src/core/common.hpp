@@ -33,6 +33,16 @@ typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
 class xonly_pubkey : public cex::fixsize_vector<uint8_t, 32>
 {
 public:
+    xonly_pubkey() = default;
+    xonly_pubkey(const xonly_pubkey&) = default;
+    xonly_pubkey(xonly_pubkey&&) = default;
+    xonly_pubkey(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk)
+    : cex::fixsize_vector<uint8_t, 32>()
+    { set(ctx, pk); }
+
+    xonly_pubkey& operator=(const xonly_pubkey&) = default;
+    xonly_pubkey& operator=(xonly_pubkey&&) = default;
+
     void set(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk)
     {
         if (!secp256k1_xonly_pubkey_serialize(ctx, data(), &pk)) {
