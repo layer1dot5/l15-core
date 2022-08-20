@@ -5,13 +5,13 @@
 #include <memory>
 #include <regex>
 
-#include "script/script.h"
+
 #include "common.hpp"
+#include "utils.hpp"
 
 
 namespace l15::core {
 
-class WalletApi;
 
 class ChainApi {
 public:
@@ -19,22 +19,24 @@ public:
 private:
     static std::regex sNewlineRegExp;
 
-    WalletApi& m_wallet;
+    std::unique_ptr<const IBech32Coder> m_bech32;
     std::vector<std::string> m_default;
     const char* m_cli_path;
-    const char* m_daemon_path;
 public:
 
     template <typename T>
     static void Log(const T&);
 
-    ChainApi(WalletApi &wallet, std::vector<std::string> &&default_opts, const char *cli_path = "bitcoin-cli", const char* daemon_path = "bitcoind")
-        : m_wallet(wallet), m_default(default_opts), m_cli_path(cli_path), m_daemon_path(daemon_path) {}
+    template<class B32>
+    ChainApi(B32 , std::vector<std::string> &&default_opts, const char *cli_path = "bitcoin-cli")
+        : m_bech32(new B32()), m_default(default_opts), m_cli_path(cli_path) { }
     ~ChainApi() = default;
 
-    const WalletApi& Wallet() const {
-        return m_wallet;
-    }
+
+    std::string Bech32Encode(const xonly_pubkey& pk) const
+    { return m_bech32->Encode(pk); }
+    xonly_pubkey Bech32Decode(const std::string& address) const
+    { return m_bech32->Decode(address); };
 
     void StopNode() const;
 
@@ -45,19 +47,19 @@ public:
     std::string GetTxOut(const std::string& txidhex, const std::string& out) const;
     uint32_t GetChainHeight() const;
     std::string GetNewAddress(const std::string& label = "", const std::string& address_type = "bech32m") const;
-    std::string GenerateToOwnAddress(const std::string &nblocks) const;
+    std::string GenerateToOwnAddress(const std::string& address, const std::string &nblocks) const;
 
     // locktime < 500 000 000 - means lock time in block height
     // locktime >= 500 000 000 - means UNIX timestamp
-    transaction_ptr CreateSegwitTx(const CScript &script,
-                               const string_pair_t& utxo, const std::vector<string_pair_t>& outs_addr_amount,
-                               uint32_t locktime = 0) const;
+//    transaction_ptr CreateSegwitTx(const CScript &script,
+//                               const string_pair_t& utxo, const std::vector<string_pair_t>& outs_addr_amount,
+//                               uint32_t locktime = 0) const;
 
     std::string SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector>& witness_stack) const;
     std::string SpendTx(const CTransaction &tx) const;
     std::string TestTxSequence(const std::vector<CMutableTransaction> &txs) const;
 
-    std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string address) const;
+    std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string& address) const;
 };
 
 }

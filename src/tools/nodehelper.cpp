@@ -7,8 +7,6 @@
 
 namespace l15 {
 
-using namespace core;
-
 void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
 {
     node_exec.Arguments().clear();

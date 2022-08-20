@@ -66,7 +66,20 @@ public:
         return *mApp.get_subcommand(name);
     }
 
-    stringvector BitcoinValues() const;
+    stringvector ChainValues(const char* const chain) const
+    {
+        auto& btccli = Subcommand(chain);
+
+        stringvector values;
+
+        for(const auto opt: btccli.get_options([](const CLI::Option* o){ return o&& !o->check_name("--help"); }))
+        {
+            values.emplace_back(opt->get_name() + "=" + opt->template as<std::string>());
+        }
+
+        return values;
+
+    }
 
 };
 

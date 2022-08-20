@@ -42,7 +42,7 @@ public:
     { return "KeyAggregationError"; }
 
 };
-class WrongOperationId : public core::Error {
+class WrongOperationId : public Error {
 public:
     explicit WrongOperationId(operation_id id) : opid(id) {}
     ~WrongOperationId() override = default;
@@ -55,7 +55,7 @@ public:
 
 class SignerApi;
 
-typedef std::function<void(core::Error&&)> error_handler;
+typedef std::function<void(Error&&)> error_handler;
 typedef std::function<void(SignerApi&)> aggregate_key_handler;
 typedef std::function<void(SignerApi&, operation_id)> new_sigop_handler;
 typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;

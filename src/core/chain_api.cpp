@@ -16,12 +16,12 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
-#include <cstdlib>
 #include <chrono>
 #include <thread>
 
 
 namespace l15::core {
+
 
 namespace {
 
@@ -92,93 +92,93 @@ std::string ChainApi::GetTxOut(const std::string& txidhex, const std::string& ou
 }
 
 
-transaction_ptr ChainApi::CreateSegwitTx(const CScript &script, const ChainApi::string_pair_t &utxo, const std::vector<string_pair_t>& outs_addr_amount, uint32_t locktime) const
-{
-    std::unique_ptr<CMutableTransaction> tx(new CMutableTransaction());
-    tx->nLockTime = locktime;
-
-    // Fill outputs
-    for(const string_pair_t& addr_amount: outs_addr_amount)
-    {
-        auto addr_id = m_wallet.Bech32Decode(addr_amount.first);
-
-        if(addr_id.size() == 20)
-        {
-            std::clog << "Spend to P2WPKH address: " << addr_amount.first << std::endl;
-        }
-        else if(addr_id.size() == 32)
-        {
-            std::clog << "Spend to P2WSH address: " << addr_amount.first << std::endl;
-        }
-        else
-        {
-            throw std::runtime_error(std::string("Wrong Bech32 address: ") + addr_amount.first);
-        }
-
-        CScript outpubkeyscript;
-        outpubkeyscript << 0;
-        outpubkeyscript << addr_id;
-
-        CAmount outAmount;
-        if(!ParseFixedPoint(addr_amount.second, 8, &outAmount))
-        {
-            throw std::runtime_error(std::string("Error parsing out amount: ") + addr_amount.second);
-        }
-        tx->vout.emplace_back(CTxOut(outAmount, outpubkeyscript));
-    }
-
-    // Fill single input
-    std::string txoutstr = GetTxOut(utxo.first, utxo.second);
-
-    CAmount amount;
-    UniValue txout;
-    txout.read(txoutstr);
-
-    const std::string &amountstr = find_value(txout, "value").getValStr();
-    if(!ParseFixedPoint(amountstr, 8, &amount))
-    {
-        throw std::runtime_error(std::string("Error parsing prevout amount: ") + amountstr);
-    }
-
-    std::clog << "Tx input amount: " << amountstr << std::endl;
-
-    char *endp;
-    uint32_t prevoutnum = std::strtoul(utxo.second.c_str(), &endp, 10);
-
-    std::vector<uint8_t> scripthash;
-    scripthash.resize(CSHA256::OUTPUT_SIZE);
-    //memset(scripthash, 0, CSHA256::OUTPUT_SIZE);
-    CSHA256().Write(script.data(), script.size()).Finalize(scripthash.data());
-
-    std::string scripthashhex = HexStr(Span<const unsigned char>(scripthash.data(), CSHA256::OUTPUT_SIZE));
-    std::clog << "Script hash:\t" << scripthashhex << std::endl;
-
-    std::string from_address = m_wallet.Bech32Encode(scripthash.begin(), scripthash.end());
-
-    std::clog << "Spend from P2WSH address:\t" << from_address << std::endl;
-
-
-    CTxIn input(uint256S(utxo.first), prevoutnum, CScript(), 0);
-    tx->vin.emplace_back(input);
-
-    tx->vin.front().scriptWitness.stack.emplace_back(std::vector<unsigned char>(script.begin(), script.end()));
-
+//transaction_ptr ChainApi::CreateSegwitTx(const CScript &script, const ChainApi::string_pair_t &utxo, const std::vector<string_pair_t>& outs_addr_amount, uint32_t locktime) const
+//{
+//    std::unique_ptr<CMutableTransaction> tx(new CMutableTransaction());
+//    tx->nLockTime = locktime;
 //
-//    CScript inpubkeyscript;
-//    inpubkeyscript << 0;
-//    inpubkeyscript << scripthash;
-//
-//    MutableTransactionSignatureChecker sigChecker(&tx, 0, amount);
-//    ScriptError error;
-//    unsigned flags = SCRIPT_VERIFY_NULLDUMMY | SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS;
-//    bool txres = VerifyScript(CScript(), inpubkeyscript, &(tx.vin[0].scriptWitness), flags, sigChecker, &error);
-//    if(!txres)
+//    // Fill outputs
+//    for(const string_pair_t& addr_amount: outs_addr_amount)
 //    {
-//        throw std::runtime_error(ScriptErrorString(error));
+//        auto addr_id = Bech32Decode(addr_amount.first);
+//
+//        if(addr_id.size() == 20)
+//        {
+//            std::clog << "Spend to P2WPKH address: " << addr_amount.first << std::endl;
+//        }
+//        else if(addr_id.size() == 32)
+//        {
+//            std::clog << "Spend to P2WSH address: " << addr_amount.first << std::endl;
+//        }
+//        else
+//        {
+//            throw std::runtime_error(std::string("Wrong Bech32 address: ") + addr_amount.first);
+//        }
+//
+//        CScript outpubkeyscript;
+//        outpubkeyscript << 0;
+//        outpubkeyscript << addr_id;
+//
+//        CAmount outAmount;
+//        if(!ParseFixedPoint(addr_amount.second, 8, &outAmount))
+//        {
+//            throw std::runtime_error(std::string("Error parsing out amount: ") + addr_amount.second);
+//        }
+//        tx->vout.emplace_back(CTxOut(outAmount, outpubkeyscript));
 //    }
 //
-    return tx;
-}
+//    // Fill single input
+//    std::string txoutstr = GetTxOut(utxo.first, utxo.second);
+//
+//    CAmount amount;
+//    UniValue txout;
+//    txout.read(txoutstr);
+//
+//    const std::string &amountstr = find_value(txout, "value").getValStr();
+//    if(!ParseFixedPoint(amountstr, 8, &amount))
+//    {
+//        throw std::runtime_error(std::string("Error parsing prevout amount: ") + amountstr);
+//    }
+//
+//    std::clog << "Tx input amount: " << amountstr << std::endl;
+//
+//    char *endp;
+//    uint32_t prevoutnum = std::strtoul(utxo.second.c_str(), &endp, 10);
+//
+//    std::vector<uint8_t> scripthash;
+//    scripthash.resize(CSHA256::OUTPUT_SIZE);
+//    //memset(scripthash, 0, CSHA256::OUTPUT_SIZE);
+//    CSHA256().Write(script.data(), script.size()).Finalize(scripthash.data());
+//
+//    std::string scripthashhex = HexStr(Span<const unsigned char>(scripthash.data(), CSHA256::OUTPUT_SIZE));
+//    std::clog << "Script hash:\t" << scripthashhex << std::endl;
+//
+//    std::string from_address = m_wallet.Bech32Encode(scripthash.begin(), scripthash.end());
+//
+//    std::clog << "Spend from P2WSH address:\t" << from_address << std::endl;
+//
+//
+//    CTxIn input(uint256S(utxo.first), prevoutnum, CScript(), 0);
+//    tx->vin.emplace_back(input);
+//
+//    tx->vin.front().scriptWitness.stack.emplace_back(std::vector<unsigned char>(script.begin(), script.end()));
+//
+////
+////    CScript inpubkeyscript;
+////    inpubkeyscript << 0;
+////    inpubkeyscript << scripthash;
+////
+////    MutableTransactionSignatureChecker sigChecker(&tx, 0, amount);
+////    ScriptError error;
+////    unsigned flags = SCRIPT_VERIFY_NULLDUMMY | SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS;
+////    bool txres = VerifyScript(CScript(), inpubkeyscript, &(tx.vin[0].scriptWitness), flags, sigChecker, &error);
+////    if(!txres)
+////    {
+////        throw std::runtime_error(ScriptErrorString(error));
+////    }
+////
+//    return tx;
+//}
 
 std::string ChainApi::TestTxSequence(const std::vector<CMutableTransaction>& txs) const
 {
@@ -299,10 +299,8 @@ std::string ChainApi::GetNewAddress(const std::string& label, const std::string&
     return btc_exec.Run();
 }
 
-std::string ChainApi::GenerateToOwnAddress(const std::string &nblocks) const
+std::string ChainApi::GenerateToOwnAddress(const std::string& address, const std::string &nblocks) const
 {
-
-    std::string address = GetNewAddress();
 
     ExecHelper btc_exec(m_cli_path, false);
 
@@ -400,7 +398,7 @@ void ChainApi::CreateWallet(std::string&& name) const
     btc_exec.Run();
 }
 
-std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const string address) const
+std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const string& address) const
 {
     std::string strTXOut;
     std::string txValue;

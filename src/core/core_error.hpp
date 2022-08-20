@@ -1,6 +1,6 @@
 #pragma once
 
-namespace l15::core {
+namespace l15 {
 
 class Error {
 public:

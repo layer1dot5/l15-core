@@ -14,6 +14,7 @@ AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \
+	common.cpp \
 	script_merkle_tree.cpp \
 	channel_keys.cpp \
 	channel_contract.cpp \

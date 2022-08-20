@@ -14,8 +14,8 @@ namespace l15::core {
 CScript TapRootPayContract::CommitPubKeyScript(ContractSideSelector ) const
 {
     CScript script;
-    script << 1;
-    script << GetChannel().Wallet().Bech32Decode(mAddress);
+//    script << 1;
+//    script << GetChannel().Wallet().Bech32Decode(mAddress);
     return script;
 }
 

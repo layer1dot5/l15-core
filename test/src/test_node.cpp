@@ -8,6 +8,8 @@
 #include "tools/config.hpp"
 #include "tools/nodehelper.hpp"
 #include "core/exechelper.hpp"
+#include "core/wallet_api.hpp"
+#include "core/chain_api.hpp"
 
 using namespace l15;
 using namespace l15::core;
@@ -62,10 +64,6 @@ struct TestConfigFactory
         conf.ProcessConfig({"--conf=" + confpath});
         std::clog << "Config has been processed" << std::endl;
     }
-    ChainMode GetChainMode() const
-    {
-        return ChainMode::MODE_REGTEST;
-    }
     std::string GetDataDir() const
     {
         auto datadir_opt = conf.Subcommand(config::L15NODE).get_option(config::option::DATADIR);
@@ -79,11 +77,13 @@ struct TestConfigFactory
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    ChainMode mMode;
+    WalletApi mWallet;
+    ChainApi mNode;
 
     explicit TestcaseWrapper() :
         mConfFactory(configpath),
-        mMode(mConfFactory.GetChainMode())
+        mWallet(),
+        mNode(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
     {
         startNode();
     }
@@ -91,20 +91,22 @@ struct TestcaseWrapper
     ~TestcaseWrapper()
     {
         ExecHelper cli("l15node-cli", false);
-        StopNode(mConfFactory.GetChainMode(), cli, conf().Subcommand(config::L15CLIENT));
+        StopNode(ChainMode::MODE_REGTEST, cli, conf().Subcommand(config::L15CLIENT));
         std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
 
     void startNode() {
         ExecHelper node("l15noded", false);
-        StartNode(mConfFactory.GetChainMode(), node, conf().Subcommand(config::L15NODE));
+        StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
     }
 
     Config& conf() { return mConfFactory.conf; }
 };
 
-TEST_CASE_METHOD(TestcaseWrapper, "Start/stop l15-node") {
+TEST_CASE_METHOD(TestcaseWrapper, "Start/stop l15-node")
+{ }
 
+TEST_CASE_METHOD(TestcaseWrapper, "Mint l15SR coins")
+{
 
 }
-

@@ -13,9 +13,9 @@ struct Message
     uint16_t id;
 };
 
-class WrongProtocol: public core::Error {
+class WrongProtocol: public Error {
 public:
-    WrongProtocol(uint16_t protocol) : protocol_id(protocol) {}
+    explicit WrongProtocol(uint16_t protocol) : protocol_id(protocol) {}
     ~WrongProtocol() override = default;
 
     const char* what() const override
@@ -24,9 +24,9 @@ public:
     uint16_t protocol_id;
 };
 
-class WrongMessage: public core::Error {
+class WrongMessage: public Error {
 public:
-    WrongMessage(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
+    explicit WrongMessage(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
     ~WrongMessage() override = default;
 
     const char* what() const override
@@ -36,9 +36,9 @@ public:
     uint16_t message_id;
 };
 
-class WrongMessageData: public core::Error {
+class WrongMessageData: public Error {
 public:
-    WrongMessageData(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
+    explicit WrongMessageData(const Message& m) : protocol_id(m.protocol_id), message_id(m.id) {}
     ~WrongMessageData() override = default;
 
     const char* what() const override

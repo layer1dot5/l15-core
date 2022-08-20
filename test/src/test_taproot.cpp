@@ -34,11 +34,6 @@ struct TestConfigFactory
         conf.ProcessConfig({"--conf=" + confpath});
     }
 
-    ChainMode GetChainMode() const
-    {
-        return ChainMode::MODE_REGTEST;
-    }
-
     std::string GetBitcoinDataDir() const
     {
         auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
@@ -52,7 +47,6 @@ struct TestConfigFactory
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    ChainMode mMode;
     WalletApi mWallet;
     ChainApi mBtc;
     ExecHelper mCli;
@@ -62,9 +56,8 @@ struct TestcaseWrapper
 
     explicit TestcaseWrapper() :
             mConfFactory(configpath),
-            mMode(mConfFactory.GetChainMode()),
-            mWallet(mConfFactory.GetChainMode()),
-            mBtc(mWallet, std::move(mConfFactory.conf.BitcoinValues()), "l15node-cli"),
+            mWallet(),
+            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
             mCli("l15node-cli", false),
             mBtcd("bitcoind", false)
 
@@ -74,7 +67,7 @@ struct TestcaseWrapper
         if(btc().GetChainHeight() < 50)
         {
             btc().CreateWallet("testwallet");
-            btc().GenerateToOwnAddress("250");
+            btc().GenerateToOwnAddress(btc().GetNewAddress(), "250");
         }
     }
 
@@ -86,12 +79,12 @@ struct TestcaseWrapper
 
     void StartBitcoinNode()
     {
-        StartNode(mConfFactory.GetChainMode(), mBtcd, conf().Subcommand(config::BITCOIND));
+        StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
     }
 
     void StopBitcoinNode()
     {
-        StopNode(mMode, mCli, conf().Subcommand(config::BITCOIN));
+        StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
     }
 
     Config &conf()
@@ -165,7 +158,7 @@ TEST_CASE("Taproot transaction test cases")
         auto& pk = sk.GetLocalPubKey();
 
         //create address from key pair
-        string addr = w->wallet().Bech32mEncode(pk.begin(), pk.end());
+        string addr = w->btc().Bech32Encode(pk);
 
         //send to the address
         string txid = w->btc().SendToAddress(addr, "1.001");
@@ -177,7 +170,7 @@ TEST_CASE("Taproot transaction test cases")
 
         //spend first transaction to the last address
 
-        bytevector backpk = w->wallet().Bech32Decode(backaddr);
+        auto backpk = w->btc().Bech32Decode(backaddr);
 
         std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
 
@@ -233,7 +226,7 @@ TEST_CASE("Taproot transaction test cases")
         uint8_t taprootpubkeyparity;
 
         std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(root);
-        string addr = w->wallet().Bech32mEncode(taprootpubkey.begin(), taprootpubkey.end());
+        string addr = w->btc().Bech32Encode(taprootpubkey);
 
         std::clog << "\nTaproot PK: " << HexStr(taprootpubkey) << std::endl;
         std::clog << "Taptweak parity flag: " << (int)taprootpubkeyparity << std::endl;
@@ -249,7 +242,7 @@ TEST_CASE("Taproot transaction test cases")
 
         //spend first transaction to the last address
 
-        bytevector backpk = w->wallet().Bech32Decode(backaddr);
+        auto backpk = w->btc().Bech32Decode(backaddr);
 
         std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
 

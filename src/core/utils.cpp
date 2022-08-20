@@ -9,6 +9,13 @@
 
 namespace l15 {
 
+const char* const Hrp<IBech32Coder::BTC, IBech32Coder::MAINNET>::value = "bc";
+const char* const Hrp<IBech32Coder::BTC, IBech32Coder::TESTNET>::value = "tb";
+const char* const Hrp<IBech32Coder::BTC, IBech32Coder::REGTEST>::value = "bcrt";
+const char* const Hrp<IBech32Coder::L15, IBech32Coder::MAINNET>::value = "l15sr";
+const char* const Hrp<IBech32Coder::L15, IBech32Coder::TESTNET>::value = "tl15sr";
+const char* const Hrp<IBech32Coder::L15, IBech32Coder::REGTEST>::value = "l15srrt";
+
 inline bytevector ParsePubKey(const std::string &pubkeyhex)
 {
     std::vector<uint8_t> pubkeybytes = ParseHex(pubkeyhex);

@@ -65,7 +65,7 @@ TEST_CASE("TapLeaf hash")
 
 TEST_CASE("TapTweak")
 {
-    WalletApi wallet(ChainMode::MODE_REGTEST);
+    WalletApi wallet;
 
     ChannelKeys key(wallet.Secp256k1Context());
 
@@ -85,7 +85,7 @@ TEST_CASE("TapTweak")
 
 TEST_CASE("TapRoot single script")
 {
-    WalletApi wallet(ChainMode::MODE_REGTEST);
+    WalletApi wallet;
 
     //get key pair Taproot
     auto internal_sk = ChannelKeys(wallet.Secp256k1Context());

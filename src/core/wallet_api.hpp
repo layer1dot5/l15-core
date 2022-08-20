@@ -4,8 +4,6 @@
 #include <vector>
 
 #include "script/interpreter.h"
-#include "util/strencodings.h"
-#include "bech32.h"
 
 #include "secp256k1.h"
 #include "secp256k1_extrakeys.h"
@@ -35,55 +33,15 @@ class WalletApi
     friend class ChannelKeys;
     friend class SignerApi;
 
-    const ChainMode m_mode;
-
     secp256k1_context* m_ctx;
 
-
-    static const char* const HRP_MAINNET;
-    static const char* const HRP_TESTNET;
-    static const char* const HRP_REGTEST;
-
-    const char* const GetHRP() const noexcept
-    {
-        switch(m_mode)
-        {
-        case ChainMode::MODE_MAINNET:
-            return HRP_MAINNET;
-        case ChainMode::MODE_TESTNET:
-            return HRP_TESTNET;
-        case ChainMode::MODE_REGTEST:
-            return HRP_REGTEST;
-        }
-        return HRP_REGTEST;//Just to eliminate warning or prevent nullptr in case of error
-    }
-    bytevector SignTxHash(const uint256 &sighash, unsigned char sighashtype, const bytevector &keystr) const;
+//    bytevector SignTxHash(const uint256 &sighash, unsigned char sighashtype, const bytevector &keystr) const;
 
 public:
-    explicit WalletApi(ChainMode mode);
+    WalletApi();
     ~WalletApi();
 
     const secp256k1_context* Secp256k1Context() const { return m_ctx; }
-
-    template <class I>
-    std::string Bech32Encode(I begin, I end) const
-    {
-        std::vector<unsigned char> bech32buf = {'\0'};
-        bech32buf.reserve(1 + ((end - begin) * 8 + 4) / 5);
-        ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, begin, end);
-        return bech32::Encode(bech32::Encoding::BECH32, GetHRP(), bech32buf);
-    }
-
-    template <class I>
-    std::string Bech32mEncode(I begin, I end) const
-    {
-        std::vector<unsigned char> bech32buf = {1};
-        bech32buf.reserve(1 + ((end - begin) * 8 + 4) / 5);
-        ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, begin, end);
-        return bech32::Encode(bech32::Encoding::BECH32M, GetHRP(), bech32buf);
-    }
-
-    bytevector Bech32Decode(const std::string& addrstr) const;
 
 //    CScript ExtractScriptPubKey(const std::string& address) const;
 

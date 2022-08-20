@@ -127,19 +127,6 @@ Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
 
 }
 
-stringvector Config::BitcoinValues() const
-{
-    auto& btccli = Subcommand(config::BITCOIN);
-
-    stringvector values;
-
-    for(const auto opt: btccli.get_options([](const CLI::Option* o){ return o&& !o->check_name("--help"); }))
-    {
-        values.emplace_back(opt->get_name() + "=" + opt->as<std::string>());
-    }
-
-    return values;
-}
 
 
 

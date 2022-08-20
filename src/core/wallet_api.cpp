@@ -22,12 +22,7 @@
 namespace l15::core {
 
 
-const char* const WalletApi::HRP_MAINNET = "bc";
-const char* const WalletApi::HRP_TESTNET = "tb";
-const char* const WalletApi::HRP_REGTEST = "bcrt";
-
-
-WalletApi::WalletApi(ChainMode mode): m_mode(mode)
+WalletApi::WalletApi()
 {
     secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN|SECP256K1_CONTEXT_VERIFY);
     assert(ctx != nullptr);
@@ -197,35 +192,6 @@ bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction 
 //    return Bech32Encode(scripthash.cbegin(), scripthash.cend());
 //}
 
-bytevector WalletApi::Bech32Decode(const std::string& addrstr) const
-{
-    bech32::DecodeResult bech_result = bech32::Decode(addrstr);
-    if(bech_result.hrp != GetHRP())
-    {
-        throw std::runtime_error(std::string("Bech32 prefix should be ") + GetHRP() + ". Address: " + addrstr);
-    }
-    if(bech_result.data.size() < 1)
-    {
-        throw std::runtime_error(std::string("Wrong bech32 data (no data decoded): ") + addrstr);
-    }
-    if(bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
-    {
-        throw std::runtime_error("Version 0 witness address must use Bech32 checksum");
-    }
-    if(bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
-    {
-        throw std::runtime_error("Version 1+ witness address must use Bech32m checksum");
-    }
-
-    bytevector data;
-    data.reserve(((bech_result.data.size() - 1) * 5) / 8);
-    if(!ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, bech_result.data.begin() + 1, bech_result.data.end()))
-    {
-        throw std::runtime_error(std::string("Wrong bech32 data: ") + addrstr);
-    }
-
-    return data;
-}
 
 //CScript WalletApi::ExtractScriptPubKey(const std::string &address) const
 //{

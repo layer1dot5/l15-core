@@ -49,7 +49,7 @@ TEST_CASE("2-of-3 FROST signature")
     const size_t N = 3;
     const size_t K = 2;
 
-    WalletApi wallet(l15::ChainMode::MODE_REGTEST);
+    WalletApi wallet;
 
     // Create peers
 
@@ -170,7 +170,7 @@ TEST_CASE("Keyshare 1K")
     const size_t N = 1000;
     const size_t K = 500;
 
-    WalletApi wallet(ChainMode::MODE_REGTEST);
+    WalletApi wallet;
 
     std::vector<std::tuple<std::unique_ptr<SignerApi>, link_ptr>> signers;
     signers.reserve(N);
@@ -178,7 +178,7 @@ TEST_CASE("Keyshare 1K")
     aggregate_key_handler key_hdl = [](SignerApi& s) { };
     new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
     aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
-    error_handler error_hdl = [&](core::Error&& e) { FAIL(e.what()); };
+    error_handler error_hdl = [&](Error&& e) { FAIL(e.what()); };
 
     std::ranges::transform(
        std::ranges::common_view(std::views::iota(0) | std::views::take(N)),
