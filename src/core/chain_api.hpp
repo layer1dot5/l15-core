@@ -47,7 +47,7 @@ public:
     std::string GetTxOut(const std::string& txidhex, const std::string& out) const;
     uint32_t GetChainHeight() const;
     std::string GetNewAddress(const std::string& label = "", const std::string& address_type = "bech32m") const;
-    std::string GenerateToOwnAddress(const std::string& address, const std::string &nblocks) const;
+    std::string GenerateToAddress(const std::string& address, const std::string &nblocks) const;
 
     // locktime < 500 000 000 - means lock time in block height
     // locktime >= 500 000 000 - means UNIX timestamp
@@ -58,6 +58,8 @@ public:
     std::string SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector>& witness_stack) const;
     std::string SpendTx(const CTransaction &tx) const;
     std::string TestTxSequence(const std::vector<CMutableTransaction> &txs) const;
+
+    std::string GetBlock(const std::string& block_hash, const std::string& verbosity = "2");
 
     std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string& address) const;
 };

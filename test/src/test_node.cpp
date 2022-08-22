@@ -5,11 +5,14 @@
 #include "catch/catch.hpp"
 
 #include "util/translation.h"
+#include "univalue.h"
+
 #include "tools/config.hpp"
 #include "tools/nodehelper.hpp"
 #include "core/exechelper.hpp"
 #include "core/wallet_api.hpp"
 #include "core/chain_api.hpp"
+#include "core/channel_keys.hpp"
 
 using namespace l15;
 using namespace l15::core;
@@ -77,13 +80,13 @@ struct TestConfigFactory
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    WalletApi mWallet;
-    ChainApi mNode;
+    WalletApi wallet;
+    ChainApi node;
 
     explicit TestcaseWrapper() :
-        mConfFactory(configpath),
-        mWallet(),
-        mNode(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
+            mConfFactory(configpath),
+            wallet(),
+            node(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
     {
         startNode();
     }
@@ -106,7 +109,45 @@ struct TestcaseWrapper
 TEST_CASE_METHOD(TestcaseWrapper, "Start/stop l15-node")
 { }
 
-TEST_CASE_METHOD(TestcaseWrapper, "Mint l15SR coins")
+TEST_CASE_METHOD(TestcaseWrapper, "Test transactions")
 {
+    ChannelKeys outkey(wallet.Secp256k1Context());
+
+    ChannelKeys key(wallet.Secp256k1Context());
+    std::string address = node.Bech32Encode(key.GetPubKey());
+
+    UniValue blocks;
+    blocks.read(node.GenerateToAddress(address, "1"));
+
+    UniValue block;
+    block.read(node.GetBlock(blocks[0].getValStr(), "1"));
+
+    COutPoint out_point;
+    CTxOut tx_out;
+
+    std::tie(out_point, tx_out) = node.CheckOutput(block["tx"][0].getValStr(), address);
+
+    CHECK(tx_out.nValue == ParseAmount("4096"));
+
+    CMutableTransaction op_return_tx;
+    op_return_tx.vin.emplace_back(CTxIn(out_point));
+
+    CScript outpubkeyscript;
+    outpubkeyscript << 1;
+    outpubkeyscript << outkey.GetPubKey();
+
+    CScript outopreturnscript;
+    outopreturnscript << OP_RETURN;
+    outopreturnscript << ParseHex("db1ff3f207771e90ec30747525abaefd3b56ff2b3aecbb76809b7106617c442e");
+
+    op_return_tx.vout.emplace_back(CTxOut(ParseAmount("4095.99"), outpubkeyscript));
+    op_return_tx.vout.emplace_back(CTxOut(0, outopreturnscript));
+
+    bytevector sig = wallet.SignTaprootTx(key.GetLocalPrivKey(), op_return_tx, 0, {tx_out}, {});
+    op_return_tx.vin.front().scriptWitness.stack.emplace_back(sig);
+
+    node.GenerateToAddress(address, "100"); // Make coinbase tx mature
+
+    CHECK_NOTHROW(node.SpendTx(CTransaction(op_return_tx)));
 
 }

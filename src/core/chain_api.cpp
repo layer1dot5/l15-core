@@ -34,6 +34,7 @@ namespace {
     const char* const GENERATETOADDRESS = "generatetoaddress";
     const char* const STOP = "stop";
     const char* const CREATEWALLET = "createwallet";
+    const char* const GETBLOCK = "getblock";
 }
 
 std::regex ChainApi::sNewlineRegExp("\n+");
@@ -299,7 +300,7 @@ std::string ChainApi::GetNewAddress(const std::string& label, const std::string&
     return btc_exec.Run();
 }
 
-std::string ChainApi::GenerateToOwnAddress(const std::string& address, const std::string &nblocks) const
+std::string ChainApi::GenerateToAddress(const std::string& address, const std::string &nblocks) const
 {
 
     ExecHelper btc_exec(m_cli_path, false);
@@ -452,6 +453,21 @@ std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const st
 
     return { COutPoint(uint256S(txid), nout), CTxOut(amount, scriptPubKey) };
 
+}
+
+std::string ChainApi::GetBlock(const string &block_hash, const string &verbosity)
+{
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back(GETBLOCK);
+    btc_exec.Arguments().emplace_back(block_hash);
+    btc_exec.Arguments().emplace_back(verbosity);
+
+    return btc_exec.Run();
 }
 
 }

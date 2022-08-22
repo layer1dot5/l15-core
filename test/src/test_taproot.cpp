@@ -67,7 +67,7 @@ struct TestcaseWrapper
         if(btc().GetChainHeight() < 50)
         {
             btc().CreateWallet("testwallet");
-            btc().GenerateToOwnAddress(btc().GetNewAddress(), "250");
+            btc().GenerateToAddress(btc().GetNewAddress(), "250");
         }
     }
 
