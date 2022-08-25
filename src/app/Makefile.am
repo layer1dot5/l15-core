@@ -6,20 +6,11 @@ AM_CPPFLAGS = $(DEBUG_CPPFLAGS)\
  -I$(top_srcdir)/node/src/script \
  -I$(top_srcdir)/node/src/support \
  -I$(top_srcdir)/contrib/secp256k1/include \
- -I$(top_srcdir)/src/common \
- -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex
 
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
-noinst_LTLIBRARIES = libl15-core.la
-libl15_core_la_SOURCES = \
-	script_merkle_tree.cpp \
-	channel_keys.cpp \
-	channel_contract.cpp \
-	channel.cpp \
-	chain_api.cpp \
-	wallet_api.cpp \
-	exechelper.cpp \
-	signer_api.cpp
+noinst_LTLIBRARIES = libl15-app.la
+libl15_app_la_SOURCES = \
+	signing_mgr.cpp

@@ -1,7 +1,6 @@
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
 #include "exechelper.hpp"
-#include "utils.hpp"
 
 #include "script/script.h"
 #include "script/interpreter.h"

@@ -6,12 +6,12 @@
 #include "catch/catch.hpp"
 
 #include "util/translation.h"
-#include "tools/config.hpp"
-#include "tools/nodehelper.hpp"
-#include "core/chain_api.hpp"
-#include "core/wallet_api.hpp"
-#include "core/channel_keys.hpp"
-#include "core/exechelper.hpp"
+#include "config.hpp"
+#include "nodehelper.hpp"
+#include "chain_api.hpp"
+#include "wallet_api.hpp"
+#include "channel_keys.hpp"
+#include "exechelper.hpp"
 #include "utils.hpp"
 #include "script_merkle_tree.hpp"
 

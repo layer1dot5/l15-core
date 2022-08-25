@@ -1,2 +1,2 @@
-SUBDIRS = core tools
+SUBDIRS = common core app tools
 

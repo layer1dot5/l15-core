@@ -7,12 +7,12 @@
 #include "util/translation.h"
 #include "univalue.h"
 
-#include "tools/config.hpp"
-#include "tools/nodehelper.hpp"
-#include "core/exechelper.hpp"
-#include "core/wallet_api.hpp"
-#include "core/chain_api.hpp"
-#include "core/channel_keys.hpp"
+#include "config.hpp"
+#include "nodehelper.hpp"
+#include "exechelper.hpp"
+#include "wallet_api.hpp"
+#include "chain_api.hpp"
+#include "channel_keys.hpp"
 
 using namespace l15;
 using namespace l15::core;

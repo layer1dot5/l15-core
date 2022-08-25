@@ -13,11 +13,11 @@
 
 #include "common.hpp"
 #include "channel_keys.hpp"
-#include "core_error.hpp"
+#include "common_error.hpp"
 
 
-#include "p2p/link.hpp"
-#include "p2p/frost.hpp"
+#include "p2p_link.hpp"
+#include "p2p_frost.hpp"
 #include "secp256k1_frost.h"
 
 namespace l15::core {
@@ -107,7 +107,7 @@ class SignerApi
     const error_handler m_err_handler;
 
     template<typename DATA>
-    void SendToPeers(const DATA& data) {
+    void Publish(const DATA& data) {
         std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
         {
             size_t peer_index = &peer - &(m_peers_data.front());

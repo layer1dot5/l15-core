@@ -6,7 +6,7 @@
 #include "random.h"
 
 #include "common.hpp"
-#include "core_error.hpp"
+#include "common_error.hpp"
 
 #include <optional>
 

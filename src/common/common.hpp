@@ -12,7 +12,7 @@
 
 #include "secp256k1_extrakeys.h"
 
-#include "core_error.hpp"
+#include "common_error.hpp"
 
 using std::string;
 using std::cout;

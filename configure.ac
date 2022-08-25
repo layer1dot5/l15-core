@@ -84,8 +84,10 @@ AC_SUBST(DEBUG_CXXFLAGS)
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-                 src/core/Makefile
+                 src/common/Makefile
                  src/tools/Makefile
+                 src/core/Makefile
+                 src/app/Makefile
                  test/Makefile
                  contrib/Makefile])
 
