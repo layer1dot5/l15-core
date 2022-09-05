@@ -1,6 +1,6 @@
 SUBDIRS = contrib node src test
 
-AM_CPPFLAGS = $(DEBUG_CPPFLAGS) \
+AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/src/tools \
@@ -9,7 +9,6 @@ AM_CPPFLAGS = $(DEBUG_CPPFLAGS) \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/node/src
 
-AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
 AM_LDFLAGS=-L$(top_builddir)/node/src
 
@@ -24,7 +23,7 @@ $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
 $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
-$(BOOST_FILESYSTEM_LIB) $(PTHREAD_LIBS)
+$(BOOST_FILESYSTEM_LIB)
 
 
 bin_PROGRAMS = l15-cli

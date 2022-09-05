@@ -59,7 +59,8 @@ public:
     std::string SpendTx(const CTransaction &tx) const;
     std::string TestTxSequence(const std::vector<CMutableTransaction> &txs) const;
 
-    std::string GetBlock(const std::string& block_hash, const std::string& verbosity = "2");
+    std::string GetBlock(const std::string& block_hash, const std::string& verbosity = "2") const;
+    std::string GetZMQNotifications() const;
 
     std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string& address) const;
 };

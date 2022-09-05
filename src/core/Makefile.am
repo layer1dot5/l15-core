@@ -1,5 +1,5 @@
 
-AM_CPPFLAGS = $(DEBUG_CPPFLAGS)\
+AM_CPPFLAGS = \
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
  -I$(top_srcdir)/node/src/consensus \
@@ -11,7 +11,6 @@ AM_CPPFLAGS = $(DEBUG_CPPFLAGS)\
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex
 
-AM_CXXFLAGS = $(DEBUG_CXXFLAGS)
 
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \

@@ -88,7 +88,7 @@ struct TestcaseWrapper
             wallet(),
             node(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
     {
-        startNode();
+        StartNode();
     }
 
     ~TestcaseWrapper()
@@ -98,9 +98,9 @@ struct TestcaseWrapper
         std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
 
-    void startNode() {
+    void StartNode() {
         ExecHelper node("l15noded", false);
-        StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
+        l15::StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
     }
 
     Config& conf() { return mConfFactory.conf; }

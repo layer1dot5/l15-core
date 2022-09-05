@@ -26,6 +26,8 @@
 #include "channel_keys.hpp"
 #include "exechelper.hpp"
 
+#include "onchain_service.hpp"
+
 #include "local_link.hpp"
 #include "time_measure.hpp"
 #include "test_suite_node.hpp"
@@ -33,6 +35,7 @@
 using namespace l15;
 using namespace l15::core;
 using namespace l15::p2p;
+using namespace l15::chain_service;
 
 namespace rs = std::ranges;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;

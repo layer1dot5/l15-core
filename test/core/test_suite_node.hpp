@@ -5,6 +5,7 @@
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
 #include "exechelper.hpp"
+#include "onchain_service.hpp"
 
 extern std::string configpath;
 
@@ -35,13 +36,14 @@ struct NodeWrapper
 {
     ConfigFactory mConfFactory;
     core::WalletApi wallet;
-    core::ChainApi node_api;
+    chain_service::OnChainService node_service;
 
     explicit NodeWrapper() :
             mConfFactory(configpath),
             wallet(),
-            node_api(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)),
-                     "l15node-cli")
+            node_service(
+                    std::make_unique<core::ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)),
+                     "l15node-cli"))
     {
         startNode();
     }
