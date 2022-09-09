@@ -35,7 +35,7 @@
 using namespace l15;
 using namespace l15::core;
 using namespace l15::p2p;
-using namespace l15::chain_service;
+using namespace l15::onchain_service;
 
 namespace rs = std::ranges;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;

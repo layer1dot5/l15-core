@@ -118,24 +118,43 @@ struct TestcaseWrapper
     Config& conf() { return mConfFactory.conf; }
 };
 
+
+template <class D>
+struct ChainTracer {
+    size_t& counter;
+
+    void operator()(const D& data)
+    {
+        ++counter;
+        std::clog << data.ToString() << std::endl;
+    }
+};
+
 TEST_CASE_METHOD(TestcaseWrapper, "Start/stop on-chain service")
 {
     auto chain = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
+    size_t block_cnt = 0;
+    size_t tx_cnt = 0;
 
     chain->CreateWallet("test");
 
-    chain_service::OnChainService service(std::move(chain));
+    onchain_service::OnChainService service(std::move(chain));
+
+    service.SetNewBlockHandler(ChainTracer<CBlockHeader>{block_cnt});
+    service.SetNewTxHandler(ChainTracer<CTransaction>{tx_cnt});
 
     service.Start();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    SECTION("Get block"){
-        service.ChainAPI().GenerateToAddress(service.ChainAPI().GetNewAddress(), "2");
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-    }
+    service.ChainAPI().GenerateToAddress(service.ChainAPI().GetNewAddress(), "2");
+
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     CHECK_NOTHROW(service.Stop());
 
     std::clog << "On-Chain service is stopped" << std::endl;
+
+    REQUIRE(block_cnt == 2);
+    REQUIRE(tx_cnt == 2);
 }

@@ -36,7 +36,7 @@ struct NodeWrapper
 {
     ConfigFactory mConfFactory;
     core::WalletApi wallet;
-    chain_service::OnChainService node_service;
+    onchain_service::OnChainService node_service;
 
     explicit NodeWrapper() :
             mConfFactory(configpath),

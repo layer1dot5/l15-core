@@ -16,5 +16,6 @@ noinst_LTLIBRARIES = libl15-srv.la
 
 libl15_srv_la_SOURCES = \
 	onchain_service.cpp \
-	onchain_protocol.cpp
+	onchain_protocol.cpp \
+	storage_service.cpp
 
