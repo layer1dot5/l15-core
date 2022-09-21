@@ -7,10 +7,11 @@
 #include "catch/catch.hpp"
 
 #include "util/translation.h"
-#include "tools/config.hpp"
-#include "tools/nodehelper.hpp"
+
+#include "config.hpp"
+#include "nodehelper.hpp"
 #include "channel.hpp"
-#include "core/wallet_api.hpp"
+#include "wallet_api.hpp"
 #include "utils.hpp"
 #include "script_merkle_tree.hpp"
 

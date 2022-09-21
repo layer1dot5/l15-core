@@ -1,7 +1,7 @@
 #pragma once
 
-#include "protocol.hpp"
-#include "link.hpp"
+#include "p2p_protocol.hpp"
+#include "p2p_link.hpp"
 #include "common_frost.hpp"
 
 namespace l15::p2p {

@@ -4,7 +4,9 @@
 #include <vector>
 #include <array>
 #include <memory>
+#include <functional>
 #include <iostream>
+#include <tuple>
 
 #include "fixsizevector.hpp"
 
@@ -12,7 +14,7 @@
 
 #include "secp256k1_extrakeys.h"
 
-#include "core_error.hpp"
+#include "common_error.hpp"
 
 using std::string;
 using std::cout;
@@ -21,6 +23,9 @@ using std::clog;
 using std::stringstream;
 
 namespace l15 {
+
+using std::get;
+using std::move;
 
 typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;
@@ -77,5 +82,12 @@ typedef cex::fixsize_vector<uint8_t, 64> signature;
 typedef std::unique_ptr<CMutableTransaction> transaction_ptr;
 typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;
 
+
+template <class T>
+struct hash : public std::__hash_base<size_t, T>
+{
+    size_t operator()(const T& val) const
+    { return std::_Hash_bytes(val.data(), val.size(), static_cast<size_t>(0xb74a5b734)); }
+};
 
 }

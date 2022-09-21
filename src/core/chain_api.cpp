@@ -1,7 +1,6 @@
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
 #include "exechelper.hpp"
-#include "utils.hpp"
 
 #include "script/script.h"
 #include "script/interpreter.h"
@@ -35,6 +34,7 @@ namespace {
     const char* const STOP = "stop";
     const char* const CREATEWALLET = "createwallet";
     const char* const GETBLOCK = "getblock";
+    const char* const GETZMQNOTIFICATIONS = "getzmqnotifications";
 }
 
 std::regex ChainApi::sNewlineRegExp("\n+");
@@ -455,7 +455,7 @@ std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const st
 
 }
 
-std::string ChainApi::GetBlock(const string &block_hash, const string &verbosity)
+std::string ChainApi::GetBlock(const string &block_hash, const string &verbosity) const
 {
     ExecHelper btc_exec(m_cli_path, false);
     std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
@@ -466,6 +466,19 @@ std::string ChainApi::GetBlock(const string &block_hash, const string &verbosity
     btc_exec.Arguments().emplace_back(GETBLOCK);
     btc_exec.Arguments().emplace_back(block_hash);
     btc_exec.Arguments().emplace_back(verbosity);
+
+    return btc_exec.Run();
+}
+
+std::string ChainApi::GetZMQNotifications() const
+{
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back(GETZMQNOTIFICATIONS);
 
     return btc_exec.Run();
 }

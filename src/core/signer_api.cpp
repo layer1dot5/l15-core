@@ -179,7 +179,7 @@ void SignerApi::RegisterToPeers(aggregate_key_handler handler)
     RemoteSigner message((uint32_t)m_signer_index);
     mKeypair.GetLocalPubKey().get(m_ctx, message.pubkey);
 
-    SendToPeers(message);
+    Publish(message);
 }
 
 void SignerApi::CommitNonces(size_t count)
@@ -205,7 +205,7 @@ void SignerApi::CommitNonces(size_t count)
         message.nonce_commitments.emplace_back(pubnonce);
     }
 
-    SendToPeers(message);
+    Publish(message);
 
     m_nonce_count += count;
 }
@@ -232,7 +232,7 @@ void SignerApi::DistributeKeyShares()
         throw SignatureError();
     }
 
-    SendToPeers(message);
+    Publish(message);
 
     SendToPeers<KeyShare>([&](KeyShare& m, const RemoteSignerData& s, size_t i){
         if (!secp256k1_frost_share_gen(m_ctx,
@@ -328,7 +328,7 @@ void SignerApi::InitSignature(operation_id opid, bool participate)
 
     if (participate) {
         SignatureCommitment message(m_signer_index, opid);
-        SendToPeers(message);
+        Publish(message);
     }
 }
 
@@ -389,7 +389,7 @@ void SignerApi::DistributeSigShares(operation_id opid)
     SignatureShare message(m_signer_index, opid);
     secp256k1_frost_partial_sig_serialize(m_ctx, message.share.data(), &sigshare);
 
-    SendToPeers(message);
+    Publish(message);
 }
 
 void SignerApi::Verify(const uint256 &message, const signature &signature)

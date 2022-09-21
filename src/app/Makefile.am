@@ -12,13 +12,6 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/cex
 
 
-noinst_LTLIBRARIES = libl15-core.la
-libl15_core_la_SOURCES = \
-	script_merkle_tree.cpp \
-	channel_keys.cpp \
-	channel_contract.cpp \
-	channel.cpp \
-	chain_api.cpp \
-	wallet_api.cpp \
-	exechelper.cpp \
-	signer_api.cpp
+noinst_LTLIBRARIES = libl15-app.la
+libl15_app_la_SOURCES = \
+	signing_mgr.cpp

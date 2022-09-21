@@ -8,7 +8,7 @@
 
 #include "smartinserter.hpp"
 
-#define CATCH_CONFIG_MAIN
+#define CATCH_CONFIG_RUNNER
 #include "catch/catch.hpp"
 
 #include "util/translation.h"
@@ -17,19 +17,66 @@
 #include "script/standard.h"
 
 #include "common.hpp"
+#include "config.hpp"
+#include "nodehelper.hpp"
+
 #include "signer_api.hpp"
 #include "wallet_api.hpp"
+#include "chain_api.hpp"
 #include "channel_keys.hpp"
+#include "exechelper.hpp"
+
+#include "onchain_service.hpp"
 
 #include "local_link.hpp"
 #include "time_measure.hpp"
+#include "test_suite_node.hpp"
 
 using namespace l15;
 using namespace l15::core;
 using namespace l15::p2p;
+using namespace l15::onchain_service;
 
 namespace rs = std::ranges;
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
+
+
+std::string configpath;
+
+int main(int argc, char* argv[])
+{
+    Catch::Session session;
+
+
+    // Build a new parser on top of Catch's
+    using namespace Catch::clara;
+    auto cli
+            = session.cli() // Get Catch's composite command line parser
+              | Opt(configpath, "Config path" ) // bind variable to a new option, with a hint string
+              ["--config"]    // the option names it will respond to
+                      ("Path to node config");
+
+    session.cli( cli );
+
+    // Let Catch (using Clara) parse the command line
+    int returnCode = session.applyCommandLine(argc, argv);
+    if( returnCode != 0 ) // Indicates a command line error
+        return returnCode;
+
+    if(configpath.empty())
+    {
+        std::cerr << "Config path is not passed!" << std::endl;
+        return 1;
+    }
+
+    std::filesystem::path p(configpath);
+    if(p.is_relative())
+    {
+        configpath = (std::filesystem::current_path() / p).string();
+    }
+
+    return session.run();
+}
 
 
 bool operator== (const std::list<secp256k1_frost_pubnonce>& l1, const std::list<secp256k1_frost_pubnonce>& l2) {
@@ -44,7 +91,7 @@ bool operator== (const std::list<secp256k1_frost_pubnonce>& l1, const std::list<
     else return false;
 }
 
-TEST_CASE("2-of-3 FROST signature")
+TEST_CASE("2-of-3 local")
 {
     const size_t N = 3;
     const size_t K = 2;
@@ -165,7 +212,7 @@ TEST_CASE("2-of-3 FROST signature")
     CHECK_NOTHROW(signer0.Verify(m, sig0));
 }
 
-TEST_CASE("Keyshare 1K")
+TEST_CASE("500 of 1K local")
 {
     const size_t N = 1000;
     const size_t K = 500;
@@ -324,5 +371,33 @@ TEST_CASE("Keyshare 1K")
         }
 
     }
+
+}
+
+TEST_CASE("50 of 100 on-chain")
+{
+    const size_t N = 100;
+    const size_t K = 50;
+
+    NodeWrapper w;
+
+    std::vector<std::tuple<std::unique_ptr<SignerApi>, link_ptr>> signers;
+    signers.reserve(N);
+
+    aggregate_key_handler key_hdl = [](SignerApi& s) { };
+    new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
+    aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
+    error_handler error_hdl = [&](Error&& e) { FAIL(e.what()); };
+
+    std::ranges::transform(
+            std::ranges::common_view(std::views::iota(0) | std::views::take(N)),
+            cex::smartinserter(signers, signers.end()),
+            [&](int i) {
+                std::unique_ptr<SignerApi> signer(
+                        new SignerApi(i, ChannelKeys(w.wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl));
+                link_ptr link = link_ptr(new LocalLink(*signer));
+                return std::tuple<std::unique_ptr<SignerApi>, link_ptr>(std::move(signer), std::move(link));
+            }
+    );
 
 }

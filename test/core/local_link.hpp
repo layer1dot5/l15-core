@@ -1,8 +1,8 @@
 #pragma once
 
-#include "p2p/link.hpp"
-#include "p2p/frost.hpp"
-#include "core/signer_api.hpp"
+#include "p2p_link.hpp"
+#include "p2p_frost.hpp"
+#include "signer_api.hpp"
 
 namespace l15::p2p {
 

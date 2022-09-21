@@ -7,12 +7,12 @@
 #include "util/translation.h"
 #include "univalue.h"
 
-#include "tools/config.hpp"
-#include "tools/nodehelper.hpp"
-#include "core/exechelper.hpp"
-#include "core/wallet_api.hpp"
-#include "core/chain_api.hpp"
-#include "core/channel_keys.hpp"
+#include "config.hpp"
+#include "nodehelper.hpp"
+#include "exechelper.hpp"
+#include "wallet_api.hpp"
+#include "chain_api.hpp"
+#include "channel_keys.hpp"
 
 using namespace l15;
 using namespace l15::core;
@@ -88,7 +88,7 @@ struct TestcaseWrapper
             wallet(),
             node(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
     {
-        startNode();
+        StartNode();
     }
 
     ~TestcaseWrapper()
@@ -98,9 +98,9 @@ struct TestcaseWrapper
         std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
 
-    void startNode() {
+    void StartNode() {
         ExecHelper node("l15noded", false);
-        StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
+        l15::StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
     }
 
     Config& conf() { return mConfFactory.conf; }
