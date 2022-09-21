@@ -28,7 +28,9 @@ else
 fi
 
 # Checks for programs.
+AC_PROG_CC
 AC_PROG_CXX
+AC_PROG_CPP
 AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
@@ -67,12 +69,12 @@ AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
 AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
-CC = $PTHREAD_CC
-CXX = $PTHREAD_CXX
+CC="$PTHREAD_CC"
+CXX="$PTHREAD_CXX"
 LIBS="$PTHREAD_LIBS $LIBS"
-CPPFLAGS ="$DEBUG_CPPFLAGS $CPPFLAGS"
+CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
 CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
-CXXFLAGS="$DEBUG_CXXFLAGSet  $PTHREAD_CFLAGS $CXXFLAGS"
+CXXFLAGS="$DEBUG_CXXFLAG $PTHREAD_CFLAGS $CXXFLAGS"
 
 AX_TBB
 AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
