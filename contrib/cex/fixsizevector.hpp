@@ -31,9 +31,9 @@ private:
     }
 
     template <typename T>
-    const T&& check_resize(T&& b) noexcept {
+    T&& check_resize(T&& b) noexcept {
         if (b.size() != SIZE) b.resize(SIZE);
-        return b;
+        return std::move(b);
     }
 
 public:
