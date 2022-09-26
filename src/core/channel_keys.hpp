@@ -63,15 +63,6 @@ public:
     std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
 
     seckey GetStrongRandomKey();
-
-    template<typename T>
-    static bool IsZeroArray(const T& a)
-    { bool res = false; std::for_each(a.begin(), a.end(), [&](const uint8_t& el){ res |= el; }); return !res;}
-
-    template<typename T>
-    static bool IsZeroArray(const T* a, size_t len)
-    { bool res = false; std::for_each(a, a+len, [&](const uint8_t& el){ res |= el; }); return !res;}
-
 };
 
 bool pubkey_less(const xonly_pubkey &, const xonly_pubkey &);

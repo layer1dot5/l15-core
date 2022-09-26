@@ -27,7 +27,9 @@ public:
 };
 
 class SignatureError : public Error {
+    const std::string m_details;
 public:
+    explicit SignatureError(std::string&& details) : m_details(move(details)) {}
     ~SignatureError() override = default;
 
     const char* what() const override
