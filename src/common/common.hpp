@@ -83,6 +83,14 @@ typedef std::unique_ptr<CMutableTransaction> transaction_ptr;
 typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;
 
 
+template<typename T>
+static bool IsZeroArray(const T& a)
+{ bool res = false; std::for_each(a.begin(), a.end(), [&](const uint8_t& el){ res |= el; }); return !res;}
+
+template<typename T>
+static bool IsZeroArray(const T* a, size_t len)
+{ bool res = false; std::for_each(a, a+len, [&](const uint8_t& el){ res |= el; }); return !res;}
+
 template <class T>
 struct hash : public std::__hash_base<size_t, T>
 {
@@ -90,4 +98,16 @@ struct hash : public std::__hash_base<size_t, T>
     { return std::_Hash_bytes(val.data(), val.size(), static_cast<size_t>(0xb74a5b734)); }
 };
 
+template<>
+struct hash<secp256k1_xonly_pubkey> : std::__hash_base<size_t, secp256k1_xonly_pubkey>
+{
+    size_t operator()(const secp256k1_xonly_pubkey& val) const
+    { return std::_Hash_bytes(val.data, sizeof(val.data), static_cast<size_t>(0xb74a5b734)); }
+};
+
+struct secp256k1_xonly_pubkey_equal
+{
+    bool operator() (const secp256k1_xonly_pubkey& p1, const secp256k1_xonly_pubkey& p2) const
+    { return memcmp(p1.data, p2.data, sizeof(p1.data)) == 0; }
+};
 }

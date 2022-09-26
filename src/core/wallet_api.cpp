@@ -118,7 +118,7 @@ bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction 
 
     if(!SignatureHashSchnorr(sighash, execdata, tx, nin, hashtype, execdata.m_tapleaf_hash_init ? SigVersion::TAPSCRIPT : SigVersion::TAPROOT, txdata, MissingDataBehavior::FAIL))
     {
-        throw SignatureError();
+        throw SignatureError("Sighash generation error");
     }
 
     bytevector sig;
@@ -129,7 +129,7 @@ bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction 
         // TODO: this block is copy-pasted from CKey bitcoin class
         //       Should be replaced usin proper abstraction layer (ChannelKeys??)
         secp256k1_keypair keypair;
-        if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, sk.data())) throw SignatureError();
+        if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, sk.data())) throw SignatureError("Key error");
 //        if (merkle_root) {
 //            secp256k1_xonly_pubkey pubkey;
 //            if (!secp256k1_keypair_xonly_pub(secp256k1_context_sign, &pubkey, nullptr, &keypair)) return false;
@@ -148,7 +148,7 @@ bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction 
         if (!ret) memory_cleanse(sig.data(), sig.size());
         memory_cleanse(&keypair, sizeof(keypair));
 
-        if (!ret) throw SignatureError();
+        if (!ret) throw SignatureError("Signing error");
     }
 
 

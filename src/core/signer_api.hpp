@@ -9,6 +9,7 @@
 #include <boost/container/flat_map.hpp>
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 
 #include "common.hpp"
@@ -56,7 +57,7 @@ public:
 class SignerApi;
 
 typedef std::function<void(Error&&)> error_handler;
-typedef std::function<void(SignerApi&)> aggregate_key_handler;
+typedef std::function<void(SignerApi&)> general_handler;
 typedef std::function<void(SignerApi&, operation_id)> new_sigop_handler;
 typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
 
@@ -64,31 +65,31 @@ typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
 struct RemoteSignerData
 {
     mutable std::shared_ptr<p2p::Link> link;
-    secp256k1_xonly_pubkey pubkey;
     std::list<secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
     std::optional<secp256k1_frost_share> keyshare;
-
-    RemoteSignerData() : link(nullptr), pubkey(), ephemeral_pubkeys(), keyshare_commitment(), keyshare(std::nullopt) {}
 
 };
 
 
 class SignerApi
 {
+public:
+    typedef std::unordered_map<xonly_pubkey, RemoteSignerData, l15::hash<xonly_pubkey>> peers_data_type;
+private:
     const secp256k1_context* m_ctx;
     ChannelKeys mKeypair;
     ChannelKeys mKeyShare;
 
-    const size_t m_signer_index;
     size_t m_nonce_count;
 
     const size_t m_threshold_size;
-    std::vector<RemoteSignerData> m_peers_data;
+    peers_data_type m_peers_data;
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
-    aggregate_key_handler m_key_handler;
+    general_handler m_reg_handler;
+    general_handler m_key_handler;
 
     std::list<secp256k1_frost_secnonce> m_secnonces;
 
@@ -96,10 +97,13 @@ class SignerApi
 
     std::mutex m_sig_share_mutex;
 
-    typedef std::optional<frost_sigshare> sigop_peer_cache;
-    typedef std::tuple<std::optional<secp256k1_frost_session>, boost::container::flat_map<peer_index, sigop_peer_cache>, size_t> sigop_cache;
+    typedef std::optional<frost_sigshare> sigshare_cache;
+    typedef std::unordered_map<secp256k1_xonly_pubkey, sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal> sigshare_peers_cache;
+    typedef std::tuple<std::optional<secp256k1_frost_session>, sigshare_peers_cache, size_t> sigop_cache;
 
-    boost::container::flat_map<operation_id, sigop_cache> m_sigops_cache;
+    typedef boost::container::flat_map<operation_id, sigop_cache> sigops_cache;
+
+    sigops_cache m_sigops_cache;
 
     const new_sigop_handler m_new_sig_handler;
     const aggregate_sig_handler m_aggregate_sig_handler;
@@ -108,11 +112,11 @@ class SignerApi
 
     template<typename DATA>
     void Publish(const DATA& data) {
-        std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
+        std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
         {
-            size_t peer_index = &peer - &(m_peers_data.front());
-            if (m_signer_index != peer_index) {
-                peer.link->Send(data);
+
+            if (mKeypair.GetLocalPubKey() != peer.first) {
+                peer.second.link->Send(data);
             }
             else {
                 Accept(data);
@@ -121,14 +125,13 @@ class SignerApi
     }
 
     template<typename DATA>
-    void SendToPeers(std::function<void(DATA&, const RemoteSignerData&, size_t)> datagen) {
-        std::for_each(std::execution::par_unseq, m_peers_data.cbegin(), m_peers_data.cend(), [&](const RemoteSignerData& peer)
+    void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
+        std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
         {
-            size_t peer_index = &peer - &(m_peers_data.front());
-            DATA data(m_signer_index);
-            datagen(data, peer, peer_index);
-            if (m_signer_index != peer_index) {
-                peer.link->Send(data);
+            DATA data(xonly_pubkey(mKeypair.GetLocalPubKey()));
+            datagen(data, peer.first, peer.second);
+            if (mKeypair.GetLocalPubKey() != peer.first) {
+                peer.second.link->Send(data);
             }
             else {
                 Accept(data);
@@ -136,26 +139,22 @@ class SignerApi
         });
     }
 
-    std::optional<secp256k1_frost_session>& SigOpSession(operation_id opid)
-    { return std::get<0>(m_sigops_cache[opid]); }
+    std::optional<secp256k1_frost_session>& SigOpSession(sigops_cache::iterator op_it)
+    { return std::get<0>(op_it->second); }
 
-    boost::container::flat_map<peer_index, sigop_peer_cache>& SigOpCachedPeers(operation_id opid)
-    { return std::get<1>(m_sigops_cache[opid]); }
+    sigshare_peers_cache& SigOpCachedPeers(sigops_cache::iterator op_it)
+    { return std::get<1>(op_it->second); }
 
-    size_t& SigOpSigShareCount(operation_id opid)
-    { return std::get<2>(m_sigops_cache[opid]); }
+    size_t& SigOpSigShareCount(sigops_cache::iterator op_it)
+    { return std::get<2>(op_it->second); }
 
 public:
-    SignerApi(size_t index,
-              ChannelKeys &&keypair,
+    SignerApi(ChannelKeys &&keypair,
               size_t cluster_size,
               size_t threshold_size,
               new_sigop_handler sigop,
               aggregate_sig_handler aggsig,
               error_handler e);
-
-    size_t GetIndex() const noexcept
-    { return m_signer_index; }
 
     const xonly_pubkey& GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }
@@ -178,14 +177,13 @@ public:
 
     // -----------------------------------------------
 
-    void AddPeer(size_t index, p2p::link_ptr link);
-    const std::vector<RemoteSignerData>& Peers() const
+    void AddPeer(xonly_pubkey&& pk, p2p::link_ptr link);
+    const peers_data_type& Peers() const
     { return m_peers_data; }
 
     void Accept(const p2p::Message& m);
 
-    void RegisterToPeers(aggregate_key_handler key_handler);
-    void DistributeKeyShares();
+    void DistributeKeyShares(general_handler key_complete_handler);
 
     void CommitNonces(size_t count);
 
@@ -202,8 +200,6 @@ public:
     void ClearSignatureCache(operation_id opid);
 private:
 
-
-    void AcceptRemoteSigner(const p2p::Message& m);
     void AcceptNonceCommitments(const p2p::Message& m);
     void AcceptKeyShareCommitment(const p2p::Message& m);
     void AcceptKeyShare(const p2p::Message& m);

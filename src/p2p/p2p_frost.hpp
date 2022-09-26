@@ -7,9 +7,7 @@
 namespace l15::p2p {
 
 
-
 enum class FROST_MESSAGE: uint16_t {
-    REMOTE_SIGNER,
     NONCE_COMMITMENTS,
     KEY_COMMITMENT,
     KEY_SHARE,
@@ -20,46 +18,39 @@ enum class FROST_MESSAGE: uint16_t {
 };
 
 
-
-struct RemoteSigner : public Message
-{
-    RemoteSigner(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::REMOTE_SIGNER), peer_index(idx) {}
-    uint32_t peer_index;
-    secp256k1_xonly_pubkey pubkey;
-};
-
 struct NonceCommitments : public Message
 {
-    NonceCommitments(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::NONCE_COMMITMENTS), peer_index(idx) {}
-    uint32_t peer_index;
+    NonceCommitments(xonly_pubkey&& pk) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::NONCE_COMMITMENTS), pubkey(move(pk)) {}
+    xonly_pubkey pubkey;
     std::vector<secp256k1_frost_pubnonce> nonce_commitments;
 };
 
 struct KeyShareCommitment : public Message
 {
-    KeyShareCommitment(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_COMMITMENT), peer_index(idx) {}
-    uint32_t peer_index;
+    KeyShareCommitment(xonly_pubkey&& pk) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_COMMITMENT), pubkey(move(pk)) {}
+    xonly_pubkey pubkey;
     std::vector<secp256k1_pubkey> share_commitment;
 };
 
 struct KeyShare : public Message
 {
-    KeyShare(uint32_t idx) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_SHARE), peer_index(idx) {}
-    uint32_t peer_index;
+    KeyShare(xonly_pubkey&& pk) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::KEY_SHARE), pubkey(move(pk)) {}
+    xonly_pubkey pubkey;
     secp256k1_frost_share share;
 };
 
 struct SignatureCommitment : public Message
 {
-    SignatureCommitment(uint32_t idx, uint32_t opid) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::SIGNATURE_COMMITMENT), peer_index(idx), operation_id(opid) {}
-    uint32_t peer_index;
+    SignatureCommitment(xonly_pubkey&& pk, uint32_t opid) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::SIGNATURE_COMMITMENT), pubkey(move(pk)), operation_id(opid) {}
+    xonly_pubkey pubkey;
     uint32_t operation_id;
+    // TODO: Looks commitments itself is forgotten!!!
 };
 
 struct SignatureShare : public Message
 {
-    SignatureShare(uint32_t idx, uint32_t opid) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::SIGNATURE_SHARE), peer_index(idx), operation_id(opid) {}
-    uint32_t peer_index;
+    SignatureShare(xonly_pubkey&& pk, uint32_t opid) : Message((uint16_t)PROTOCOL::FROST, (uint16_t)FROST_MESSAGE::SIGNATURE_SHARE), pubkey(move(pk)), operation_id(opid) {}
+    xonly_pubkey pubkey;
     uint32_t operation_id;
     frost_sigshare share;
 };

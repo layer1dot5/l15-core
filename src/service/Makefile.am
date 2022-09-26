@@ -8,6 +8,7 @@ AM_CPPFLAGS = $(ZMQ_CPPFLAGS) \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/contrib/cex
 
 
@@ -17,5 +18,8 @@ noinst_LTLIBRARIES = libl15-srv.la
 libl15_srv_la_SOURCES = \
 	onchain_service.cpp \
 	onchain_protocol.cpp \
-	storage_service.cpp
+	storage_service.cpp \
+	generic_service.cpp \
+	p2p_service.cpp \
+	signer_service.cpp
 
