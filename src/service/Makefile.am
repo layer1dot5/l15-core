@@ -20,6 +20,6 @@ libl15_srv_la_SOURCES = \
 	onchain_protocol.cpp \
 	storage_service.cpp \
 	generic_service.cpp \
-	p2p_service.cpp \
-	signer_service.cpp
+	signer_service.cpp \
+	zmq_context.cpp
 

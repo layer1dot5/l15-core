@@ -44,11 +44,6 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), nullptr);
 }
 
-void SignerApi::AddPeer(xonly_pubkey&& pk, link_ptr link)
-{
-    m_peers_data.emplace(pk, RemoteSignerData{move(link)});
-}
-
 void SignerApi::Accept(const Message& m)
 {
     if (m.protocol_id != (uint16_t)PROTOCOL::FROST) {
@@ -213,9 +208,9 @@ void SignerApi::CommitNonces(size_t count)
     m_nonce_count += count;
 }
 
-void SignerApi::DistributeKeyShares(general_handler handler)
+void SignerApi::DistributeKeyShares(general_handler key_shares_received_handler)
 {
-    m_key_handler = move(handler);
+    m_key_handler = move(key_shares_received_handler);
 
     seckey session;
     GetStrongRandBytes(session);

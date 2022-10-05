@@ -13,6 +13,9 @@ struct Message
     uint16_t id;
 };
 
+typedef std::function<void(const p2p::Message&)> link_handler;
+
+
 class WrongProtocol: public Error {
 public:
     explicit WrongProtocol(uint16_t protocol) : protocol_id(protocol) {}
@@ -48,18 +51,5 @@ public:
     uint16_t message_id;
 };
 
-
-
-
-class Link
-{
-public:
-    virtual ~Link() = default;
-
-    // Assuming reentrant behavior as per now!!!
-    virtual void Send(const Message& m) = 0;
-};
-
-typedef std::shared_ptr<Link> link_ptr;
 
 }

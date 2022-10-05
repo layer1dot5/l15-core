@@ -1,45 +1,41 @@
 
 #include "signer_service.hpp"
 #include "signer_api.hpp"
+#include "generic_service.hpp"
 
 namespace l15::signer_service {
 
-namespace
-{
 
-    core::general_handler key_hdl = [](core::SignerApi& s) { s.AggregateKey(); };
-
-}
-
-
-SignerService::SignerService() : mSigners()
+SignerService::SignerService(service::GenericService& bgService) : mBgService(bgService), m_signers()
 {
 
 }
 
-std::future<xonly_pubkey&> SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> signer)
+
+
+std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey &signer_key)
 {
-    std::promise<xonly_pubkey&> res;
+    auto& s = m_signers[&signer_key];
 
-    try {
-        if (!mSigners.insert(make_pair(signer->GetLocalPubKey(), signer)).second) {
-            // Lets not to throw, just start to work with signer we already have
-            //throw service::IllegalServiceParameterError("");
-
-        }
-
-
-    }catch (...)
+    return mBgService.Serve<const xonly_pubkey&>([&](std::promise<const xonly_pubkey&>&& p)
     {
-        res.set_exception(std::current_exception());
-    }
+        s->DistributeKeyShares([&](core::SignerApi& s)
+        {
+            s.AggregateKey();
+            p.set_value(s.GetAggregatedPubKey());
+        });
+    });
 
-    return res.get_future();
 }
 
-std::future<void> SignerService::MakeNonces(const xonly_pubkey &signer_key, size_t count)
+std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, size_t count)
 {
-    return std::future<void>();
+    auto& s = m_signers[&signer_key];
+
+    return mBgService.Serve([&]()
+    {
+        s->CommitNonces(count);
+    });
 }
 
 std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const uint256 &message)
@@ -47,9 +43,5 @@ std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const
     return std::future<signature>();
 }
 
-void SignerService::DisposeSigner(const xonly_pubkey &signer_key)
-{
-
-}
 
 } // l15

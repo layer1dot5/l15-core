@@ -42,7 +42,9 @@ public:
 
     xonly_pubkey() = default;
     xonly_pubkey(const xonly_pubkey&) = default;
-    xonly_pubkey(xonly_pubkey&&) = default;
+    xonly_pubkey(xonly_pubkey&&) noexcept = default;
+    xonly_pubkey(const base::base& v) : cex::fixsize_vector<uint8_t, 32>(v) {}
+    xonly_pubkey(base::base&& v) noexcept : cex::fixsize_vector<uint8_t, 32>(move(v)) {}
     xonly_pubkey(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk)
     : cex::fixsize_vector<uint8_t, 32>()
     { set(ctx, pk); }
@@ -94,8 +96,27 @@ static bool IsZeroArray(const T* a, size_t len)
 template <class T>
 struct hash : public std::__hash_base<size_t, T>
 {
-    size_t operator()(const T& val) const
+    typedef T value_type;
+    size_t operator()(const value_type& val) const
     { return std::_Hash_bytes(val.data(), val.size(), static_cast<size_t>(0xb74a5b734)); }
+};
+
+template <class T>
+struct hash<T*> : public std::__hash_base<size_t, T*>
+{
+    //typedef std::remove_cv<T*> value_type;
+    size_t operator()(const T* val) const
+    { return std::_Hash_bytes(val->data(), val->size(), static_cast<size_t>(0xb74a5b734)); }
+};
+
+template <typename T>
+struct equal_to : public std::equal_to<T> {};
+
+template <typename T>
+struct equal_to<T*>
+{
+    constexpr bool operator()(const T* x, const T* y) const
+    { return *x == *y; }
 };
 
 template<>

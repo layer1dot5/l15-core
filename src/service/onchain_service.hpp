@@ -5,31 +5,17 @@
 #include <thread>
 
 #include <utility>
-#include <zmq.hpp>
 
 #include "primitives/block.h"
 
 #include "chain_api.hpp"
+#include "zmq_context.hpp"
 
 
 namespace l15::onchain_service {
 
 
-namespace details {
-
-struct OnChainServiceBase {
-    static std::optional<zmq::context_t> zmq_ctx;
-
-    OnChainServiceBase() {
-        if (!zmq_ctx.has_value()) {
-            zmq_ctx.emplace(zmq::context_t());
-        }
-    }
-};
-
-}
-
-class OnChainService : protected details::OnChainServiceBase
+class OnChainService : protected service::ZmqContextSingleton
 {
 
     std::unique_ptr<core::ChainApi> mChain;
@@ -43,7 +29,6 @@ class OnChainService : protected details::OnChainServiceBase
 
 public:
     explicit OnChainService(std::unique_ptr<core::ChainApi>&& chain) :
-            details::OnChainServiceBase(),
             mChain(std::move(chain)) {}
 
     const core::ChainApi& ChainAPI() const
