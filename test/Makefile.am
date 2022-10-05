@@ -36,7 +36,7 @@ $(BOOST_FILESYSTEM_LIB)
 
 bin_PROGRAMS = signer
 
-signer_SOURCES = signer.cpp
+signer_SOURCES = zmq_service.cpp signer.cpp
 signer_LDADD = $(L15_LIBS) $(ZMQ_LIBS)
 
 

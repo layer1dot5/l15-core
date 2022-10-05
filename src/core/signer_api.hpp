@@ -10,6 +10,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <functional>
 
 
 #include "common.hpp"
@@ -64,7 +65,7 @@ typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
 
 struct RemoteSignerData
 {
-    mutable std::shared_ptr<p2p::Link> link;
+    mutable p2p::link_handler link;
     std::list<secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
@@ -84,8 +85,11 @@ private:
 
     size_t m_nonce_count;
 
+    p2p::link_handler m_publisher;
+
     const size_t m_threshold_size;
     peers_data_type m_peers_data;
+
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
     general_handler m_reg_handler;
@@ -110,19 +114,8 @@ private:
 
     const error_handler m_err_handler;
 
-    template<typename DATA>
-    void Publish(const DATA& data) {
-        std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
-        {
-
-            if (mKeypair.GetLocalPubKey() != peer.first) {
-                peer.second.link->Send(data);
-            }
-            else {
-                Accept(data);
-            }
-        });
-    }
+    void Publish(const p2p::Message& data)
+    { m_publisher(data); }
 
     template<typename DATA>
     void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
@@ -131,7 +124,7 @@ private:
             DATA data(xonly_pubkey(mKeypair.GetLocalPubKey()));
             datagen(data, peer.first, peer.second);
             if (mKeypair.GetLocalPubKey() != peer.first) {
-                peer.second.link->Send(data);
+                peer.second.link(data);
             }
             else {
                 Accept(data);
@@ -166,6 +159,9 @@ public:
     { return m_nonce_count; }
 
 
+    void SetPublisher(p2p::link_handler h)
+    { m_publisher = move(h); }
+
     // Methods to access internal data to use by tests
     // -----------------------------------------------
 
@@ -177,13 +173,16 @@ public:
 
     // -----------------------------------------------
 
-    void AddPeer(xonly_pubkey&& pk, p2p::link_ptr link);
+    template<typename LINK>
+    void AddPeer(xonly_pubkey&& pk, LINK link)
+    { m_peers_data.emplace(pk, RemoteSignerData{move(link)}); }
+
     const peers_data_type& Peers() const
     { return m_peers_data; }
 
     void Accept(const p2p::Message& m);
 
-    void DistributeKeyShares(general_handler key_complete_handler);
+    void DistributeKeyShares(general_handler key_shares_received_handler);
 
     void CommitNonces(size_t count);
 

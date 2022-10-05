@@ -9,17 +9,12 @@
 
 namespace l15::onchain_service {
 
-namespace details {
-
-std::optional<zmq::context_t> OnChainServiceBase::zmq_ctx;
-
-}
 
 namespace {
 
 const char* STOP_ADDR = "inproc://stop";//"tcp://127.0.0.1:19010";
 
-const std::string STOP("stop");
+static const std::string STOP("stop");
 
 }
 
