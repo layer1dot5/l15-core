@@ -104,22 +104,6 @@ public:
     { return m_promise.get_future(); }
 };
 
-template<>
-class task<void, std::function<void(std::promise<void>&&)>> : public task_base {
-    std::promise<void> m_promise;
-    std::function<void(std::promise<void>&&)> m_action;
-
-public:
-    task(std::promise<void>&& p, std::function<void(std::promise<void>&&)>&& a) : m_promise(move(p)), m_action(move(a)) {}
-    void run() override
-    {
-        m_action(move(m_promise));
-    }
-
-    std::future<void> get_future()
-    { return m_promise.get_future(); }
-};
-
 }
 
 class GenericService
@@ -160,17 +144,6 @@ public:
         return res;
     }
 
-    std::future<void> Serve(std::function<void(std::promise<void>&&)> action)
-    {
-        std::unique_ptr<details::task<void, std::function<void(std::promise<void>&&)>>> task
-            = std::make_unique<details::task<void, std::function<void(std::promise<void>&&)>>>(std::promise<void>(), move(action));
-
-        auto res = task->get_future();
-        ServeInternal(move(task));
-        return res;
-
-    }
-
     template <class R>
     std::future<R> Serve(std::function<void(std::promise<R>&&)> action)
     {
@@ -182,6 +155,14 @@ public:
         return res;
     }
 
+    template <class R>
+    void Serve(std::function<void(std::promise<R>&&)> action, std::promise<R>&& p)
+    {
+        std::unique_ptr<details::task<R, std::function<void(std::promise<R>&&)>>> task
+                = std::make_unique<details::task<R, std::function<void(std::promise<R>&&)>>>(move(p), move(action));
+
+        ServeInternal(move(task));
+    }
 };
 
 } // l15::signer_service

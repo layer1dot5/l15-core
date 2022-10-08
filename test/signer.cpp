@@ -106,15 +106,7 @@ SignerConfig::SignerConfig()
                     "Input message to sign")->configurable(true);
 }
 
-new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
-aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
 error_handler error_hdl = [](Error&& e) { std::cerr << "Fatal error: " << e.what(); exit(1); };
-
-general_handler key_hdl = [](SignerApi& s)
-{
-    s.AggregateKey();
-    s.CommitNonces(2);
-};
 
 int main(int argc, char* argv[])
 {
@@ -139,7 +131,7 @@ int main(int argc, char* argv[])
                          ? l15::core::ChannelKeys(wallet.Secp256k1Context())
                          : l15::core::ChannelKeys(wallet.Secp256k1Context(), std::move(sk)),
                      N, K,
-                     new_sigop_hdl, sig_hdl, error_hdl);
+                     error_hdl);
 
     if (config.mVerbose) {
         std::clog << "sk: " << HexStr(signer->GetSecKey()) << "\n";
@@ -174,14 +166,14 @@ int main(int argc, char* argv[])
     auto aggKeyFuture = signerService.NegotiateKey(signer->GetLocalPubKey());
     xonly_pubkey shared_pk = aggKeyFuture.get();
 
-    auto nonceFuture = signerService.PublishNonces(signer->GetLocalPubKey(), 2);
-    nonceFuture.wait();
+    auto nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 2);
+    nonce_res.wait();
 
     uint256 message;
     CSHA256().Write((unsigned char*)config.mInput.data(), config.mInput.length()).Finalize(message.data());
 
-    auto signFuture = signerService.Sign(signer->GetLocalPubKey(), message);
-    signature sig = signFuture.get();
+    auto sign_res = signerService.Sign(signer->GetLocalPubKey(), message, 0);
+    signature sig = sign_res.get();
 
     std::cout << HexStr(sig) << std::endl;
 

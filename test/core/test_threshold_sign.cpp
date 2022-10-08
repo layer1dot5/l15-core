@@ -101,13 +101,13 @@ TEST_CASE("2-of-3 local")
 
     general_handler reg_hdl = [](SignerApi& s) {  };
     general_handler key_hdl = [](SignerApi& s) { s.AggregateKey(); };
-    new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
-    aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
+    sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
+    sigop_handler sig_hdl = [](SignerApi&, operation_id) { };
     error_handler error_hdl = [](Error&& e) { FAIL(e.what()); };
 
-    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
-    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
-    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
+    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
 
     link_handler publish_hdl = [&](const Message& m)
     {
@@ -180,9 +180,9 @@ TEST_CASE("2-of-3 local")
 
     uint256 m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, false));
-    CHECK_NOTHROW(signer1.InitSignature(0));
-    CHECK_NOTHROW(signer2.InitSignature(0));
+    CHECK_NOTHROW(signer0.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0), false));
+    CHECK_NOTHROW(signer1.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer2.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0)));
 
     CHECK_NOTHROW(signer0.PreprocessSignature(m, 0));
     CHECK_NOTHROW(signer1.PreprocessSignature(m, 0));
@@ -207,8 +207,8 @@ TEST_CASE("2-of-3 local")
 
 TEST_CASE("500 of 1K local")
 {
-    const size_t N = 1000;
-    const size_t K = 500;
+    const size_t N = 100;
+    const size_t K = 50;
 
     WalletApi wallet;
 
@@ -217,8 +217,8 @@ TEST_CASE("500 of 1K local")
 
     general_handler reg_hdl = [](SignerApi& s) { };
     general_handler key_hdl = [](SignerApi& s) { };
-    new_sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
-    aggregate_sig_handler sig_hdl = [](SignerApi&, operation_id) { };
+    sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
+    sigop_handler sig_hdl = [](SignerApi&, operation_id) { };
     error_handler error_hdl = [&](Error&& e) { FAIL(e.what()); };
 
     std::ranges::transform(
@@ -226,7 +226,7 @@ TEST_CASE("500 of 1K local")
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
            return std::make_unique<SignerApi> (
-                   ChannelKeys(wallet.Secp256k1Context()), N, K, new_sigop_hdl, sig_hdl, error_hdl);
+                   ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
        }
     );
 
@@ -320,7 +320,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure initsig_measure("Init signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             initsig_measure.Measure([&]() {
-                signers[i]->InitSignature(0);
+                signers[i]->InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0));
                 return 0;
             });
         });
