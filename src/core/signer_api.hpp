@@ -9,8 +9,10 @@
 #include <boost/container/flat_map.hpp>
 #include <atomic>
 #include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include <functional>
+#include <type_traits>
 
 
 #include "common.hpp"
@@ -57,10 +59,39 @@ public:
 
 class SignerApi;
 
+struct SignerBinderBase
+{
+    virtual ~SignerBinderBase() = default;
+    virtual void operator()(SignerApi& a) = 0;
+};
+
+template <typename Callable, typename... Args>
+struct SignerBinder : SignerBinderBase
+{
+    Callable m_f;
+    std::tuple<Args...> m_args;
+
+    explicit SignerBinder(Callable f, Args&&... args): m_f(move(f)), m_args(move(args)...) {}
+
+    SignerBinder(SignerBinder&& r) = default;
+
+    void operator()(SignerApi& a) override {
+        static_assert(std::is_invocable_v<Callable, SignerApi&, Args&&...>);
+
+        std::tuple<SignerApi&, Args...> cur_args = std::tuple_cat(std::tie(a), move(m_args));
+
+        std::apply(m_f, move(cur_args));
+    }
+};
+
+template <typename Callable, typename... Args>
+SignerBinder<Callable, Args...> make_callable(Callable f, Args&&... args)
+{ return SignerBinder<Callable, Args...>(f, move(args)...); }
+
+
 typedef std::function<void(Error&&)> error_handler;
 typedef std::function<void(SignerApi&)> general_handler;
-typedef std::function<void(SignerApi&, operation_id)> new_sigop_handler;
-typedef std::function<void(SignerApi&, operation_id)> aggregate_sig_handler;
+typedef std::function<void(SignerApi&, operation_id)> sigop_handler;
 
 
 struct RemoteSignerData
@@ -70,7 +101,6 @@ struct RemoteSignerData
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
     std::optional<secp256k1_frost_share> keyshare;
-
 };
 
 
@@ -93,28 +123,37 @@ private:
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
     general_handler m_reg_handler;
-    general_handler m_key_handler;
+
+    std::unique_ptr<SignerBinderBase> m_key_handler;
 
     std::list<secp256k1_frost_secnonce> m_secnonces;
 
     std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
-    std::mutex m_sig_share_mutex;
+    std::shared_mutex m_sig_share_mutex;
 
     typedef std::optional<frost_sigshare> sigshare_cache;
-    typedef std::unordered_map<secp256k1_xonly_pubkey, sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal> sigshare_peers_cache;
-    typedef std::tuple<std::optional<secp256k1_frost_session>, sigshare_peers_cache, size_t> sigop_cache;
+
+    typedef std::unordered_map<
+                secp256k1_xonly_pubkey,
+                sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal
+            > sigshare_peers_cache;
+
+    typedef std::tuple<
+                std::optional<secp256k1_frost_session>,
+                sigshare_peers_cache,
+                size_t, // sigshare count; TODO: provide atomicity
+                std::unique_ptr<SignerBinderBase>, // all_signature_commitments_received_handler
+                std::unique_ptr<SignerBinderBase>  // all_signature_shares_received_handler
+            > sigop_cache;
 
     typedef boost::container::flat_map<operation_id, sigop_cache> sigops_cache;
 
     sigops_cache m_sigops_cache;
 
-    const new_sigop_handler m_new_sig_handler;
-    const aggregate_sig_handler m_aggregate_sig_handler;
-
     const error_handler m_err_handler;
 
-    void Publish(const p2p::Message& data)
+    void Publish(const p2p::Message& data) const
     { m_publisher(data); }
 
     template<typename DATA>
@@ -141,12 +180,19 @@ private:
     size_t& SigOpSigShareCount(sigops_cache::iterator op_it)
     { return std::get<2>(op_it->second); }
 
+    std::unique_ptr<SignerBinderBase>& SigOpCommitmentsReceived(sigops_cache::iterator op_it)
+    { return std::get<3>(op_it->second); }
+
+    std::unique_ptr<SignerBinderBase>& SigOpSharesReceived(sigops_cache::iterator op_it)
+    { return std::get<4>(op_it->second); }
+
+    void DistributeKeySharesImpl();
+    void InitSignatureImpl(operation_id opid) const;
+
 public:
     SignerApi(ChannelKeys &&keypair,
               size_t cluster_size,
               size_t threshold_size,
-              new_sigop_handler sigop,
-              aggregate_sig_handler aggsig,
               error_handler e);
 
     const xonly_pubkey& GetLocalPubKey() const
@@ -182,16 +228,51 @@ public:
 
     void Accept(const p2p::Message& m);
 
-    void DistributeKeyShares(general_handler key_shares_received_handler);
+    template<typename Callable, typename... Args>
+    void DistributeKeyShares(Callable key_shares_received_handler, Args&&... args)
+    {
+        m_key_handler = std::make_unique<SignerBinder<Callable, Args...>>(move(key_shares_received_handler), move(args)...);
+        DistributeKeySharesImpl();
+    }
 
     void CommitNonces(size_t count);
 
+    template<typename Callable1, typename Callable2>
+    void InitSignature(operation_id opid,
+                       Callable1&& all_sig_commitments_received_handler,
+                       Callable2&& all_sig_shares_received_handler,
+                       bool participate = true)
+    {
+        {
+            [[maybe_unused]] std::unique_lock write_lock(m_sig_share_mutex);
 
-    void InitSignature(operation_id opid, bool participate = true);
+            auto opit = m_sigops_cache.find(opid);
+            if (opit == m_sigops_cache.end()) {
+                sigop_cache peers_cache{
+                        std::optional < secp256k1_frost_session > {},
+                        sigshare_peers_cache(m_threshold_size),
+                        0,
+                        std::make_unique<Callable1>(move(all_sig_commitments_received_handler)),
+                        std::make_unique<Callable2>(move(all_sig_shares_received_handler))};
+
+                m_sigops_cache.emplace(opid, move(peers_cache));
+            }
+            else {
+                SigOpCommitmentsReceived(opit) = move(std::make_unique<Callable1>(move(all_sig_commitments_received_handler)));
+                SigOpSharesReceived(opit) = move(std::make_unique<Callable2>(move(all_sig_shares_received_handler)));
+            }
+        }
+
+        if (participate)
+        {
+            InitSignatureImpl(opid);
+        }
+    }
+
     void PreprocessSignature(const uint256 &datahash, operation_id opid);
     void DistributeSigShares(operation_id opid);
 
-    void Verify(const uint256& message, const signature& signature);
+    void Verify(const uint256& message, const signature& signature) const;
 
     void AggregateKey();
     signature AggregateSignature(operation_id opid);

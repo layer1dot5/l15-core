@@ -157,3 +157,40 @@ TEST_CASE("Test concurent workers")
     watchdog.join();
 
 }
+
+
+TEST_CASE("Task deffered by independent thread calculation")
+{
+    GenericService service(1);
+
+    std::future<int> res = service.Serve<int>([&service](std::promise<int>&& p) {
+
+        std::clog << "> First level" << std::endl;
+
+        std::thread defering_thread([&](std::promise<int>&& p1) {
+            std::clog << ">> Independent thread" << std::endl;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            service.Serve<int>([&](std::promise<int>&& p2)
+            {
+                std::clog << ">>> Third level" << std::endl;
+                p2.set_value(10);
+                std::clog << "<<< Third level completed" << std::endl;
+            }, move(p1));
+
+            std::clog << "<< Independent thread completed" << std::endl;
+
+        }, move(p));
+
+        std::clog << "< First level completed" << std::endl;
+
+        defering_thread.detach();
+
+    });
+
+    int intres = res.get();
+
+    CHECK(intres == 10);
+
+
+}

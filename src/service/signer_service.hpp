@@ -21,7 +21,7 @@ class SignerService
     service::GenericService& mBgService;
     std::unordered_map<const xonly_pubkey*, std::shared_ptr<core::SignerApi>, l15::hash<xonly_pubkey*>, l15::equal_to<xonly_pubkey*>> m_signers;
 public:
-    SignerService(service::GenericService& bgService);
+    SignerService(service::GenericService& bgService) : mBgService(bgService), m_signers() {}
 
     void AddSigner(std::shared_ptr<core::SignerApi> signer)
     { m_signers.emplace(&(signer->GetLocalPubKey()), move(signer)); }
@@ -31,7 +31,7 @@ public:
 
     std::future<const xonly_pubkey&> NegotiateKey(const xonly_pubkey& signer_key);
     std::future<void> PublishNonces(const xonly_pubkey& signer_key, size_t count);
-    std::future<signature> Sign(const xonly_pubkey& signer_key, const uint256& message);
+    std::future<signature> Sign(const xonly_pubkey &signer_key, const uint256 &message, core::operation_id opid);
 };
 
 } // namespace signing_service

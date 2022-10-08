@@ -17,8 +17,6 @@ using namespace p2p;
 SignerApi::SignerApi(ChannelKeys &&keypair,
                      size_t cluster_size,
                      size_t threshold_size,
-                     new_sigop_handler sigop,
-                     aggregate_sig_handler aggsig,
                      error_handler e)
 
     : m_ctx(keypair.Secp256k1Context())
@@ -31,8 +29,6 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_vss_hash()
     , m_secnonces()
     , mHandlers()
-    , m_new_sig_handler(std::move(sigop))
-    , m_aggregate_sig_handler(std::move(aggsig))
     , m_err_handler(std::move(e))
 {
     mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
@@ -101,7 +97,7 @@ void SignerApi::AcceptKeyShare(const Message &m)
         peer_it->second.keyshare = message.share;
 
         if (++m_keyshare_count >= m_peers_data.size()) {
-            m_key_handler(*this);
+            (*m_key_handler)(*this);
         }
     }
     else {
@@ -119,21 +115,32 @@ void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
     {
         secp256k1_xonly_pubkey peer_pk = message.pubkey.get(m_ctx);
 
-        [[maybe_unused]] const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
+        [[maybe_unused]] std::shared_lock read_lock(m_sig_share_mutex);
 
-        if (m_sigops_cache.find(message.operation_id) == m_sigops_cache.end()) {
-            sigop_cache peers_cache {{}, sigshare_peers_cache(m_threshold_size), 0};
+        auto opit = m_sigops_cache.find(message.operation_id);
+        if (opit == m_sigops_cache.end()) {
+
+            read_lock.unlock();
+            //---------------//
+
+            sigop_cache peers_cache {std::optional<secp256k1_frost_session>(), sigshare_peers_cache(m_threshold_size), 0, std::unique_ptr<SignerBinderBase>(), std::unique_ptr<SignerBinderBase>()};
             get<1>(peers_cache).emplace(move(peer_pk), sigshare_cache());
+
+            [[maybe_unused]] std::unique_lock write_lock(m_sig_share_mutex);
+
             m_sigops_cache.emplace(message.operation_id, move(peers_cache));
+            opit = m_sigops_cache.find(message.operation_id);
+
+            // Anyway no need to chack and call handler!!
         }
         else {
-            get<1>(m_sigops_cache[message.operation_id]).emplace(move(peer_pk), sigshare_cache());
+            SigOpCachedPeers(opit).emplace(move(peer_pk), sigshare_cache());
+
+            if (SigOpCachedPeers(opit).size() >= m_threshold_size && SigOpCommitmentsReceived(opit)) {
+                (*SigOpCommitmentsReceived(opit))(*this);
+            }
         }
 
-    }
-
-    if (std::get<1>(m_sigops_cache[message.operation_id]).size() >= m_threshold_size) {
-        m_new_sig_handler(*this, message.operation_id);
     }
 }
 
@@ -147,14 +154,13 @@ void SignerApi::AcceptSignatureShare(const Message &m)
     {
         sigops_cache::iterator op_it;
         {
-            [[maybe_unused]] const std::lock_guard<std::mutex> lock(m_sig_share_mutex);
+            [[maybe_unused]] std::shared_lock read_lock(m_sig_share_mutex);
 
             op_it = m_sigops_cache.find(message.operation_id);
             if (op_it == m_sigops_cache.end()) {
-                m_err_handler(SignatureError((std::stringstream("Signing operation not found: ")<< message.operation_id).str()));
-                return;
-
+                throw SignatureError((std::stringstream("Signature operation is not found: ") << message.operation_id).str());
             }
+
             auto peer_cache_it = SigOpCachedPeers(op_it).find(message.pubkey.get(m_ctx));
 
             if (peer_cache_it != SigOpCachedPeers(op_it).end() || !peer_cache_it->second.has_value()) {
@@ -171,8 +177,8 @@ void SignerApi::AcceptSignatureShare(const Message &m)
             }
         }
 
-        if (SigOpSigShareCount(op_it) == m_threshold_size) {
-            m_aggregate_sig_handler(*this, message.operation_id);
+        if (SigOpSigShareCount(op_it) == m_threshold_size && SigOpSharesReceived(op_it)) {
+            (*SigOpSharesReceived(op_it))(*this);
         }
     }
     else {
@@ -208,10 +214,8 @@ void SignerApi::CommitNonces(size_t count)
     m_nonce_count += count;
 }
 
-void SignerApi::DistributeKeyShares(general_handler key_shares_received_handler)
+void SignerApi::DistributeKeySharesImpl()
 {
-    m_key_handler = move(key_shares_received_handler);
-
     seckey session;
     GetStrongRandBytes(session);
 
@@ -244,7 +248,6 @@ void SignerApi::DistributeKeyShares(general_handler key_shares_received_handler)
             throw SignatureError("");
         }
     });
-
 }
 
 void SignerApi::AggregateKey()
@@ -307,7 +310,13 @@ signature SignerApi::AggregateSignature(operation_id opid)
     signature sig_agg;
     std::vector<secp256k1_frost_partial_sig> sigshares_data(m_threshold_size);
     std::vector<secp256k1_frost_partial_sig *> sigshares(m_threshold_size);
+
+    [[maybe_unused]] std::shared_lock read_lock(m_sig_share_mutex);
+
     auto op_it = m_sigops_cache.find(opid);
+    if (op_it == m_sigops_cache.end()) {
+        throw SignatureError((std::stringstream("Signature operation is not found: ") << opid).str());
+    }
 
     std::transform(std::execution::par_unseq, SigOpCachedPeers(op_it).begin(), SigOpCachedPeers(op_it).end(), sigshares_data.begin(), [&](const auto& s)
     {
@@ -325,17 +334,20 @@ signature SignerApi::AggregateSignature(operation_id opid)
     }
 }
 
-void SignerApi::InitSignature(operation_id opid, bool participate)
+void SignerApi::InitSignatureImpl(operation_id opid) const
 {
-    if (participate) {
-        SignatureCommitment message(xonly_pubkey(mKeypair.GetLocalPubKey()), opid);
-        Publish(message);
-    }
+    SignatureCommitment message(xonly_pubkey(mKeypair.GetLocalPubKey()), opid);
+    Publish(message);
 }
 
 void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
 {
+    [[maybe_unused]] std::shared_lock read_lock(m_sig_share_mutex);
+
     auto op_it = m_sigops_cache.find(opid);
+    if (op_it == m_sigops_cache.end()) {
+        throw SignatureError((stringstream("Signature operation is not found: ") << opid).str());
+    }
 
     const auto& sigshares = SigOpCachedPeers(op_it);
 
@@ -356,14 +368,16 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
         const RemoteSignerData& peer = m_peers_data[peer_pk];
         auto I = peer.ephemeral_pubkeys.begin();
         std::advance(I, opid);
-
         {
-            [[maybe_unused]] const std::lock_guard<std::mutex> lock(m);
+            [[maybe_unused]] std::lock_guard lock(m);
 
             pubnonces.emplace_back(&(*I));
             pubkeys.emplace_back(&(ss.first));
         }
     });
+
+    read_lock.unlock();
+    //---------------//
 
     secp256k1_xonly_pubkey pubkey_agg = mKeyShare.GetPubKey().get(m_ctx);
 
@@ -378,9 +392,10 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
 
 void SignerApi::DistributeSigShares(operation_id opid)
 {
-    auto op_it = m_sigops_cache.find(opid);
+    [[maybe_unused]] std::shared_lock read_lock(m_sig_share_mutex);
 
-    if (!SigOpSession(op_it).has_value()) {
+    auto op_it = m_sigops_cache.find(opid);
+    if (op_it == m_sigops_cache.end() || !SigOpSession(op_it).has_value()) {
         throw SignatureError((std::stringstream("Signature operation is not found: ") << opid).str());
     }
 
@@ -397,13 +412,16 @@ void SignerApi::DistributeSigShares(operation_id opid)
         throw SignatureError("Signing error");
     }
 
+    read_lock.unlock();
+    //---------------//
+
     SignatureShare message(xonly_pubkey(mKeypair.GetPubKey()), opid);
     secp256k1_frost_partial_sig_serialize(m_ctx, message.share.data(), &sigshare);
 
     Publish(message);
 }
 
-void SignerApi::Verify(const uint256 &message, const signature &signature)
+void SignerApi::Verify(const uint256 &message, const signature &signature) const
 {
     secp256k1_xonly_pubkey pubkey = mKeyShare.GetPubKey().get(m_ctx);
 
@@ -415,6 +433,7 @@ void SignerApi::Verify(const uint256 &message, const signature &signature)
 
 void SignerApi::ClearSignatureCache(operation_id opid)
 {
+    [[maybe_unused]] std::unique_lock write_lock(m_sig_share_mutex);
     m_sigops_cache.erase(opid);
 }
 
