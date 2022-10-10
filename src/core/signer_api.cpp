@@ -27,6 +27,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_peers_data(cluster_size)
     , m_keyshare_count(0)
     , m_vss_hash()
+    , m_key_handler()
     , m_secnonces()
     , mHandlers()
     , m_err_handler(std::move(e))
@@ -97,7 +98,7 @@ void SignerApi::AcceptKeyShare(const Message &m)
         peer_it->second.keyshare = message.share;
 
         if (++m_keyshare_count >= m_peers_data.size()) {
-            (*m_key_handler)(*this);
+            (*m_key_handler)();
         }
     }
     else {
@@ -123,7 +124,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
             read_lock.unlock();
             //---------------//
 
-            sigop_cache peers_cache {std::optional<secp256k1_frost_session>(), sigshare_peers_cache(m_threshold_size), 0, std::unique_ptr<SignerBinderBase>(), std::unique_ptr<SignerBinderBase>()};
+            sigop_cache peers_cache {std::optional<secp256k1_frost_session>(), sigshare_peers_cache(m_threshold_size), 0, std::unique_ptr<MovingBinderBase>(), std::unique_ptr<MovingBinderBase>()};
             get<1>(peers_cache).emplace(move(peer_pk), sigshare_cache());
 
             [[maybe_unused]] std::unique_lock write_lock(m_sig_share_mutex);
@@ -137,7 +138,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
             SigOpCachedPeers(opit).emplace(move(peer_pk), sigshare_cache());
 
             if (SigOpCachedPeers(opit).size() >= m_threshold_size && SigOpCommitmentsReceived(opit)) {
-                (*SigOpCommitmentsReceived(opit))(*this);
+                (*SigOpCommitmentsReceived(opit))();
             }
         }
 
@@ -178,7 +179,7 @@ void SignerApi::AcceptSignatureShare(const Message &m)
         }
 
         if (SigOpSigShareCount(op_it) == m_threshold_size && SigOpSharesReceived(op_it)) {
-            (*SigOpSharesReceived(op_it))(*this);
+            (*SigOpSharesReceived(op_it))();
         }
     }
     else {
@@ -347,6 +348,7 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
     auto op_it = m_sigops_cache.find(opid);
     if (op_it == m_sigops_cache.end()) {
         throw SignatureError((stringstream("Signature operation is not found: ") << opid).str());
+        //return;
     }
 
     const auto& sigshares = SigOpCachedPeers(op_it);
