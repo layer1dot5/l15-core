@@ -5,76 +5,82 @@
 
 namespace l15::signer_service {
 
-//TODO: Add try/catch and assign to promise at lambdas
-
 
 std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey &signer_key)
 {
-    auto& ps = m_signers[&signer_key];
+    auto ps = m_signers[&signer_key];
 
-    return mBgService.Serve<const xonly_pubkey&>(
-        [&](std::promise<const xonly_pubkey&>&& p)
+    std::promise<const xonly_pubkey&> p;
+    auto res = p.get_future();
+
+    mBgService.Serve([this, ps](std::promise<const xonly_pubkey&>&& p1)
         {
-            ps->DistributeKeyShares(
-                [&] (core::SignerApi& s, std::promise<const xonly_pubkey&>&& p1)
+            ps->DistributeKeyShares([this, ps] (std::promise<const xonly_pubkey&>&& p2)
                 {
-                    std::function<void(std::promise<const xonly_pubkey&>&&)> aggregate =
-                            [&](std::promise<const xonly_pubkey&>&& p2)->void
-                            {
-                                s.AggregateKey();
-                                p2.set_value(s.GetAggregatedPubKey());
-                            };
+                    mBgService.Serve([ps](std::promise<const xonly_pubkey&>&& p3)
+                    {
+                        ps->AggregateKey();
+                        p3.set_value(ps->GetAggregatedPubKey());
+                    }, move(p2));
+                }, move(p1));
+        }, move(p));
 
-                    mBgService.Serve(aggregate, move(p1));
-
-                }, move(p)
-            );
-        }
-    );
-
+    return move(res);
 }
 
 std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, size_t count)
 {
-    auto& s = m_signers[&signer_key];
+    auto ps = m_signers[&signer_key];
 
-    return mBgService.Serve([&]()
-    {
-        s->CommitNonces(count);
-    });
+    std::promise<void> p;
+    auto res = p.get_future();
+
+    mBgService.Serve([ps, count](std::promise<void>&& p1)
+        {
+            ps->CommitNonces(count);
+            p1.set_value();
+        }, move(p));
+
+    return move(res);
 }
 
 std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const uint256 &message, core::operation_id opid)
 {
+
     auto ps = m_signers[&signer_key];
 
-    return mBgService.Serve<signature>([&](std::promise<signature>&& p)
-    {
-        ps->InitSignature(opid,
-                          core::make_callable(
-                                [&](core::SignerApi& s, const core::operation_id& opid)
-                                {
-                                    mBgService.Serve([&]() {
-                                        s.PreprocessSignature(message, opid);
-                                        s.DistributeSigShares(opid);
-                                    });
-                                },
-                                core::operation_id(opid)),
-                          core::make_callable(
-                                [&](core::SignerApi& s, const core::operation_id& opid, std::promise<signature>&& p1)
-                                {
-                                    std::function<void(std::promise<signature>&&)> aggregate =
-                                            [&](std::promise<signature>&& p1)
-                                            {
-                                                p1.set_value(s.AggregateSignature(opid));
-                                                s.ClearSignatureCache(opid);
-                                            };
+    std::promise<signature> p;
+    auto res = p.get_future();
 
-                                    mBgService.Serve(aggregate, move(p1));
-                                },
-                          core::operation_id(opid), move(p))
-                          );
-    });
+    mBgService.Serve([this, ps, opid, message](std::promise<signature>&& p1)
+        {
+
+            auto comm_recv_hdl =  [this, ps, opid, message]()
+            {
+                auto preproc_action = [ps, opid, message]() {
+                    ps->PreprocessSignature(message, opid);
+                    ps->DistributeSigShares(opid);
+                };
+                mBgService.Serve(preproc_action);
+            };
+
+            auto sigshares_recv_hdl = [this, ps, opid](std::promise<signature>&& p1)
+            {
+                mBgService.Serve([ps, opid](std::promise<signature> p2)
+                {
+                    p2.set_value(ps->AggregateSignature(opid));
+                    ps->ClearSignatureCache(opid);
+                }, move(p1));
+
+            };
+
+            ps->InitSignature(opid,
+                              core::make_callable_with_signer(move(comm_recv_hdl)),
+                              core::make_callable_with_signer(move(sigshares_recv_hdl), move(p1))
+            );
+        }, move(p));
+
+    return move(res);
 }
 
 

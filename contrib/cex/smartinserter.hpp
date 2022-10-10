@@ -24,10 +24,10 @@ struct insert_reference {
     { mIt = mContainer.insert(mIt, v); return *this; }
 
     insert_reference& operator=(value_type&& v)
-    { mIt = mContainer.insert(mIt, std::move(v)); return *this; }
+    { mIt = mContainer.emplace(mIt, std::move(v)); return *this; }
 
     insert_reference& operator=(value_type&& v) const
-    { mIt = mContainer.insert(mIt, std::move(v)); return *this; }
+    { mIt = mContainer.emplace(mIt, std::move(v)); return *this; }
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"

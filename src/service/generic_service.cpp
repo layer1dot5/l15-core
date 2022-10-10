@@ -7,7 +7,7 @@
 namespace l15::service {
 
 
-void details::ThreadBody::main_cycle() const
+void details::ThreadBody::main_cycle() const noexcept
 {
     while (!m_service->m_exit) {
         m_service->m_task_sem.acquire();
@@ -33,7 +33,7 @@ void details::ThreadBody::main_cycle() const
             m_service->m_task_que.pop_front();
         }
 
-        task->run();
+        (*task)();
     }
 }
 

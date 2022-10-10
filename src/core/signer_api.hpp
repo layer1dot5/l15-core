@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <list>
 #include <memory>
 #include <array>
@@ -59,39 +60,37 @@ public:
 
 class SignerApi;
 
-struct SignerBinderBase
+struct MovingBinderBase
 {
-    virtual ~SignerBinderBase() = default;
-    virtual void operator()(SignerApi& a) = 0;
+    virtual ~MovingBinderBase() = default;
+    virtual void operator()() = 0;
 };
 
 template <typename Callable, typename... Args>
-struct SignerBinder : SignerBinderBase
+struct MovingBinder : MovingBinderBase
 {
     Callable m_f;
     std::tuple<Args...> m_args;
 
-    explicit SignerBinder(Callable f, Args&&... args): m_f(move(f)), m_args(move(args)...) {}
+    explicit MovingBinder(Callable f, Args&&... args): m_f(move(f)), m_args(std::forward<Args>(args)...) {}
 
-    SignerBinder(SignerBinder&& r) = default;
+    MovingBinder(MovingBinder&& r) = default;
 
-    void operator()(SignerApi& a) override {
-        static_assert(std::is_invocable_v<Callable, SignerApi&, Args&&...>);
+    void operator()() override {
+        static_assert(std::is_invocable_v<Callable, Args&&...>);
 
-        std::tuple<SignerApi&, Args...> cur_args = std::tuple_cat(std::tie(a), move(m_args));
-
-        std::apply(m_f, move(cur_args));
+        std::apply(m_f, move(m_args));
     }
 };
 
 template <typename Callable, typename... Args>
-SignerBinder<Callable, Args...> make_callable(Callable f, Args&&... args)
-{ return SignerBinder<Callable, Args...>(f, move(args)...); }
+MovingBinder<Callable, Args...> make_callable_with_signer(Callable f, Args&&... args)
+{ return MovingBinder<Callable, Args...>(move(f), std::forward<Args>(args)...); }
 
 
 typedef std::function<void(Error&&)> error_handler;
-typedef std::function<void(SignerApi&)> general_handler;
-typedef std::function<void(SignerApi&, operation_id)> sigop_handler;
+typedef std::function<void()> general_handler;
+typedef std::function<void(operation_id)> sigop_handler;
 
 
 struct RemoteSignerData
@@ -122,9 +121,8 @@ private:
 
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
-    general_handler m_reg_handler;
 
-    std::unique_ptr<SignerBinderBase> m_key_handler;
+    std::unique_ptr<MovingBinderBase> m_key_handler;
 
     std::list<secp256k1_frost_secnonce> m_secnonces;
 
@@ -143,8 +141,8 @@ private:
                 std::optional<secp256k1_frost_session>,
                 sigshare_peers_cache,
                 size_t, // sigshare count; TODO: provide atomicity
-                std::unique_ptr<SignerBinderBase>, // all_signature_commitments_received_handler
-                std::unique_ptr<SignerBinderBase>  // all_signature_shares_received_handler
+                std::unique_ptr<MovingBinderBase>, // all_signature_commitments_received_handler
+                std::unique_ptr<MovingBinderBase>  // all_signature_shares_received_handler
             > sigop_cache;
 
     typedef boost::container::flat_map<operation_id, sigop_cache> sigops_cache;
@@ -180,10 +178,10 @@ private:
     size_t& SigOpSigShareCount(sigops_cache::iterator op_it)
     { return std::get<2>(op_it->second); }
 
-    std::unique_ptr<SignerBinderBase>& SigOpCommitmentsReceived(sigops_cache::iterator op_it)
+    std::unique_ptr<MovingBinderBase>& SigOpCommitmentsReceived(sigops_cache::iterator op_it)
     { return std::get<3>(op_it->second); }
 
-    std::unique_ptr<SignerBinderBase>& SigOpSharesReceived(sigops_cache::iterator op_it)
+    std::unique_ptr<MovingBinderBase>& SigOpSharesReceived(sigops_cache::iterator op_it)
     { return std::get<4>(op_it->second); }
 
     void DistributeKeySharesImpl();
@@ -231,7 +229,7 @@ public:
     template<typename Callable, typename... Args>
     void DistributeKeyShares(Callable key_shares_received_handler, Args&&... args)
     {
-        m_key_handler = std::make_unique<SignerBinder<Callable, Args...>>(move(key_shares_received_handler), move(args)...);
+        m_key_handler = std::make_unique<MovingBinder<Callable, Args...>>(move(key_shares_received_handler), std::forward<Args>(args)...);
         DistributeKeySharesImpl();
     }
 
@@ -248,18 +246,18 @@ public:
 
             auto opit = m_sigops_cache.find(opid);
             if (opit == m_sigops_cache.end()) {
-                sigop_cache peers_cache{
+                sigop_cache peers_cache(
                         std::optional < secp256k1_frost_session > {},
                         sigshare_peers_cache(m_threshold_size),
-                        0,
+                        (size_t)0,
                         std::make_unique<Callable1>(move(all_sig_commitments_received_handler)),
-                        std::make_unique<Callable2>(move(all_sig_shares_received_handler))};
+                        std::make_unique<Callable2>(move(all_sig_shares_received_handler)));
 
                 m_sigops_cache.emplace(opid, move(peers_cache));
             }
             else {
-                SigOpCommitmentsReceived(opit) = move(std::make_unique<Callable1>(move(all_sig_commitments_received_handler)));
-                SigOpSharesReceived(opit) = move(std::make_unique<Callable2>(move(all_sig_shares_received_handler)));
+                SigOpCommitmentsReceived(opit) = std::make_unique<Callable1>(move(all_sig_commitments_received_handler));
+                SigOpSharesReceived(opit) = std::make_unique<Callable2>(move(all_sig_shares_received_handler));
             }
         }
 

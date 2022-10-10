@@ -13,70 +13,23 @@
 
 #include "util/translation.h"
 #include "util/strencodings.h"
-#include "script/interpreter.h"
-#include "script/standard.h"
 
 #include "common.hpp"
-#include "config.hpp"
-#include "nodehelper.hpp"
 
 #include "signer_api.hpp"
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
 #include "channel_keys.hpp"
-#include "exechelper.hpp"
+#include "generic_service.hpp"
 
-#include "onchain_service.hpp"
 
 #include "time_measure.hpp"
-#include "test_suite_node.hpp"
 
 using namespace l15;
 using namespace l15::core;
 using namespace l15::p2p;
-using namespace l15::onchain_service;
 
 namespace rs = std::ranges;
-const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
-
-
-//std::string configpath;
-//
-//int main(int argc, char* argv[])
-//{
-//    Catch::Session session;
-//
-//
-//    // Build a new parser on top of Catch's
-//    using namespace Catch::clara;
-//    auto cli
-//            = session.cli() // Get Catch's composite command line parser
-//              | Opt(configpath, "Config path" ) // bind variable to a new option, with a hint string
-//              ["--config"]    // the option names it will respond to
-//                      ("Path to node config");
-//
-//    session.cli( cli );
-//
-//    // Let Catch (using Clara) parse the command line
-//    int returnCode = session.applyCommandLine(argc, argv);
-//    if( returnCode != 0 ) // Indicates a command line error
-//        return returnCode;
-//
-//    if(configpath.empty())
-//    {
-//        std::cerr << "Config path is not passed!" << std::endl;
-//        return 1;
-//    }
-//
-//    std::filesystem::path p(configpath);
-//    if(p.is_relative())
-//    {
-//        configpath = (std::filesystem::current_path() / p).string();
-//    }
-//
-//    return session.run();
-//}
-//
 
 bool operator== (const std::list<secp256k1_frost_pubnonce>& l1, const std::list<secp256k1_frost_pubnonce>& l2) {
     if (l1.size() == l2.size()) {
@@ -99,10 +52,9 @@ TEST_CASE("2-of-3 local")
 
     // Create peers
 
-    general_handler reg_hdl = [](SignerApi& s) {  };
-    general_handler key_hdl = [](SignerApi& s) { s.AggregateKey(); };
-    sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
-    sigop_handler sig_hdl = [](SignerApi&, operation_id) { };
+    general_handler key_hdl = []() {  };
+    sigop_handler new_sigop_hdl = [](operation_id) { };
+    sigop_handler sig_hdl = [](operation_id) { };
     error_handler error_hdl = [](Error&& e) { FAIL(e.what()); };
 
     SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
@@ -135,6 +87,10 @@ TEST_CASE("2-of-3 local")
     CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl));
     CHECK_NOTHROW(signer1.DistributeKeyShares(key_hdl));
     CHECK_NOTHROW(signer2.DistributeKeyShares(key_hdl));
+
+    CHECK_NOTHROW(signer0.AggregateKey());
+    CHECK_NOTHROW(signer1.AggregateKey());
+    CHECK_NOTHROW(signer2.AggregateKey());
 
     CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
     CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
@@ -180,9 +136,9 @@ TEST_CASE("2-of-3 local")
 
     uint256 m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0), false));
-    CHECK_NOTHROW(signer1.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0)));
-    CHECK_NOTHROW(signer2.InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer0.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0), false));
+    CHECK_NOTHROW(signer1.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
+    CHECK_NOTHROW(signer2.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
 
     CHECK_NOTHROW(signer0.PreprocessSignature(m, 0));
     CHECK_NOTHROW(signer1.PreprocessSignature(m, 0));
@@ -215,10 +171,9 @@ TEST_CASE("500 of 1K local")
     std::vector<std::unique_ptr<SignerApi>> signers;
     signers.reserve(N);
 
-    general_handler reg_hdl = [](SignerApi& s) { };
-    general_handler key_hdl = [](SignerApi& s) { };
-    sigop_handler new_sigop_hdl = [](SignerApi&, operation_id) { };
-    sigop_handler sig_hdl = [](SignerApi&, operation_id) { };
+    general_handler key_hdl = []() { };
+    sigop_handler new_sigop_hdl = [](operation_id) { };
+    sigop_handler sig_hdl = [](operation_id) { };
     error_handler error_hdl = [&](Error&& e) { FAIL(e.what()); };
 
     std::ranges::transform(
@@ -320,7 +275,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure initsig_measure("Init signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             initsig_measure.Measure([&]() {
-                signers[i]->InitSignature(0, make_callable(new_sigop_hdl, 0), make_callable(sig_hdl, 0));
+                signers[i]->InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0));
                 return 0;
             });
         });

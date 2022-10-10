@@ -9,8 +9,10 @@
 #include <semaphore>
 #include <algorithm>
 #include <execution>
+#include <memory>
 
 
+#include "common.hpp"
 #include "common_error.hpp"
 
 namespace l15::service {
@@ -46,62 +48,27 @@ struct ThreadBody
     GenericService* m_service;
     std::thread m_thread;
 
-    void main_cycle() const;
+    void main_cycle() const noexcept;
 };
 
 class task_base {
 public:
     virtual ~task_base() = default;
-    virtual void run() = 0;
+    virtual void operator()() noexcept = 0;
 };
 
-template<typename R, typename A>
-class task;
 
-template<typename R>
-class task<R, std::function<R()>> : public task_base {
-    std::promise<R> m_promise;
-    std::function<R()> m_action;
+template<typename Callable, typename... Args>
+class task : public task_base {
+    Callable m_action;
+    std::tuple<Args...> m_args;
 public:
+    static_assert(std::is_invocable_v<Callable, Args...>);
 
-    task(std::promise<R>&& p, std::function<R()>&& a) : m_promise(move(p)), m_action(move(a)) {}
-    void run() override
-    { m_promise.set_value(m_action()); }
+    task(Callable action, Args&&... args) : m_action(move(action)), m_args(std::forward<Args>(args)...) {}
 
-    std::future<R> get_future()
-    { return m_promise.get_future(); }
-};
-
-template<typename R>
-class task<R, std::function<void(std::promise<R>&&)>> : public task_base {
-    std::promise<R> m_promise;
-    std::function<void(std::promise<R>&&)> m_action;
-public:
-
-    task(std::promise<R>&& p, std::function<void(std::promise<R>&&)>&& a) : m_promise(move(p)), m_action(move(a)) {}
-
-    void run() override
-    { m_action(move(m_promise)); }
-
-    std::future<R> get_future()
-    { return m_promise.get_future(); }
-};
-
-template<>
-class task<void, std::function<void()>> : public task_base {
-    std::promise<void> m_promise;
-    std::function<void()> m_action;
-
-public:
-    task(std::promise<void>&& p, std::function<void()>&& a) : m_promise(move(p)), m_action(move(a)) {}
-    void run() override
-    {
-        m_action();
-        m_promise.set_value();
-    }
-
-    std::future<void> get_future()
-    { return m_promise.get_future(); }
+    void operator()() noexcept override
+    { std::apply(m_action, move(m_args)); }
 };
 
 }
@@ -122,44 +89,11 @@ public:
     explicit GenericService(size_t thread_count);
     ~GenericService();
 
-    std::future<void> Serve(std::function<void()> action)
+    template <typename Callable, typename... Args>
+    void Serve(Callable action, Args&&... args)
     {
-        std::unique_ptr<details::task<void, std::function<void()>>> task
-            = std::make_unique<details::task<void, std::function<void()>>>(std::promise<void>(), move(action));
-
-        auto res = task->get_future();
-        ServeInternal(move(task));
-        return res;
-
-    }
-
-    template <class R>
-    std::future<R> Serve(std::function<R()> action)
-    {
-        std::unique_ptr<details::task<R, std::function<R()>>> task
-            = std::make_unique<details::task<R, std::function<R()>>>(std::promise<R>(), move(action));
-
-        auto res = task->get_future();
-        ServeInternal(move(task));
-        return res;
-    }
-
-    template <class R>
-    std::future<R> Serve(std::function<void(std::promise<R>&&)> action)
-    {
-        std::unique_ptr<details::task<R, std::function<void(std::promise<R>&&)>>> task
-            = std::make_unique<details::task<R, std::function<void(std::promise<R>&&)>>>(std::promise<R>(), move(action));
-
-        auto res = task->get_future();
-        ServeInternal(move(task));
-        return res;
-    }
-
-    template <class R>
-    void Serve(std::function<void(std::promise<R>&&)> action, std::promise<R>&& p)
-    {
-        std::unique_ptr<details::task<R, std::function<void(std::promise<R>&&)>>> task
-                = std::make_unique<details::task<R, std::function<void(std::promise<R>&&)>>>(move(p), move(action));
+        std::unique_ptr<details::task<Callable, Args...>> task
+            = std::make_unique<details::task<Callable, Args...>>(action, std::forward<Args>(args)...);
 
         ServeInternal(move(task));
     }

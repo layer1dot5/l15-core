@@ -33,7 +33,7 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_onchain_service test_generic_service
+bin_PROGRAMS = test_onchain_service test_generic_service test_signer_service
 
 
 test_onchain_service_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
@@ -43,3 +43,5 @@ test_onchain_service_LDADD = $(L15_LIBS) $(ZMQ_LIBS)
 test_generic_service_SOURCES = test_generic_service.cpp
 test_generic_service_LDADD = $(L15_LIBS)
 
+test_signer_service_SOURCES = test_signer_service.cpp
+test_signer_service_LDADD = $(L15_LIBS)
