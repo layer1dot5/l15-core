@@ -92,8 +92,8 @@ TEST_CASE("2-of-3 local")
     CHECK_NOTHROW(signer1.AggregateKey());
     CHECK_NOTHROW(signer2.AggregateKey());
 
-    CHECK(signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey());
-    CHECK(signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey());
+    CHECK((signer0.GetAggregatedPubKey() == signer1.GetAggregatedPubKey()));
+    CHECK((signer0.GetAggregatedPubKey() == signer2.GetAggregatedPubKey()));
 
 
     //Commit Nonces
@@ -153,8 +153,8 @@ TEST_CASE("2-of-3 local")
 
 
     REQUIRE_FALSE(IsZeroArray(sig1));
-    CHECK(sig2 == sig1);
-    CHECK(sig0 == sig1);
+    CHECK((sig2 == sig1));
+    CHECK((sig0 == sig1));
 
     CHECK_NOTHROW(signer1.Verify(m, sig2));
     CHECK_NOTHROW(signer2.Verify(m, sig1));

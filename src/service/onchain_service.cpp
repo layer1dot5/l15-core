@@ -14,8 +14,6 @@ namespace {
 
 const char* STOP_ADDR = "inproc://stop";//"tcp://127.0.0.1:19010";
 
-static const std::string STOP("stop");
-
 }
 
 void OnChainService::Stop()
@@ -55,7 +53,7 @@ void OnChainService::Start()
         throw std::runtime_error("Node does not provide ZMQ notifications. Have you configured it with 'zmqpubhashblock' param?");
     }
 
-    mThread = std::thread(&OnChainService::MainCycle, this, addr);
+    mThread = std::thread(&OnChainService::MainCycle, this, move(addr));
 }
 
 
@@ -72,7 +70,7 @@ public:
     { return 0; }
 };
 
-void OnChainService::MainCycle(std::string addr) // NOLINT(performance-unnecessary-value-param)
+void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unnecessary-value-param)
 {
     zmq::socket_t sock(*zmq_ctx, zmq::socket_type::sub);
     sock.set(zmq::sockopt::subscribe, "");
@@ -100,7 +98,7 @@ void OnChainService::MainCycle(std::string addr) // NOLINT(performance-unnecessa
         zmq::message_t msg;
         auto len = sock.recv(msg, zmq::recv_flags::none);
 
-        if (msg == zmq::message_t(std::string("stop"))) {
+        if (msg == zmq::message_t(STOP)) {
             break;
         }
         else if (msg == zmq::message_t(std::string("rawblock"))) {

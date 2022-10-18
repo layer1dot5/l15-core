@@ -55,6 +55,9 @@ public:
     const base_vector& get_vector() const noexcept
     { return *this; }
 
+    base_vector& get_vector() noexcept
+    { return *this; }
+
     void set(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk)
     {
         if (!secp256k1_xonly_pubkey_serialize(ctx, data(), &pk)) {
@@ -78,6 +81,14 @@ public:
 };
 
 CScript& operator<<(CScript& script, const xonly_pubkey& pk);
+
+template <class STREAM>
+STREAM& operator << (STREAM& s, const xonly_pubkey& x)
+{ return operator<<(s, reinterpret_cast<const xonly_pubkey::base&>(x)); }
+
+template <class STREAM>
+STREAM& operator >> (STREAM& s, xonly_pubkey& x)
+{ return operator>>(s, reinterpret_cast<xonly_pubkey::base&>(x)); }
 
 typedef cex::fixsize_vector<uint8_t, 64> signature;
 
@@ -131,4 +142,25 @@ struct secp256k1_xonly_pubkey_equal
     bool operator() (const secp256k1_xonly_pubkey& p1, const secp256k1_xonly_pubkey& p2) const
     { return memcmp(p1.data, p2.data, sizeof(p1.data)) == 0; }
 };
+
+extern std::array<std::array<char, 2>, 256> byte_to_hex;
+
+template<typename SPAN>
+std::string hex(const SPAN& s)
+{
+    std::string res(s.size() * 2, '\0');
+
+    char* it = res.data();
+    for (uint8_t v : s) {
+        *it = byte_to_hex[v][0];
+        ++it;
+        *it = byte_to_hex[v][1];
+        ++it;
+    }
+
+    assert(it == res.data() + res.size());
+    return res;
+}
+
+
 }

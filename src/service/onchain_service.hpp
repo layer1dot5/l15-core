@@ -25,7 +25,7 @@ class OnChainService : protected service::ZmqContextSingleton
 
     std::thread mThread;
 
-    void MainCycle(std::string addr);
+    void MainCycle(std::string&& addr);
 
 public:
     explicit OnChainService(std::unique_ptr<core::ChainApi>&& chain) :

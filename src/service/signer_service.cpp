@@ -13,11 +13,11 @@ std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey 
     std::promise<const xonly_pubkey&> p;
     auto res = p.get_future();
 
-    mBgService.Serve([this, ps](std::promise<const xonly_pubkey&>&& p1)
+    mBgService->Serve([this, ps](std::promise<const xonly_pubkey&>&& p1)
         {
             ps->DistributeKeyShares([this, ps] (std::promise<const xonly_pubkey&>&& p2)
                 {
-                    mBgService.Serve([ps](std::promise<const xonly_pubkey&>&& p3)
+                    mBgService->Serve([ps](std::promise<const xonly_pubkey&>&& p3)
                     {
                         ps->AggregateKey();
                         p3.set_value(ps->GetAggregatedPubKey());
@@ -35,7 +35,7 @@ std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, s
     std::promise<void> p;
     auto res = p.get_future();
 
-    mBgService.Serve([ps, count](std::promise<void>&& p1)
+    mBgService->Serve([ps, count](std::promise<void>&& p1)
         {
             ps->CommitNonces(count);
             p1.set_value();
@@ -52,7 +52,7 @@ std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const
     std::promise<signature> p;
     auto res = p.get_future();
 
-    mBgService.Serve([this, ps, opid, message](std::promise<signature>&& p1)
+    mBgService->Serve([this, ps, opid, message](std::promise<signature>&& p1)
         {
 
             auto comm_recv_hdl =  [this, ps, opid, message]()
@@ -61,12 +61,12 @@ std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const
                     ps->PreprocessSignature(message, opid);
                     ps->DistributeSigShares(opid);
                 };
-                mBgService.Serve(preproc_action);
+                mBgService->Serve(preproc_action);
             };
 
             auto sigshares_recv_hdl = [this, ps, opid](std::promise<signature>&& p1)
             {
-                mBgService.Serve([ps, opid](std::promise<signature> p2)
+                mBgService->Serve([ps, opid](std::promise<signature> p2)
                 {
                     p2.set_value(ps->AggregateSignature(opid));
                     ps->ClearSignatureCache(opid);
