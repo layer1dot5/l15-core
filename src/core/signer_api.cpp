@@ -2,6 +2,7 @@
 
 #include <utility>
 #include <sstream>
+#include <type_traits>
 
 #include "smartinserter.hpp"
 
@@ -43,15 +44,17 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
 
 void SignerApi::Accept(const Message& m)
 {
-    if (m.protocol_id != (uint16_t)PROTOCOL::FROST) {
-        m_err_handler(WrongProtocol(m.protocol_id));
+    if (m.protocol_id != PROTOCOL::FROST) {
+        m_err_handler(WrongProtocol(static_cast<std::underlying_type<PROTOCOL>::type>(m.protocol_id)));
     }
 
-    if (m.id < (size_t)FROST_MESSAGE::MESSAGE_ID_COUNT) {
-        (this->*mHandlers[m.id])(m);
+    const FrostMessage& frost_message = reinterpret_cast<const FrostMessage&>(m);
+
+    if (static_cast<uint16_t>(frost_message.id) < static_cast<uint16_t>(FROST_MESSAGE::MESSAGE_ID_COUNT)) {
+        (this->*mHandlers[static_cast<uint16_t>(frost_message.id)])(m);
     }
     else {
-        m_err_handler(WrongMessage(m));
+        m_err_handler(WrongMessage(frost_message));
     }
 }
 
@@ -66,7 +69,7 @@ void SignerApi::AcceptNonceCommitments(const Message &m)
                                  message.nonce_commitments.end());
     }
     else {
-        m_err_handler(WrongMessageData(m));
+        m_err_handler(WrongMessageData(message));
     }
 }
 
@@ -81,7 +84,7 @@ void SignerApi::AcceptKeyShareCommitment(const Message &m)
         peer_it->second.keyshare_commitment = message.share_commitment;
     }
     else {
-        m_err_handler(WrongMessageData(m));
+        m_err_handler(WrongMessageData(message));
     }
 }
 
@@ -102,7 +105,7 @@ void SignerApi::AcceptKeyShare(const Message &m)
         }
     }
     else {
-        m_err_handler(WrongMessageData(m));
+        m_err_handler(WrongMessageData(message));
     }
 }
 
@@ -183,7 +186,7 @@ void SignerApi::AcceptSignatureShare(const Message &m)
         }
     }
     else {
-        m_err_handler(WrongMessageData(m));
+        m_err_handler(WrongMessageData(message));
     }
 }
 

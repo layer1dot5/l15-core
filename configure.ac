@@ -99,6 +99,7 @@ AC_CONFIG_FILES([Makefile
                  src/app/Makefile
                  test/Makefile
                  test/core/Makefile
+                 test/p2p/Makefile
                  test/service/Makefile
                  contrib/Makefile])
 

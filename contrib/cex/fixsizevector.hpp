@@ -119,4 +119,12 @@ template< class T, size_t SIZE, class Alloc >
 bool operator==(const std::vector<T, Alloc>& x1, const fixsize_vector<T, SIZE, Alloc>& x2)
 { return x1 == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
 
+template <class STREAM, class T, size_t SIZE, class Alloc>
+STREAM& operator << (STREAM& s, const fixsize_vector<T, SIZE, Alloc>& x)
+{ return s.write(x.data(), SIZE); }
+
+template <class STREAM, class T, size_t SIZE, class Alloc>
+STREAM& operator >> (STREAM& s, fixsize_vector<T, SIZE, Alloc>& x)
+{ return s.read(x.data(), SIZE); }
+
 }

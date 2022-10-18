@@ -1,4 +1,3 @@
-SUBDIRS = core service p2p
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/test \
@@ -34,10 +33,8 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = signer
-
-signer_SOURCES = zmq_service.cpp signer.cpp
-signer_LDADD = $(L15_LIBS) $(ZMQ_LIBS)
+bin_PROGRAMS = test_p2p_frost
 
 
-
+test_p2p_frost_SOURCES = test_p2p_frost.cpp
+test_p2p_frost_LDADD = $(L15_LIBS)

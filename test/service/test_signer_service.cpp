@@ -60,7 +60,7 @@ TEST_CASE("2-of-3 local")
     signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&signer0](const Message& m){signer0->Accept(m);});
     signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&signer1](const Message& m){signer1->Accept(m);});
 
-    GenericService service(1);
+    auto service = std::make_shared<service::GenericService>(1);
     signer_service::SignerService signerService(service);
     signerService.AddSigner(signer0);
     signerService.AddSigner(signer1);
@@ -98,6 +98,6 @@ TEST_CASE("2-of-3 local")
     std::cout << HexStr(sig0) << std::endl;
 
     REQUIRE_FALSE(IsZeroArray(sig1));
-    CHECK(sig0 == sig1);
+    CHECK((sig0 == sig1));
 
 }
