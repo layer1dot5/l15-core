@@ -40,7 +40,7 @@ TEST_CASE("2-of-3 local")
     std::shared_ptr<SignerApi> signer1 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
     std::shared_ptr<SignerApi> signer2 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
 
-    link_handler publish_hdl = [&](const Message& m)
+    frost_link_handler publish_hdl = [&](const FrostMessage& m)
     {
         signer0->Accept(m);
         signer1->Accept(m);
@@ -53,12 +53,12 @@ TEST_CASE("2-of-3 local")
 
     // Connect peers
 
-    signer0->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&signer1](const Message& m){signer1->Accept(m);});
-    signer0->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&signer2](const Message& m){signer2->Accept(m);});
-    signer1->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&signer0](const Message& m){signer0->Accept(m);});
-    signer1->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&signer2](const Message& m){signer2->Accept(m);});
-    signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&signer0](const Message& m){signer0->Accept(m);});
-    signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&signer1](const Message& m){signer1->Accept(m);});
+    signer0->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&signer1](const auto& m){signer1->Accept(m);});
+    signer0->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&signer2](const auto& m){signer2->Accept(m);});
+    signer1->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&signer0](const auto& m){signer0->Accept(m);});
+    signer1->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&signer2](const auto& m){signer2->Accept(m);});
+    signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&signer0](const auto& m){signer0->Accept(m);});
+    signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&signer1](const auto& m){signer1->Accept(m);});
 
     auto service = std::make_shared<service::GenericService>(1);
     signer_service::SignerService signerService(service);

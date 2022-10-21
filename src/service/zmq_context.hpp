@@ -13,14 +13,7 @@ struct ZmqContextSingleton {
     static std::string STOP;
 
 
-    ZmqContextSingleton() {
-
-        std::lock_guard<std::mutex> lock(zmq_mutex);
-
-        if (!zmq_ctx.has_value()) {
-            zmq_ctx.emplace(zmq::context_t());
-        }
-    }
+    ZmqContextSingleton();
 
     virtual ~ZmqContextSingleton() = default;
 };
