@@ -20,7 +20,6 @@ enum class FROST_MESSAGE: uint16_t {
     MESSAGE_ID_COUNT
 };
 
-//TODO: below stream operators work for byte based streams only
 
 template <typename STREAM>
 STREAM& operator << (STREAM& s, const FROST_MESSAGE& p)
@@ -30,6 +29,9 @@ template <typename STREAM>
 STREAM& operator >> (STREAM& s, FROST_MESSAGE& p)
 { return s >> reinterpret_cast<std::underlying_type<FROST_MESSAGE>::type&>(p); }
 
+class FrostMessage;
+
+typedef std::unique_ptr<FrostMessage> frost_message_ptr;
 
 class FrostMessage : public Message
 {
@@ -41,7 +43,7 @@ public:
     FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST), id(r.id), pubkey(move(r.pubkey)) {}
 
     template <typename STREAM>
-    void Serialize(STREAM& stream)
+    void Serialize(STREAM& stream) const
     { stream << protocol_id << id << pubkey; }
 
     template <typename STREAM>
@@ -54,8 +56,10 @@ protected:
     FrostMessage() : Message(PROTOCOL::WRONG_PROTOCOL), id(FROST_MESSAGE::MESSAGE_ID_COUNT), pubkey() {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
+
+typedef std::function<void(const p2p::FrostMessage& m)> frost_link_handler;
 
 
 class WrongMessage: public Error {
@@ -92,7 +96,7 @@ public:
     NonceCommitments(NonceCommitments&& r) : FrostMessage(move(r)), nonce_commitments(move(r.nonce_commitments)) {}
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream)
+    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         uint8_t buf[66];
         FrostMessage::Serialize(stream);
@@ -106,7 +110,7 @@ public:
     }
 
     template <typename STREAM>
-    void Unerialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
 
@@ -131,7 +135,7 @@ private:
     NonceCommitments() : FrostMessage(), nonce_commitments() {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
 class KeyShareCommitment : public FrostMessage
@@ -143,7 +147,7 @@ public:
     KeyShareCommitment(KeyShareCommitment&& r) : FrostMessage(move(r)), share_commitment(move(r.share_commitment)) {}
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream)
+    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         uint8_t buf[33];
         size_t buflen = 33;
@@ -159,7 +163,7 @@ public:
     }
 
     template <typename STREAM>
-    void Unerialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
 
@@ -184,7 +188,7 @@ private:
     KeyShareCommitment() : FrostMessage(), share_commitment() {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
 class KeyShare : public FrostMessage
@@ -196,14 +200,14 @@ public:
     KeyShare(KeyShare&& r): FrostMessage(move(r)), share(r.share) {}
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream)
+    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream.write(share.data, sizeof(share.data));
     }
 
     template <typename STREAM>
-    void Unerialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
 
@@ -218,7 +222,7 @@ private:
     KeyShare() : FrostMessage(), share{} {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
 class SignatureCommitment : public FrostMessage
@@ -229,14 +233,14 @@ public:
     SignatureCommitment(SignatureCommitment&& r) : FrostMessage(move(r)), operation_id(r.operation_id) {}
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream)
+    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream << operation_id;
     }
 
     template <typename STREAM>
-    void Unerialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
         stream >> operation_id;
@@ -246,7 +250,7 @@ private:
     SignatureCommitment() : FrostMessage(), operation_id(0) {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
 class SignatureShare : public FrostMessage
@@ -259,14 +263,14 @@ public:
     SignatureShare(SignatureShare&& r) : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream)
+    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream << operation_id << share;
     }
 
     template <typename STREAM>
-    void Unerialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
         stream >> operation_id >> share;
@@ -276,11 +280,50 @@ private:
     SignatureShare() : FrostMessage(), operation_id(0), share() {}
 
     template<typename STREAM>
-    friend std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream);
+    friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
+template <typename STREAM>
+void Serialize(STREAM& stream, const secp256k1_context* ctx, const FrostMessage& m)
+{
+    switch (m.id) {
+    case FROST_MESSAGE::NONCE_COMMITMENTS:
+    {
+        const NonceCommitments& msg = dynamic_cast<const NonceCommitments&>(m);
+        msg.Serialize(ctx, stream);
+        return;
+    }
+    case FROST_MESSAGE::KEY_COMMITMENT:
+    {
+        const KeyShareCommitment& msg = dynamic_cast<const KeyShareCommitment&>(m);
+        msg.Serialize(ctx, stream);
+        return;
+    }
+    case FROST_MESSAGE::KEY_SHARE:
+    {
+        const KeyShare& msg = dynamic_cast<const KeyShare&>(m);
+        msg.Serialize(ctx, stream);
+        return;
+    }
+    case FROST_MESSAGE::SIGNATURE_COMMITMENT:
+    {
+        const SignatureCommitment& msg = dynamic_cast<const SignatureCommitment&>(m);
+        msg.Serialize(ctx, stream);
+        return;
+    }
+    case FROST_MESSAGE::SIGNATURE_SHARE:
+    {
+        const SignatureShare& msg = dynamic_cast<const SignatureShare&>(m);
+        msg.Serialize(ctx, stream);
+        return;
+    }
+    default:
+        throw WrongMessage(m);
+    }
+}
+
 template<typename STREAM>
-std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& stream)
+frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream)
 {
     FrostMessage header;
     auto pos = stream.position();
@@ -291,31 +334,31 @@ std::unique_ptr<Message> Unserialize(const secp256k1_context* ctx, STREAM& strea
     case FROST_MESSAGE::NONCE_COMMITMENTS:
         {
             NonceCommitments msg;
-            msg.Unerialize(ctx, stream);
+            msg.Unserialize(ctx, stream);
             return std::make_unique<NonceCommitments>(move(msg));
         }
     case FROST_MESSAGE::KEY_COMMITMENT:
         {
             KeyShareCommitment msg;
-            msg.Unerialize(ctx, stream);
+            msg.Unserialize(ctx, stream);
             return std::make_unique<KeyShareCommitment>(move(msg));
         }
     case FROST_MESSAGE::KEY_SHARE:
         {
             KeyShare msg;
-            msg.Unerialize(ctx, stream);
+            msg.Unserialize(ctx, stream);
             return std::make_unique<KeyShare>(move(msg));
         }
     case FROST_MESSAGE::SIGNATURE_COMMITMENT:
         {
             SignatureCommitment msg;
-            msg.Unerialize(ctx, stream);
+            msg.Unserialize(ctx, stream);
             return std::make_unique<SignatureCommitment>(move(msg));
         }
     case FROST_MESSAGE::SIGNATURE_SHARE:
         {
             SignatureShare msg;
-            msg.Unerialize(ctx, stream);
+            msg.Unserialize(ctx, stream);
             return std::make_unique<SignatureShare>(move(msg));
         }
     default:

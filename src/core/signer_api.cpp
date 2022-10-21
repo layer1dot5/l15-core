@@ -42,24 +42,22 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), nullptr);
 }
 
-void SignerApi::Accept(const Message& m)
+void SignerApi::Accept(const FrostMessage& m)
 {
     if (m.protocol_id != PROTOCOL::FROST) {
         m_err_handler(WrongProtocol(static_cast<std::underlying_type<PROTOCOL>::type>(m.protocol_id)));
     }
 
-    const FrostMessage& frost_message = reinterpret_cast<const FrostMessage&>(m);
-
-    if (static_cast<uint16_t>(frost_message.id) < static_cast<uint16_t>(FROST_MESSAGE::MESSAGE_ID_COUNT)) {
-        (this->*mHandlers[static_cast<uint16_t>(frost_message.id)])(m);
+    if (static_cast<uint16_t>(m.id) < static_cast<uint16_t>(FROST_MESSAGE::MESSAGE_ID_COUNT)) {
+        (this->*mHandlers[static_cast<uint16_t>(m.id)])(m);
     }
     else {
-        m_err_handler(WrongMessage(frost_message));
+        m_err_handler(WrongMessage(m));
     }
 }
 
 
-void SignerApi::AcceptNonceCommitments(const Message &m)
+void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
 {
     const auto& message = reinterpret_cast<const NonceCommitments&>(m);
 
@@ -73,7 +71,7 @@ void SignerApi::AcceptNonceCommitments(const Message &m)
     }
 }
 
-void SignerApi::AcceptKeyShareCommitment(const Message &m)
+void SignerApi::AcceptKeyShareCommitment(const FrostMessage &m)
 {
     const auto& message = reinterpret_cast<const KeyShareCommitment&>(m);
 
@@ -88,7 +86,7 @@ void SignerApi::AcceptKeyShareCommitment(const Message &m)
     }
 }
 
-void SignerApi::AcceptKeyShare(const Message &m)
+void SignerApi::AcceptKeyShare(const FrostMessage &m)
 {
     const auto& message = reinterpret_cast<const KeyShare&>(m);
 
@@ -109,7 +107,7 @@ void SignerApi::AcceptKeyShare(const Message &m)
     }
 }
 
-void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
+void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
 {
     const auto& message = reinterpret_cast<const SignatureCommitment&>(m);
 
@@ -148,7 +146,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::Message& m)
     }
 }
 
-void SignerApi::AcceptSignatureShare(const Message &m)
+void SignerApi::AcceptSignatureShare(const FrostMessage &m)
 {
     const auto& message = reinterpret_cast<const SignatureShare&>(m);
 

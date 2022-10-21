@@ -95,7 +95,7 @@ typedef std::function<void(operation_id)> sigop_handler;
 
 struct RemoteSignerData
 {
-    mutable p2p::link_handler link;
+    mutable p2p::frost_link_handler link;
     std::list<secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
@@ -114,7 +114,7 @@ private:
 
     size_t m_nonce_count;
 
-    p2p::link_handler m_publisher;
+    p2p::frost_link_handler m_publisher;
 
     const size_t m_threshold_size;
     peers_data_type m_peers_data;
@@ -126,7 +126,7 @@ private:
 
     std::list<secp256k1_frost_secnonce> m_secnonces;
 
-    std::array<void(SignerApi::*)(const p2p::Message& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
+    std::array<void(SignerApi::*)(const p2p::FrostMessage& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
     std::shared_mutex m_sig_share_mutex;
 
@@ -151,7 +151,7 @@ private:
 
     const error_handler m_err_handler;
 
-    void Publish(const p2p::Message& data) const
+    void Publish(const p2p::FrostMessage& data) const
     { m_publisher(data); }
 
     template<typename DATA>
@@ -203,7 +203,7 @@ public:
     { return m_nonce_count; }
 
 
-    void SetPublisher(p2p::link_handler h)
+    void SetPublisher(p2p::frost_link_handler h)
     { m_publisher = move(h); }
 
     // Methods to access internal data to use by tests
@@ -224,7 +224,7 @@ public:
     const peers_data_type& Peers() const
     { return m_peers_data; }
 
-    void Accept(const p2p::Message& m);
+    void Accept(const p2p::FrostMessage& m);
 
     template<typename Callable, typename... Args>
     void DistributeKeyShares(Callable key_shares_received_handler, Args&&... args)
@@ -278,11 +278,11 @@ public:
     void ClearSignatureCache(operation_id opid);
 private:
 
-    void AcceptNonceCommitments(const p2p::Message& m);
-    void AcceptKeyShareCommitment(const p2p::Message& m);
-    void AcceptKeyShare(const p2p::Message& m);
-    void AcceptSignatureCommitment(const p2p::Message& m);
-    void AcceptSignatureShare(const p2p::Message& m);
+    void AcceptNonceCommitments(const p2p::FrostMessage& m);
+    void AcceptKeyShareCommitment(const p2p::FrostMessage& m);
+    void AcceptKeyShare(const p2p::FrostMessage& m);
+    void AcceptSignatureCommitment(const p2p::FrostMessage& m);
+    void AcceptSignatureShare(const p2p::FrostMessage& m);
 
 
 };

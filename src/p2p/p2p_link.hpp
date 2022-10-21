@@ -18,8 +18,6 @@ struct Message
 
 };
 
-typedef std::function<void(const p2p::Message&)> link_handler;
-
 
 class WrongProtocol: public Error {
 public:

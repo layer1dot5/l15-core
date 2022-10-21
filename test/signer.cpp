@@ -18,7 +18,7 @@ using namespace l15;
 using namespace l15::core;
 
 const char * const CONF = "--config";
-const char * const SKEY = "--seckey,-s";
+const char * const SKEY = "--seckey,-k";
 const char * const LISTEN_ADDR = "--listen-addr,-l";
 const char * const PEER_ADDR = "--peer,-p";
 const char * const INPUT = "--input,-i";
@@ -53,6 +53,7 @@ public:
             mApp.parse(argc, argv);
         }
         catch (const CLI::ParseError &e) {
+            std::cerr << "Configuretion error: " << e.what() << std::endl;
             mApp.exit(e);
         }
     }
@@ -94,17 +95,19 @@ Signer::Signer()
                     mListenAddress,
                     "Address to listen")->configurable(true);
 
-    mApp.add_option_function<std::string>(PEER_ADDR, [&](const std::string& peer)
+    mApp.add_option_function<std::vector<std::string>>(PEER_ADDR, [&](const std::vector<std::string>& peers)
     {
-        if (peer.length() < 70 || peer[peer.length() - 65] != '|') {
-            std::cerr << "Wrong peer configuration: " << peer << std::endl;
-            throw CLI::ValidationError(PEER_ADDR, "Wrong peer: " + peer);
+        for(const auto& peer: peers) {
+            if (peer.length() < 70 || peer[peer.length() - 65] != '|') {
+                std::cerr << "Wrong peer configuration: " << peer << std::endl;
+                throw CLI::ValidationError(PEER_ADDR, "Wrong peer: " + peer);
+            }
+
+            auto pk = ParseHex(peer.substr(peer.length() - 64));
+            auto addr = peer.substr(0, peer.length() - 65);
+
+            mPeerService.AddPeer(move(pk), move(addr));
         }
-
-        auto pk = ParseHex(peer.substr(peer.length() - 64));
-        auto addr = peer.substr(0, peer.length() - 65);
-
-        mPeerService.AddPeer(move(pk), move(addr));
     },
     "Signing counterparty peer address")->configurable(true)->take_all();
 
@@ -129,7 +132,7 @@ int main(int argc, char* argv[])
         sk = ParseHex(config.mSecKey);
     }
 
-    size_t N = config.mPeerService.GetPeersMap().size() + 1;
+    size_t N = config.mPeerService.GetPeersMap().size();
     size_t K = (N%2) ? (N+1)/2 : N/2;
 
     std::shared_ptr<SignerApi> signer = make_shared<SignerApi>(
@@ -144,27 +147,26 @@ int main(int argc, char* argv[])
         std::clog << "pk: " << HexStr(signer->GetLocalPubKey()) << std::endl;
     }
 
-    signer->SetPublisher([&config](const p2p::Message& m) { config.mPeerService.Publish(m); });
+    signer->SetPublisher([&config](const p2p::FrostMessage& m) { config.mPeerService.Publish(m); });
 
-    size_t i = 0;
     for (const auto& peer: config.mPeerService.GetPeersMap()) {
 
-        signer->AddPeer(xonly_pubkey(peer.first), [&](const p2p::Message m)
+        signer->AddPeer(xonly_pubkey(peer.first), [&](const p2p::FrostMessage& m)
         {
             config.mPeerService.Send(peer.first, m);
         });
 
         if (config.mVerbose == 2) {
-            std::clog << "\nPeer:    " << HexStr(peer.first) << "\n";
-            std::clog << "Address: " << peer.second << std::endl;
+            std::clog << "\nPeer:    " << hex(peer.first) << "\n";
+            std::clog << "Address: " << get<0>(peer.second) << std::endl;
         }
     }
 
     if (config.mDryRun || *config.mHelp) {
-        exit(0);
+        return(0);
     }
 
-    config.mPeerService.BindAddress(config.mListenAddress, [&signer](const p2p::Message& m){ signer->Accept(m); });
+    config.mPeerService.StartService(config.mListenAddress, [&signer](const p2p::FrostMessage &m) { signer->Accept(m); });
 
     signer_service::SignerService signerService(config.mTaskService);
     signerService.AddSigner(signer);

@@ -63,9 +63,9 @@ class task : public task_base {
     Callable m_action;
     std::tuple<Args...> m_args;
 public:
-    static_assert(std::is_invocable_v<Callable, Args...>);
+    static_assert(std::is_invocable_v<Callable, Args&&...>);
 
-    task(Callable action, Args&&... args) : m_action(move(action)), m_args(std::forward<Args>(args)...) {}
+    explicit task(Callable action, Args&&... args) : m_action(move(action)), m_args(std::forward<Args>(args)...) {}
 
     void operator()() noexcept override
     { std::apply(m_action, move(m_args)); }
@@ -93,7 +93,7 @@ public:
     void Serve(Callable action, Args&&... args)
     {
         std::unique_ptr<details::task<Callable, Args...>> task
-            = std::make_unique<details::task<Callable, Args...>>(action, std::forward<Args>(args)...);
+            = std::make_unique<details::task<Callable, Args...>>(std::forward<Callable>(action), std::forward<Args>(args)...);
 
         ServeInternal(move(task));
     }
