@@ -151,8 +151,11 @@ private:
 
     const error_handler m_err_handler;
 
-    void Publish(const p2p::FrostMessage& data) const
-    { m_publisher(data); }
+    void Publish(const p2p::FrostMessage& data)
+    {
+        Accept(data); //Provide broadcasted data to self
+        m_publisher(data);
+    }
 
     template<typename DATA>
     void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
@@ -185,7 +188,7 @@ private:
     { return std::get<4>(op_it->second); }
 
     void DistributeKeySharesImpl();
-    void InitSignatureImpl(operation_id opid) const;
+    void InitSignatureImpl(operation_id opid);
 
 public:
     SignerApi(ChannelKeys &&keypair,
