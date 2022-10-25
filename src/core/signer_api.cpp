@@ -39,7 +39,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_COMMITMENT] = &SignerApi::AcceptSignatureCommitment;
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerApi::AcceptSignatureShare;
 
-    AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), nullptr);
+    AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), [this](const p2p::FrostMessage& m){ Accept(m); });
 }
 
 void SignerApi::Accept(const FrostMessage& m)
@@ -76,8 +76,8 @@ void SignerApi::AcceptKeyShareCommitment(const FrostMessage &m)
     const auto& message = reinterpret_cast<const KeyShareCommitment&>(m);
 
     auto peer_it = m_peers_data.find(message.pubkey);
-    if (peer_it != m_peers_data.end()
-        && peer_it->second.keyshare_commitment.empty())
+    if (peer_it != m_peers_data.end()/*
+        && peer_it->second.keyshare_commitment.empty()*/)
     {
         peer_it->second.keyshare_commitment = message.share_commitment;
     }
@@ -93,13 +93,19 @@ void SignerApi::AcceptKeyShare(const FrostMessage &m)
     auto peer_it = m_peers_data.find(message.pubkey);
     if (peer_it != m_peers_data.end()
         && !peer_it->second.keyshare_commitment.empty()
-        && !peer_it->second.keyshare.has_value())
+        /*&& !peer_it->second.keyshare.has_value()*/)
     {
+        if (peer_it->second.keyshare.has_value()) {
+            if (memcmp(peer_it->second.keyshare->data, message.share.data, sizeof(secp256k1_frost_share)) != 0) {
+                m_err_handler(WrongMessageData(message));
+            }
+        }
+        else {
+            peer_it->second.keyshare = message.share;
 
-        peer_it->second.keyshare = message.share;
-
-        if (++m_keyshare_count >= m_peers_data.size()) {
-            (*m_key_handler)();
+            if (++m_keyshare_count >= m_peers_data.size()) {
+                (*m_key_handler)();
+            }
         }
     }
     else {
@@ -336,7 +342,7 @@ signature SignerApi::AggregateSignature(operation_id opid)
     }
 }
 
-void SignerApi::InitSignatureImpl(operation_id opid) const
+void SignerApi::InitSignatureImpl(operation_id opid)
 {
     SignatureCommitment message(xonly_pubkey(mKeypair.GetLocalPubKey()), opid);
     Publish(message);

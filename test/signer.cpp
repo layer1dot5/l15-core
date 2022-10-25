@@ -73,7 +73,7 @@ public:
 Signer::Signer()
 : mApp("Tool to generate threshold signature", "signer")
 , mVerbose(0), mDryRun(false), mDoSign(false)
-, mTaskService(std::make_shared<service::GenericService>(16))
+, mTaskService(std::make_shared<service::GenericService>(10))
 , mWallet()
 , mPeerService(mWallet.Secp256k1Context(), mTaskService)
 {
@@ -147,7 +147,11 @@ int main(int argc, char* argv[])
         std::clog << "pk: " << HexStr(signer->GetLocalPubKey()) << std::endl;
     }
 
-    signer->SetPublisher([&config](const p2p::FrostMessage& m) { config.mPeerService.Publish(m); });
+    config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
+    signer->SetPublisher([&config](const p2p::FrostMessage& m)
+    {
+        config.mPeerService.Publish(m);
+    });
 
     for (const auto& peer: config.mPeerService.GetPeersMap()) {
 
