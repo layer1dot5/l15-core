@@ -24,17 +24,17 @@ public:
     explicit IllegalServiceParameterError(std::string&& details) noexcept : m_details(move(details)) {}
     IllegalServiceParameterError(IllegalServiceParameterError&& another) noexcept : m_details(move(another.m_details)) {}
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "IllegalServiceParameterError"; }
 
-    const char* details() const override
+    const char* details() const noexcept override
     { return m_details.c_str(); }
 };
 
 class ServiceAlreadyStoppedError : public Error
 {
 public:
-    const char* what() const override
+    const char* what() const noexcept override
     { return "ServiceAlreadyStoppedError"; }
 
 };

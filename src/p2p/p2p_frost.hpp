@@ -67,7 +67,7 @@ public:
     explicit WrongMessage(const FrostMessage& m) : protocol_id(static_cast<uint16_t>(m.protocol_id)), message_id(static_cast<uint16_t>(m.id)) {}
     ~WrongMessage() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "WrongMessage"; }
 
     uint16_t protocol_id;
@@ -79,7 +79,7 @@ public:
     explicit WrongMessageData(const FrostMessage& m) : protocol_id(static_cast<uint16_t>(m.protocol_id)), message_id(static_cast<uint16_t>(m.id)) {}
     ~WrongMessageData() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "WrongMessageData"; }
 
     uint16_t protocol_id;

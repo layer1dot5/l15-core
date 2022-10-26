@@ -24,10 +24,10 @@ public:
     ~OnChainFormatError() override = default;
     OnChainFormatError& operator=(const OnChainFormatError&) = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "OnChainFormatError"; }
 
-    const char* details() const override
+    const char* details() const noexcept override
     { return m_details; }
 
 };

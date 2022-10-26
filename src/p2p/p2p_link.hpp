@@ -12,7 +12,7 @@ struct Message
     PROTOCOL protocol_id;
 
     Message() noexcept : protocol_id(PROTOCOL::WRONG_PROTOCOL) {}
-    Message(PROTOCOL protocol) noexcept : protocol_id(protocol) {}
+    explicit Message(PROTOCOL protocol) noexcept : protocol_id(protocol) {}
 
     virtual ~Message() = default;
 
@@ -24,7 +24,7 @@ public:
     explicit WrongProtocol(uint16_t protocol) : protocol_id(protocol) {}
     ~WrongProtocol() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "WrongProtocol"; }
 
     uint16_t protocol_id;
