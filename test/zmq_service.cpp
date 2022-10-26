@@ -21,6 +21,7 @@ ZmqService::~ZmqService()
         sock.connect(local_addr);
         sock.send(stop, zmq::send_flags::none);
     }
+    m_exit_sem.acquire();
 }
 
 void ZmqService::StartService(const std::string& addr, p2p::frost_link_handler&& h)
@@ -164,6 +165,8 @@ void ZmqService::ListenCycle(p2p::frost_link_handler&& h)
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
         }
     }
+
+    m_exit_sem.release();
 }
 
 

@@ -3,6 +3,7 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <semaphore>
 
 #include "common.hpp"
 #include "zmq_context.hpp"
@@ -28,6 +29,8 @@ private:
 
     std::string m_server_addr;
 
+    std::binary_semaphore m_exit_sem;
+
 private:
     static inline std::string& peer_address(peer_state& state) { return get<0>(state); }
     static inline zmq::socket_t& peer_socket(peer_state& state) { return get<1>(state); }
@@ -43,7 +46,7 @@ private:
 
 public:
     explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
-    : m_peers(), m_ctx(ctx), mTaskService(move(srv)) {}
+    : m_peers(), m_ctx(ctx), mTaskService(move(srv)), m_exit_sem(0) {}
 
     ~ZmqService();
 
