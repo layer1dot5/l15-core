@@ -1,20 +1,22 @@
 #pragma once
 
+#include <stdexcept>
+
 namespace l15 {
 
-class Error {
+class Error : std::exception {
 public:
-    virtual ~Error() = default;
+    ~Error() override = default;
 
-    virtual const char* what() const = 0;
-    virtual const char* details() const {return ""; }
+    const char* what() const noexcept override  = 0;
+    virtual const char* details() const noexcept {return ""; }
 };
 
 class KeyError : public Error {
 public:
     ~KeyError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "KeyError"; }
 };
 
@@ -22,7 +24,7 @@ class WrongKeyError : public KeyError {
 public:
     ~WrongKeyError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "WrongKeyError"; }
 };
 
@@ -32,7 +34,7 @@ public:
     explicit SignatureError(std::string&& details) : m_details(move(details)) {}
     ~SignatureError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "SignatureError"; }
 
 };

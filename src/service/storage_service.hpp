@@ -15,13 +15,13 @@ class NoDataError : public Error
 {
     const std::string m_details;
 public:
-    explicit NoDataError(std::string&& details) : m_details(std::move(details)) {}
+    explicit NoDataError(std::string&& details) noexcept : m_details(std::move(details)) {}
     ~NoDataError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "NoDataError"; }
 
-    const char* details() const override
+    const char* details() const noexcept override
     { return m_details.c_str(); }
 
 };

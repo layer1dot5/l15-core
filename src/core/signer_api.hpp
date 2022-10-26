@@ -34,7 +34,7 @@ class KeyShareVerificationError : public KeyError {
 public:
     ~KeyShareVerificationError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "KeyShareVerificationError"; }
 
 };
@@ -43,7 +43,7 @@ class KeyAggregationError : public KeyError {
 public:
     ~KeyAggregationError() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "KeyAggregationError"; }
 
 };
@@ -52,7 +52,7 @@ public:
     explicit WrongOperationId(operation_id id) : opid(id) {}
     ~WrongOperationId() override = default;
 
-    const char* what() const override
+    const char* what() const noexcept override
     { return "WrongOperationId"; }
 
     operation_id opid;
@@ -74,7 +74,7 @@ struct MovingBinder : MovingBinderBase
 
     explicit MovingBinder(Callable f, Args&&... args): m_f(move(f)), m_args(std::forward<Args>(args)...) {}
 
-    MovingBinder(MovingBinder&& r) = default;
+    MovingBinder(MovingBinder&& r) noexcept = default;
 
     void operator()() override {
         static_assert(std::is_invocable_v<Callable, Args&&...>);
