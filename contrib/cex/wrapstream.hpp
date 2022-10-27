@@ -79,9 +79,9 @@ public:
         if (!n) {
             m_read_it = m_container.begin();
         } else {
-            if (m_read_it - m_container.begin() > n) {
-                std::stringstream errmsg("Not enough size to rewind: ");
-                errmsg << n;
+            if (m_read_it - m_container.begin() < n) {
+                std::stringstream errmsg;
+                errmsg << "Not enough space to rewind: space (" << (m_read_it - m_container.begin()) << "), arg(" << n << ")";
                 throw std::range_error(errmsg.str());
             }
             std::advance(m_read_it, -n);

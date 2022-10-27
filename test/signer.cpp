@@ -3,6 +3,9 @@
 #include <vector>
 #include <sstream>
 
+#include <unistd.h>
+
+#include <boost/container/flat_map.hpp>
 
 #include "CLI11.hpp"
 #include "common.hpp"
@@ -40,7 +43,7 @@ public:
     std::string mListenAddress;
     std::shared_ptr<l15::service::GenericService> mTaskService;
     WalletApi mWallet;
-    l15::ZmqService mPeerService;
+    boost::container::flat_map<xonly_pubkey, std::string, l15::less<xonly_pubkey>> m_peers;
     std::string mInput;
     CLI::Option* mHelp;
 
@@ -61,9 +64,9 @@ public:
     void Print() const {
         std::clog << "seckey: " << mSecKey << "\n";
         std::clog << "listen-addr: " << mListenAddress << "\n";
-//        for (const auto& addr: mPeerAddresses) {
-//            std::clog << "peer-addr: " << addr << "\n";
-//        }
+        for (const auto& p: m_peers) {
+            std::clog << "peer: " << p.second << '|' << hex(p.first) << "\n";
+        }
         std::clog << std::endl;
     }
 
@@ -73,9 +76,8 @@ public:
 Signer::Signer()
 : mApp("Tool to generate threshold signature", "signer")
 , mVerbose(0), mDryRun(false), mDoSign(false)
-, mTaskService(std::make_shared<service::GenericService>(10))
+, mTaskService(std::make_shared<service::GenericService>(1))
 , mWallet()
-, mPeerService(mWallet.Secp256k1Context(), mTaskService)
 {
     mApp.set_config(CONF, "signer.conf", "Read the configuration file");
     mApp.set_version_flag("--version", "signer tool version: 0");
@@ -85,7 +87,7 @@ Signer::Signer()
 
     mApp.add_flag(DRYRUN, mDryRun, "Does not run signer service, just checks config and prints its output");
 
-    mApp.add_flag(DOSIGN, mDoSign, "Indicates does the peed participate in signature creation");
+    mApp.add_flag(DOSIGN, mDoSign, "Indicates does the peer participate in signature creation");
 
     mApp.add_option(SKEY,
                     mSecKey,
@@ -106,7 +108,7 @@ Signer::Signer()
             auto pk = ParseHex(peer.substr(peer.length() - 64));
             auto addr = peer.substr(0, peer.length() - 65);
 
-            mPeerService.AddPeer(move(pk), move(addr));
+            m_peers.emplace(move(pk), move(addr));
         }
     },
     "Signing counterparty peer address")->configurable(true)->take_all();
@@ -124,7 +126,7 @@ int main(int argc, char* argv[])
     config.ProcessConfig(argc, argv);
 
     if (bool(*config.mHelp)) exit(0);
-    if (config.mVerbose) config.Print();
+    if (config.mVerbose > 1) config.Print();
 
     seckey sk;
 
@@ -132,7 +134,7 @@ int main(int argc, char* argv[])
         sk = ParseHex(config.mSecKey);
     }
 
-    size_t N = config.mPeerService.GetPeersMap().size();
+    size_t N = config.m_peers.size();
     size_t K = (N%2) ? (N+1)/2 : N/2;
 
     std::shared_ptr<SignerApi> signer = make_shared<SignerApi>(
@@ -143,40 +145,52 @@ int main(int argc, char* argv[])
                      error_hdl);
 
     if (config.mVerbose) {
+        std::clog << "pid: " << getpid() << "\n";
+        std::clog << "sign: " << K << "-of-" << N << "\n";
         std::clog << "sk: " << HexStr(signer->GetSecKey()) << "\n";
         std::clog << "pk: " << HexStr(signer->GetLocalPubKey()) << std::endl;
     }
 
-    config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
-    signer->SetPublisher([&config](const p2p::FrostMessage& m)
-    {
-        config.mPeerService.Publish(m);
-    });
+    if (config.mDryRun || *config.mHelp) {
+        return 0;
+    }
 
-    for (const auto& peer: config.mPeerService.GetPeersMap()) {
+    std::unique_ptr<ZmqService> peerService = std::make_unique<ZmqService>(config.mWallet.Secp256k1Context(), config.mTaskService);
 
-        signer->AddPeer(xonly_pubkey(peer.first), [&](const p2p::FrostMessage& m)
-        {
-            config.mPeerService.Send(peer.first, m);
-        });
+    for(const auto& peer: config.m_peers) {
+        if (peer.first != signer->GetLocalPubKey()) {
+            peerService->AddPeer(xonly_pubkey(peer.first), std::string(peer.second));
 
-        if (config.mVerbose == 2) {
-            std::clog << "\nPeer:    " << hex(peer.first) << "\n";
-            std::clog << "Address: " << get<0>(peer.second) << std::endl;
+            if (config.mVerbose == 2) {
+                std::clog << "\nPeer:    " << hex(peer.first) << "\n";
+                std::clog << "Address: " << peer.second << std::endl;
+            }
         }
     }
 
-    if (config.mDryRun || *config.mHelp) {
-        return(0);
+    //config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
+    signer->SetPublisher([&peerService](const p2p::FrostMessage& m)
+    {
+        peerService->Publish(m);
+    });
+
+    for (const auto& peer: peerService->GetPeersMap()) {
+        signer->AddPeer(xonly_pubkey(peer.first), [&](const p2p::FrostMessage& m)
+        {
+            peerService->Send(peer.first, m);
+        });
+
     }
 
-    config.mPeerService.StartService(config.mListenAddress, [&signer](const p2p::FrostMessage &m) { signer->Accept(m); });
+    peerService->StartService(config.mListenAddress, [&signer](const p2p::FrostMessage &m) { signer->Accept(m); });
 
     signer_service::SignerService signerService(config.mTaskService);
     signerService.AddSigner(signer);
 
     auto aggKeyFuture = signerService.NegotiateKey(signer->GetLocalPubKey());
     xonly_pubkey shared_pk = aggKeyFuture.get();
+
+    std::cout << "\nagg_pk:" << hex(shared_pk) << std::endl;
 
     if (config.mDoSign) {
         auto nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 2);
@@ -188,7 +202,10 @@ int main(int argc, char* argv[])
         auto sign_res = signerService.Sign(signer->GetLocalPubKey(), message, 0);
         signature sig = sign_res.get();
 
-        std::cout << HexStr(sig) << std::endl;
+        std::cout << "sig: " << hex(sig) << std::endl;
     }
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    signer.reset();
 }

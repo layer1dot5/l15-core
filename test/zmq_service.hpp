@@ -15,12 +15,15 @@ namespace service {
     class GenericService;
 }
 
-class ZmqService : public service::ZmqContextSingleton
+class ZmqService// : public service::ZmqContextSingleton
 {
 public:
     typedef std::tuple<std::string, zmq::socket_t, std::list<p2p::frost_message_ptr>, std::unique_ptr<std::mutex>> peer_state;
     typedef std::unordered_map<xonly_pubkey, peer_state, l15::hash<xonly_pubkey>> peers_map;
 private:
+    static std::string STOP;
+
+    std::optional<zmq::context_t> zmq_ctx;
     peers_map m_peers;
     std::shared_mutex m_peers_mutex;
 
@@ -37,8 +40,6 @@ private:
     static inline std::list<p2p::frost_message_ptr>& peer_message_queue(peer_state& state) { return get<2>(state); }
     static inline std::mutex& peer_mutex(peer_state& state) { return *get<3>(state); }
 
-
-
     void ListenCycle(p2p::frost_link_handler&& h);
     void CheckPeers();
 
@@ -46,7 +47,7 @@ private:
 
 public:
     explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
-    : m_peers(), m_ctx(ctx), mTaskService(move(srv)), m_exit_sem(0) {}
+    : zmq_ctx(zmq::context_t(1, 1005)), m_peers(), m_ctx(ctx), mTaskService(move(srv)), m_exit_sem(0) {}
 
     ~ZmqService();
 

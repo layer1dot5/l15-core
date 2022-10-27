@@ -130,6 +130,17 @@ struct equal_to<T*>
     { return *x == *y; }
 };
 
+template <typename T>
+struct less : std::less<T> {};
+
+template <>
+struct less<xonly_pubkey>
+{
+    bool operator()(const xonly_pubkey& x, const xonly_pubkey& y) const
+    { return x.get_vector() < y.get_vector(); }
+};
+
+
 template<>
 struct hash<secp256k1_xonly_pubkey> : std::__hash_base<size_t, secp256k1_xonly_pubkey>
 {
