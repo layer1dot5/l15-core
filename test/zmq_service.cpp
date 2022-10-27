@@ -10,6 +10,8 @@
 
 namespace l15 {
 
+std::string ZmqService::STOP("stop");
+
 ZmqService::~ZmqService()
 {
     if (!m_server_addr.empty()) {
@@ -20,14 +22,32 @@ ZmqService::~ZmqService()
 
         sock.connect(local_addr);
         sock.send(stop, zmq::send_flags::none);
+        m_exit_sem.acquire();
+        sock.close();
+
+        std::binary_semaphore peers_sem(0);
+        mTaskService->Serve([this, &peers_sem]() {
+            for (auto &peer: m_peers) {
+                peer_socket(peer.second).close();
+            }
+            peers_sem.release();
+        });
+        peers_sem.acquire();
     }
-    m_exit_sem.acquire();
 }
 
 void ZmqService::StartService(const std::string& addr, p2p::frost_link_handler&& h)
 {
     m_server_addr = addr;
-    mTaskService->Serve(&ZmqService::ListenCycle, this, move(h));
+    //mTaskService->Serve(&ZmqService::ListenCycle, this, move(h));
+
+    mTaskService->Serve([this]() {
+        for (auto &peer: m_peers) {
+            peer_socket(peer.second).connect(peer_address(peer.second));
+        }
+    });
+
+    std::thread(&ZmqService::ListenCycle, this, move(h)).detach();
 }
 
 void ZmqService::Publish(const p2p::FrostMessage& m)
@@ -72,20 +92,24 @@ void ZmqService::SendInternal(ZmqService::peer_state &peer, const p2p::FrostMess
         try {
             zmq::message_t zmq_msg(data.begin(), data.end());
 
-            //if (!peer_socket(peer)) {
-                peer_socket(peer).connect(peer_address(peer));
-            //}
+
             if (!peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait)) {
-                throw zmq::error_t();
+                throw std::runtime_error("send returned zero bytes sent");
             }
         }
-        catch(zmq::error_t& e)
-        {
+        catch (std::exception& e) {
+            std::clog << "Cannot send now: " << e.what() << ". Insert to queue start" << std::endl;
+
+            p2p::frost_message_ptr msg = p2p::Unserialize(m_ctx, data);
+            peer_message_queue(peer).emplace_front(move(msg)); // store message to send later if failed to send now
+        }
+        catch (...) {
             std::clog << "Cannot send now. Insert to queue start" << std::endl;
 
             p2p::frost_message_ptr msg = p2p::Unserialize(m_ctx, data);
             peer_message_queue(peer).emplace_front(move(msg)); // store message to send later if failed to send now
         }
+
     }, move(buf));
 }
 
@@ -146,7 +170,7 @@ void ZmqService::ListenCycle(p2p::frost_link_handler&& h)
                 auto cycle_end = std::chrono::steady_clock::now();
                 auto elapsed = cycle_end - cycle_start;
                 if (elapsed < std::chrono::milliseconds(10)) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50) - elapsed);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10) - elapsed);
                 }
             }
             else if (m == zmq::message_t(STOP)) {
@@ -158,13 +182,15 @@ void ZmqService::ListenCycle(p2p::frost_link_handler&& h)
         }
         catch (std::exception& e) {
             std::cerr << "Skipping unknown error: " << e.what() << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         catch (...) {
             std::cerr << "Skipping unknown error" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
+
+    server_sock.close();
 
     m_exit_sem.release();
 }
@@ -188,9 +214,7 @@ void ZmqService::CheckPeers()
             p2p::Serialize<cex::stream<std::deque<uint8_t>>>(buf, m_ctx, msg);
             zmq::message_t zmq_msg(buf.begin(), buf.end());
 
-            //if (!peer_socket(peer.second)) {
-                peer_socket(peer.second).connect(peer_address(peer.second));
-            //}
+
             if (peer_socket(peer.second).send(move(zmq_msg), zmq::send_flags::dontwait)) {
                 peer_message_queue(peer.second).pop_front();
                 std::clog << "Peer message sent" << std::endl;
