@@ -169,40 +169,60 @@ int main(int argc, char* argv[])
     }
 
     //config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
-    signer->SetPublisher([&peerService](const p2p::FrostMessage& m)
+    signer->SetPublisher([&peerService, verbose = config.mVerbose](const p2p::FrostMessage& m)
     {
+        if (verbose == 2) std::clog << ">>>> " << m.ToString() << std::endl;
         peerService->Publish(m);
     });
 
     for (const auto& peer: peerService->GetPeersMap()) {
-        signer->AddPeer(xonly_pubkey(peer.first), [&](const p2p::FrostMessage& m)
+        signer->AddPeer(xonly_pubkey(peer.first), [&, verbose = config.mVerbose](const p2p::FrostMessage& m)
         {
+            if (verbose == 2) std::clog << ">>>> " << m.ToString() << std::endl;
             peerService->Send(peer.first, m);
         });
 
     }
 
-    peerService->StartService(config.mListenAddress, [&signer](const p2p::FrostMessage &m) { signer->Accept(m); });
-
+    if (config.mVerbose) std::clog << "Creating signer service =================================================" << std::endl;
     signer_service::SignerService signerService(config.mTaskService);
     signerService.AddSigner(signer);
 
+    if (config.mVerbose) std::clog << "Starting network service ================================================" << std::endl;
+    peerService->StartService(config.mListenAddress, [&signer, verbose = config.mVerbose](const p2p::FrostMessage &m)
+    {
+        if (verbose == 2) std::clog << "<<<< " << m.ToString() << std::endl;
+        signer->Accept(m);
+    });
+
+    if (config.mVerbose) std::clog << "Starting aggregated key negotiation =====================================" << std::endl;
     auto aggKeyFuture = signerService.NegotiateKey(signer->GetLocalPubKey());
     xonly_pubkey shared_pk = aggKeyFuture.get();
 
     std::cout << "\nagg_pk:" << hex(shared_pk) << std::endl;
 
     if (config.mDoSign) {
-        auto nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 2);
+        if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
+        auto nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 1);
         nonce_res.wait();
 
         uint256 message;
         CSHA256().Write((unsigned char *) config.mInput.data(), config.mInput.length()).Finalize(message.data());
 
+        if (config.mVerbose) std::clog << "Signing =================================================================" << std::endl;
         auto sign_res = signerService.Sign(signer->GetLocalPubKey(), message, 0);
         signature sig = sign_res.get();
 
         std::cout << "sig: " << hex(sig) << std::endl;
+
+        bool res = true;
+        try {
+            signer->Verify(message, sig);
+        }
+        catch (SignatureError& e) {
+            res = false;
+        }
+        std::cout << "verify: " << res << std::endl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

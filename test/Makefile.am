@@ -17,7 +17,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/app
 
 
-AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
+AM_LDFLAGS=$(ZMQ_LDFLAGS) -L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
 L15_LIBS = \
 $(top_builddir)/src/app/libl15-app.la \

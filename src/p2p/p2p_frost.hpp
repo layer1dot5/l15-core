@@ -50,7 +50,10 @@ public:
     void Unserialize(STREAM& stream)
     { stream >> protocol_id >> id >> pubkey; }
 
-    ~FrostMessage() = default;
+    ~FrostMessage() override = default;
+
+    virtual std::string ToString() const
+    { return ""; };
 
 protected:
     FrostMessage() : Message(PROTOCOL::WRONG_PROTOCOL), id(FROST_MESSAGE::MESSAGE_ID_COUNT), pubkey() {}
@@ -131,6 +134,14 @@ public:
             }
         }
     }
+
+    std::string ToString() const override
+    {
+        std::stringstream buf;
+        buf << "NonceCommitments {pk: " << hex(pubkey).substr(0, 8) << "...}";
+        return move(buf.str());
+    }
+
 private:
     NonceCommitments() : FrostMessage(), nonce_commitments() {}
 
@@ -184,6 +195,14 @@ public:
             }
         }
     }
+
+    std::string ToString() const override
+    {
+        std::stringstream buf;
+        buf << "KeyShareCommitment {pk: " << hex(pubkey).substr(0, 8) << "...}";
+        return move(buf.str());
+    }
+
 private:
     KeyShareCommitment() : FrostMessage(), share_commitment() {}
 
@@ -218,6 +237,13 @@ public:
         stream.read(share.data, sizeof(share.data));
     }
 
+    std::string ToString() const override
+    {
+        std::stringstream buf;
+        buf << "KeyShare {pk: " << hex(pubkey).substr(0, 8) << "... " << hex(share.data) << '}';
+        return move(buf.str());
+    }
+
 private:
     KeyShare() : FrostMessage(), share{} {}
 
@@ -244,6 +270,13 @@ public:
     {
         FrostMessage::Unserialize(stream);
         stream >> operation_id;
+    }
+
+    std::string ToString() const override
+    {
+        std::stringstream buf;
+        buf << "SignatureCommitment {pk: " << hex(pubkey).substr(0, 8) << "...}";
+        return move(buf.str());
     }
 
 private:
@@ -274,6 +307,13 @@ public:
     {
         FrostMessage::Unserialize(stream);
         stream >> operation_id >> share;
+    }
+
+    std::string ToString() const override
+    {
+        std::stringstream buf;
+        buf << "SignatureShare {pk: " << hex(pubkey).substr(0, 8) << "... " << hex(share) << '}';
+        return move(buf.str());
     }
 
 private:
