@@ -5,7 +5,6 @@
 #include <memory>
 #include <array>
 #include <cmath>
-#include <algorithm>
 #include <execution>
 #include <boost/container/flat_map.hpp>
 #include <atomic>
@@ -15,8 +14,11 @@
 #include <functional>
 #include <type_traits>
 
+#include <tbb/concurrent_unordered_map.h>
+
 
 #include "common.hpp"
+#include "algorithm.hpp"
 #include "channel_keys.hpp"
 #include "common_error.hpp"
 
@@ -29,6 +31,22 @@ namespace l15::core {
 
 typedef size_t operation_id;
 typedef size_t peer_index;
+
+class PeerNotFoundError : public Error {
+public:
+    explicit PeerNotFoundError(const xonly_pubkey& pk) : Error(hex(pk)) {}
+
+    const char* what() const noexcept override
+    { return "PeerNotFoundError"; }
+};
+
+class OutOfOrderMessageError : public Error {
+public:
+    explicit OutOfOrderMessageError(const p2p::FrostMessage& m) : Error(m.ToString()) {}
+
+    const char* what() const noexcept override
+    { return "OutOfOrderMessageError"; }
+};
 
 class KeyShareVerificationError : public KeyError {
 public:
@@ -132,7 +150,8 @@ private:
 
     typedef std::optional<frost_sigshare> sigshare_cache;
 
-    typedef std::unordered_map<
+    typedef tbb::concurrent_unordered_map<
+//    typedef std::unordered_map<
                 secp256k1_xonly_pubkey,
                 sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal
             > sigshare_peers_cache;
@@ -151,41 +170,41 @@ private:
 
     const error_handler m_err_handler;
 
-    void Publish(const p2p::FrostMessage& data)
+    void Publish(p2p::frost_message_ptr&& data)
     {
-        Accept(data); //Provide broadcasted data to self
-        m_publisher(data);
+        Accept(*data); //Provide broadcasted data to self
+        m_publisher(move(data));
     }
 
     template<typename DATA>
     void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
-        std::for_each(std::execution::par_unseq, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
+        cex::for_each(std::execution::par, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
         {
-            DATA data(xonly_pubkey(mKeypair.GetLocalPubKey()));
-            datagen(data, peer.first, peer.second);
+            std::unique_ptr<DATA> data = std::make_unique<DATA>(xonly_pubkey(mKeypair.GetLocalPubKey()));
+            datagen(*data, peer.first, peer.second);
             if (mKeypair.GetLocalPubKey() != peer.first) {
-                peer.second.link(data);
+                peer.second.link(move(data));
             }
             else {
-                Accept(data);
+                Accept(*data);
             }
         });
     }
 
-    std::optional<secp256k1_frost_session>& SigOpSession(sigops_cache::iterator op_it)
-    { return std::get<0>(op_it->second); }
+    static std::optional<secp256k1_frost_session>& SigOpSession(sigops_cache::value_type& op_val)
+    { return std::get<0>(op_val.second); }
 
-    sigshare_peers_cache& SigOpCachedPeers(sigops_cache::iterator op_it)
-    { return std::get<1>(op_it->second); }
+    static sigshare_peers_cache& SigOpSigShares(sigops_cache::value_type& op_val)
+    { return std::get<1>(op_val.second); }
 
-    size_t& SigOpSigShareCount(sigops_cache::iterator op_it)
-    { return std::get<2>(op_it->second); }
+    static size_t& SigOpSigShareCount(sigops_cache::value_type& op_val)
+    { return std::get<2>(op_val.second); }
 
-    std::unique_ptr<MovingBinderBase>& SigOpCommitmentsReceived(sigops_cache::iterator op_it)
-    { return std::get<3>(op_it->second); }
+    static std::unique_ptr<MovingBinderBase>& SigOpCommitmentsReceived(sigops_cache::value_type& op_val)
+    { return std::get<3>(op_val.second); }
 
-    std::unique_ptr<MovingBinderBase>& SigOpSharesReceived(sigops_cache::iterator op_it)
-    { return std::get<4>(op_it->second); }
+    static std::unique_ptr<MovingBinderBase>& SigOpSigSharesReceived(sigops_cache::value_type& op_val)
+    { return std::get<4>(op_val.second); }
 
     void DistributeKeySharesImpl();
     void InitSignatureImpl(operation_id opid);
@@ -222,7 +241,7 @@ public:
 
     template<typename LINK>
     void AddPeer(xonly_pubkey&& pk, LINK link)
-    { m_peers_data.emplace(pk, RemoteSignerData{move(link)}); }
+    { m_peers_data.emplace(move(pk), RemoteSignerData{move(link)}); }
 
     const peers_data_type& Peers() const
     { return m_peers_data; }
@@ -253,14 +272,14 @@ public:
                         std::optional < secp256k1_frost_session > {},
                         sigshare_peers_cache(m_threshold_size),
                         (size_t)0,
-                        std::make_unique<Callable1>(move(all_sig_commitments_received_handler)),
-                        std::make_unique<Callable2>(move(all_sig_shares_received_handler)));
+                        std::make_unique<Callable1>(std::forward<Callable1>(all_sig_commitments_received_handler)),
+                        std::make_unique<Callable2>(std::forward<Callable2>(all_sig_shares_received_handler)));
 
                 m_sigops_cache.emplace(opid, move(peers_cache));
             }
             else {
-                SigOpCommitmentsReceived(opit) = std::make_unique<Callable1>(move(all_sig_commitments_received_handler));
-                SigOpSharesReceived(opit) = std::make_unique<Callable2>(move(all_sig_shares_received_handler));
+                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(move(all_sig_commitments_received_handler));
+                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(move(all_sig_shares_received_handler));
             }
         }
 

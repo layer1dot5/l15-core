@@ -31,7 +31,8 @@ STREAM& operator >> (STREAM& s, FROST_MESSAGE& p)
 
 class FrostMessage;
 
-typedef std::unique_ptr<FrostMessage> frost_message_ptr;
+typedef std::shared_ptr<FrostMessage> frost_message_ptr;
+typedef std::function<void(frost_message_ptr)> frost_link_handler;
 
 class FrostMessage : public Message
 {
@@ -62,7 +63,6 @@ protected:
     friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
 };
 
-typedef std::function<void(const p2p::FrostMessage& m)> frost_link_handler;
 
 
 class WrongMessage: public Error {
