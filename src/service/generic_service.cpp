@@ -21,11 +21,10 @@ void details::ThreadBody::main_cycle() const noexcept
         {
             std::lock_guard<std::mutex> task_que_lock(m_service->m_task_que_mutex);
 
+            if (m_service->m_exit) {
+                break;
+            }
             if (m_service->m_task_que.empty()) {
-                if (m_service->m_exit) {
-                    break;
-                }
-
                 continue;
             }
 
@@ -64,8 +63,16 @@ GenericService::GenericService(size_t thread_count)
 GenericService::~GenericService()
 {
     m_exit = true;
+    {
+        std::lock_guard<std::mutex> task_que_lock(m_task_que_mutex);
+        m_task_que.clear();
+    }
+
     m_task_sem.release(static_cast<ptrdiff_t>(m_threads.size()));
-    std::for_each(m_threads.begin(), m_threads.end(), [](auto& tb) { tb.m_thread.join(); });
+    std::for_each(std::execution::par_unseq, m_threads.begin(), m_threads.end(), [](auto& tb)
+    {
+        tb.m_thread.join();
+    });
 }
 
 

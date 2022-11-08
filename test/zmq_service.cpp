@@ -10,7 +10,7 @@
 
 namespace l15 {
 
-std::string ZmqService::STOP("stop");
+const std::string ZmqService::STOP("stop");
 
 ZmqService::~ZmqService()
 {
@@ -50,48 +50,47 @@ void ZmqService::StartService(const std::string& addr, p2p::frost_link_handler&&
     std::thread(&ZmqService::ListenCycle, this, move(h)).detach();
 }
 
-void ZmqService::Publish(const p2p::FrostMessage& m)
+void ZmqService::Publish(p2p::frost_message_ptr m)
 {
     for (auto& peer_data: m_peers) {
         SendInternal(peer_data.second, m);
     }
 }
 
-void ZmqService::Send(const xonly_pubkey &pk, const p2p::FrostMessage& m)
+void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m)
 {
     auto peer_it = m_peers.find(pk);
     if (peer_it == m_peers.end()) {
         throw std::invalid_argument(hex(pk));
     }
 
-    SendInternal(peer_it->second, m);
+    SendInternal(peer_it->second, move(m));
 }
 
-void ZmqService::SendInternal(ZmqService::peer_state &peer, const p2p::FrostMessage &m)
+void ZmqService::SendInternal(ZmqService::peer_state &peer, p2p::frost_message_ptr m)
 {
-    cex::stream<std::deque<uint8_t>> buf;
-    p2p::Serialize<cex::stream<std::deque<uint8_t>>>(buf, m_ctx, m);
 
-    mTaskService->Serve([this, &peer](cex::stream<std::deque<uint8_t>>&& data)
+    mTaskService->Serve([this, &peer, m]()
     {
+        cex::stream<std::deque<uint8_t>> data;
+
         std::lock_guard lock(peer_mutex(peer));
         if (!peer_message_queue(peer).empty()) {
 
             std::clog << "Queue is not empty. Add to queue to send later" << std::endl;
 
-            p2p::frost_message_ptr queued_msg = p2p::Unserialize(m_ctx, data);
-            data.clear();
-
-            peer_message_queue(peer).emplace_back(move(queued_msg)); // store passed message to queue to send later
+            peer_message_queue(peer).emplace_back(m); // store passed message to queue to send later
 
             // and load first message from queue
             p2p::Serialize<cex::stream<std::deque<uint8_t>>>(data, m_ctx, *peer_message_queue(peer).front());
             peer_message_queue(peer).pop_front();
         }
+        else {
+            p2p::Serialize<cex::stream<std::deque<uint8_t>>>(data, m_ctx, *m);
+        }
 
         try {
             zmq::message_t zmq_msg(data.begin(), data.end());
-
 
             if (!peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait)) {
                 throw std::runtime_error("send returned zero bytes sent");
@@ -110,10 +109,10 @@ void ZmqService::SendInternal(ZmqService::peer_state &peer, const p2p::FrostMess
             peer_message_queue(peer).emplace_front(move(msg)); // store message to send later if failed to send now
         }
 
-    }, move(buf));
+    });
 }
 
-void ZmqService::ListenCycle(p2p::frost_link_handler&& h)
+void ZmqService::ListenCycle(p2p::frost_link_handler h)
 {
     cex::stream<std::deque<std::uint8_t>> buffer;
 
@@ -154,7 +153,7 @@ void ZmqService::ListenCycle(p2p::frost_link_handler&& h)
 //
 //                }
 
-                h(*msg);
+                h(move(msg));
             }
 
             zmq::message_t m;
@@ -214,7 +213,6 @@ void ZmqService::CheckPeers()
             p2p::Serialize<cex::stream<std::deque<uint8_t>>>(buf, m_ctx, msg);
             zmq::message_t zmq_msg(buf.begin(), buf.end());
 
-
             if (peer_socket(peer.second).send(move(zmq_msg), zmq::send_flags::dontwait)) {
                 peer_message_queue(peer.second).pop_front();
                 std::clog << "Peer message sent" << std::endl;
@@ -228,6 +226,5 @@ void ZmqService::CheckPeers()
         }
     });
 }
-
 
 }

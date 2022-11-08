@@ -21,7 +21,7 @@ public:
     typedef std::tuple<std::string, zmq::socket_t, std::list<p2p::frost_message_ptr>, std::unique_ptr<std::mutex>> peer_state;
     typedef std::unordered_map<xonly_pubkey, peer_state, l15::hash<xonly_pubkey>> peers_map;
 private:
-    static std::string STOP;
+    const static std::string STOP;
 
     std::optional<zmq::context_t> zmq_ctx;
     peers_map m_peers;
@@ -40,10 +40,10 @@ private:
     static inline std::list<p2p::frost_message_ptr>& peer_message_queue(peer_state& state) { return get<2>(state); }
     static inline std::mutex& peer_mutex(peer_state& state) { return *get<3>(state); }
 
-    void ListenCycle(p2p::frost_link_handler&& h);
+    void ListenCycle(p2p::frost_link_handler h);
     void CheckPeers();
 
-    void SendInternal(peer_state& peer, const p2p::FrostMessage &m);
+    void SendInternal(peer_state& peer, p2p::frost_message_ptr m);
 
 public:
     explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
@@ -62,8 +62,8 @@ public:
 
     void StartService(const std::string& addr, p2p::frost_link_handler&& h);
 
-    void Publish(const p2p::FrostMessage& m);
-    void Send(const xonly_pubkey& pk, const p2p::FrostMessage& m);
+    void Publish(p2p::frost_message_ptr m);
+    void Send(const xonly_pubkey& pk, p2p::frost_message_ptr m);
 };
 
 

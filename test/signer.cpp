@@ -169,19 +169,18 @@ int main(int argc, char* argv[])
     }
 
     //config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
-    signer->SetPublisher([&peerService, verbose = config.mVerbose](const p2p::FrostMessage& m)
+    signer->SetPublisher([&peerService, verbose = config.mVerbose](p2p::frost_message_ptr m)
     {
-        if (verbose == 2) std::clog << ">>>> " << m.ToString() << std::endl;
-        peerService->Publish(m);
+        if (verbose == 2) std::clog << ">>>> " << m->ToString() << std::endl;
+        peerService->Publish(move(m));
     });
 
     for (const auto& peer: peerService->GetPeersMap()) {
-        signer->AddPeer(xonly_pubkey(peer.first), [&, verbose = config.mVerbose](const p2p::FrostMessage& m)
+        signer->AddPeer(xonly_pubkey(peer.first), [&, verbose = config.mVerbose](p2p::frost_message_ptr m)
         {
-            if (verbose == 2) std::clog << ">>>> " << m.ToString() << std::endl;
-            peerService->Send(peer.first, m);
+            if (verbose == 2) std::clog << ">>>> " << m->ToString() << std::endl;
+            peerService->Send(peer.first, move(m));
         });
-
     }
 
     if (config.mVerbose) std::clog << "Creating signer service =================================================" << std::endl;
@@ -189,10 +188,10 @@ int main(int argc, char* argv[])
     signerService.AddSigner(signer);
 
     if (config.mVerbose) std::clog << "Starting network service ================================================" << std::endl;
-    peerService->StartService(config.mListenAddress, [&signer, verbose = config.mVerbose](const p2p::FrostMessage &m)
+    peerService->StartService(config.mListenAddress, [signer, &signerService, verbose = config.mVerbose](p2p::frost_message_ptr m)
     {
-        if (verbose == 2) std::clog << "<<<< " << m.ToString() << std::endl;
-        signer->Accept(m);
+        if (verbose == 2) std::clog << "<<<< " << m->ToString() << std::endl;
+        signerService.Accept(signer->GetLocalPubKey(), m);
     });
 
     if (config.mVerbose) std::clog << "Starting aggregated key negotiation =====================================" << std::endl;

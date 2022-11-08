@@ -45,9 +45,6 @@ public:
     const secp256k1_context* Secp256k1Context() const noexcept
     { return m_ctx; }
 
-    bool IsAssigned() const
-    { return !IsZeroArray(m_local_sk); }
-
     void SetAggregatePubKey(const xonly_pubkey&& pubkey)
     { m_pubkey_agg = pubkey; }
 

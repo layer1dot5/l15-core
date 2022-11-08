@@ -1,9 +1,18 @@
 
 #include "signer_service.hpp"
-#include "signer_api.hpp"
 #include "generic_service.hpp"
 
 namespace l15::signer_service {
+
+void SignerService::Accept(const xonly_pubkey &pk, p2p::frost_message_ptr msg)
+{
+    auto it = m_signers.find(&pk);
+    if (it != m_signers.end()) {
+        std::shared_ptr<core::SignerApi> signer = it->second;
+
+        mBgService->Serve([=](){ signer->Accept(*msg); });
+    }
+}
 
 
 std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey &signer_key)
@@ -52,26 +61,30 @@ std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const
     std::promise<signature> p;
     auto res = p.get_future();
 
-    mBgService->Serve([this, ps, opid, message](std::promise<signature>&& p1)
+    mBgService->Serve([=](std::promise<signature>&& p1)
         {
 
-            auto comm_recv_hdl =  [this, ps, opid, message]()
+            auto comm_recv_hdl =  [=]()
             {
-                auto preproc_action = [ps, opid, message]() {
+                try {
                     ps->PreprocessSignature(message, opid);
                     ps->DistributeSigShares(opid);
-                };
-                mBgService->Serve(preproc_action);
+                }
+                catch(std::exception& e) {
+                    // TODO: implement error processing here
+                    std::cerr << "Uncaught error: " << e.what() << std::endl;
+                }
             };
 
-            auto sigshares_recv_hdl = [this, ps, opid](std::promise<signature>&& p1)
+            auto sigshares_recv_hdl = [=](std::promise<signature>&& p2)
             {
-                mBgService->Serve([ps, opid](std::promise<signature> p2)
-                {
+                try {
                     p2.set_value(ps->AggregateSignature(opid));
-                    ps->ClearSignatureCache(opid);
-                }, move(p1));
-
+                }
+                catch(...) {
+                    p2.set_exception(std::current_exception());
+                }
+                ps->ClearSignatureCache(opid);
             };
 
             ps->InitSignature(opid,
