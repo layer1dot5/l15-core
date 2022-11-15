@@ -31,16 +31,8 @@ using namespace l15::p2p;
 
 namespace rs = std::ranges;
 
-bool operator== (const std::list<secp256k1_frost_pubnonce>& l1, const std::list<secp256k1_frost_pubnonce>& l2) {
-    if (l1.size() == l2.size()) {
-        auto i1 = l1.cbegin();
-        auto i2 = l2.cbegin();
-        for (; i1 != l1.cend(); ++i1, ++i2) {
-            if (memcmp(i1->data, i2->data, sizeof(secp256k1_frost_pubnonce::data)) != 0) return false;
-        }
-        return true;
-    }
-    else return false;
+bool operator== (const  secp256k1_frost_pubnonce& l1, const  secp256k1_frost_pubnonce& l2) {
+    return memcmp(l1.data, l2.data, sizeof(secp256k1_frost_pubnonce::data)) == 0;
 }
 
 TEST_CASE("2-of-3 local")
@@ -175,7 +167,13 @@ TEST_CASE("Try sign without pubnonce")
     general_handler key_hdl = []() {  };
     sigop_handler new_sigop_hdl = [](operation_id) { };
     sigop_handler sig_hdl = [](operation_id) { };
-    error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
+    error_handler error_hdl = [](Error&& e) {
+        if (std::string("OutOfOrderMessageError") == e.what() || std::string(e.details()).starts_with("SignatureCommitment")) {
+        }
+        else {
+            FAIL(std::string(e.what()) + ": " + e.details());
+        }
+    };
 
     SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
     SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);

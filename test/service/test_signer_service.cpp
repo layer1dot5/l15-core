@@ -30,7 +30,7 @@ using namespace l15::signer_service;
 
 TEST_CASE("2-of-3 local")
 {
-    auto service = std::make_shared<service::GenericService>(1);
+    auto service = std::make_shared<service::GenericService>(3);
     signer_service::SignerService signerService(service);
     WalletApi wallet;
 
@@ -45,26 +45,32 @@ TEST_CASE("2-of-3 local")
     std::shared_ptr<SignerApi> signer2 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
 
     signer0->SetPublisher([&](frost_message_ptr m) {
-        signerService.Accept(signer1->GetLocalPubKey(), m);
-        signerService.Accept(signer2->GetLocalPubKey(), m);
+        service->Serve([=]() {
+            signer1->Accept(*m);
+            signer2->Accept(*m);
+        });
     });
     signer1->SetPublisher([&](frost_message_ptr m) {
-        signerService.Accept(signer0->GetLocalPubKey(), m);
-        signerService.Accept(signer2->GetLocalPubKey(), m);
+        service->Serve([=]() {
+            signer0->Accept(*m);
+            signer2->Accept(*m);
+        });
     });
     signer2->SetPublisher([&](frost_message_ptr m) {
-        signerService.Accept(signer0->GetLocalPubKey(), m);
-        signerService.Accept(signer1->GetLocalPubKey(), m);
+        service->Serve([=]() {
+            signer0->Accept(*m);
+            signer1->Accept(*m);
+        });
     });
 
     // Connect peers
 
-    signer0->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer1->GetLocalPubKey(), m); });
-    signer0->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer2->GetLocalPubKey(), m); });
-    signer1->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer0->GetLocalPubKey(), m); });
-    signer1->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer2->GetLocalPubKey(), m); });
-    signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer0->GetLocalPubKey(), m); });
-    signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&](frost_message_ptr m){ signerService.Accept(signer1->GetLocalPubKey(), m); });
+    signer0->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer1->Accept(*m); }); });
+    signer0->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer2->Accept(*m); }); });
+    signer1->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer0->Accept(*m); }); });
+    signer1->AddPeer(xonly_pubkey(signer2->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer2->Accept(*m); }); });
+    signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer0->Accept(*m); }); });
+    signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&](frost_message_ptr m){ service->Serve([=]() { signer1->Accept(*m); }); });
 
     signerService.AddSigner(signer0);
     signerService.AddSigner(signer1);

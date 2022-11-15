@@ -10,7 +10,9 @@ void SignerService::Accept(const xonly_pubkey &pk, p2p::frost_message_ptr msg)
     if (it != m_signers.end()) {
         std::shared_ptr<core::SignerApi> signer = it->second;
 
-        mBgService->Serve([=](){ signer->Accept(*msg); });
+        signer->Accept(*msg);
+
+        //mBgService->Serve([=](){ signer->Accept(*msg); });
     }
 }
 
