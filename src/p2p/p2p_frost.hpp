@@ -89,14 +89,23 @@ public:
     uint16_t message_id;
 };
 
+class UnserializeError : public Error {
+public:
+    explicit UnserializeError(std::string&& hexdata) noexcept : Error(move(hexdata)) {}
+
+    const char* what() const noexcept override
+    { return "UnserializeError"; }
+
+};
+
 
 class NonceCommitments : public FrostMessage
 {
 public:
     std::vector<secp256k1_frost_pubnonce> nonce_commitments;
 
-    NonceCommitments(xonly_pubkey&& pk) : FrostMessage(FROST_MESSAGE::NONCE_COMMITMENTS, move(pk)) {}
-    NonceCommitments(NonceCommitments&& r) : FrostMessage(move(r)), nonce_commitments(move(r.nonce_commitments)) {}
+    explicit NonceCommitments(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::NONCE_COMMITMENTS, move(pk)) {}
+    NonceCommitments(NonceCommitments&& r) noexcept : FrostMessage(move(r)), nonce_commitments(move(r.nonce_commitments)) {}
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -106,7 +115,9 @@ public:
 
         std::for_each(nonce_commitments.begin(), nonce_commitments.end(), [&](const auto& nonce) {
             if (!secp256k1_frost_pubnonce_serialize(ctx, buf, &nonce)) {
-                throw std::runtime_error("FROST pubnonce serialize error");
+                std::stringstream hexstr;
+                hexstr << hex(stream);
+                throw UnserializeError(hexstr.str());
             }
             stream.write(buf, 66);
         });
@@ -119,7 +130,9 @@ public:
 
         size_t pubnonce_count = stream.remains() / 66;
         if ((pubnonce_count * 66) !=  stream.remains()) {
-            throw std::runtime_error("NonceCommitments message size is wrong");
+            std::stringstream hexstr;
+            hexstr << hex(stream);
+            throw UnserializeError(hexstr.str());
         }
         nonce_commitments.resize(pubnonce_count);
 
@@ -130,7 +143,9 @@ public:
             stream.expand(66);
             if (!secp256k1_frost_pubnonce_parse(ctx, &(*nonce_it++), data)) {
                 nonce_commitments.clear();
-                throw std::runtime_error("FROST pubnonce unserialize error");
+                std::stringstream hexstr;
+                hexstr << hex(stream);
+                throw UnserializeError(hexstr.str());
             }
         }
     }
@@ -154,8 +169,8 @@ class KeyShareCommitment : public FrostMessage
 public:
     std::vector<secp256k1_pubkey> share_commitment;
 
-    KeyShareCommitment(xonly_pubkey&& pk) : FrostMessage(FROST_MESSAGE::KEY_COMMITMENT, move(pk)) {}
-    KeyShareCommitment(KeyShareCommitment&& r) : FrostMessage(move(r)), share_commitment(move(r.share_commitment)) {}
+    explicit KeyShareCommitment(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_COMMITMENT, move(pk)) {}
+    KeyShareCommitment(KeyShareCommitment&& r) noexcept: FrostMessage(move(r)), share_commitment(move(r.share_commitment)) {}
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -180,7 +195,9 @@ public:
 
         size_t count = stream.remains() / 33;
         if ((count * 33) !=  stream.remains()) {
-            throw std::runtime_error("KeyShareCommitment message size is wrong");
+            std::stringstream hexstr;
+            hexstr << hex(stream);
+            throw UnserializeError(hexstr.str());
         }
         share_commitment.resize(count);
 
@@ -191,7 +208,9 @@ public:
             stream.expand(33);
             if (!secp256k1_ec_pubkey_parse(ctx, &(*comm_it++), data, 33)) {
                 share_commitment.clear();
-                throw std::runtime_error("FROST key share commitment unserialize error");
+                std::stringstream hexstr;
+                hexstr << hex(stream);
+                throw UnserializeError(hexstr.str());
             }
         }
     }
@@ -215,8 +234,8 @@ class KeyShare : public FrostMessage
 public:
     secp256k1_frost_share share;
 
-    KeyShare(xonly_pubkey&& pk) : FrostMessage(FROST_MESSAGE::KEY_SHARE, move(pk)) {}
-    KeyShare(KeyShare&& r): FrostMessage(move(r)), share(r.share) {}
+    explicit KeyShare(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_SHARE, move(pk)) {}
+    KeyShare(KeyShare&& r) noexcept: FrostMessage(move(r)), share(r.share) {}
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -231,7 +250,9 @@ public:
         FrostMessage::Unserialize(stream);
 
         if (sizeof(share.data) !=  stream.remains()) {
-            throw std::runtime_error("KeyShare message size is wrong");
+            std::stringstream hexstr;
+            hexstr << hex(stream);
+            throw UnserializeError(hexstr.str());
         }
 
         stream.read(share.data, sizeof(share.data));
@@ -255,8 +276,8 @@ class SignatureCommitment : public FrostMessage
 {
 public:
     uint32_t operation_id;
-    SignatureCommitment(xonly_pubkey&& pk, uint32_t opid) : FrostMessage(FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
-    SignatureCommitment(SignatureCommitment&& r) : FrostMessage(move(r)), operation_id(r.operation_id) {}
+    SignatureCommitment(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
+    SignatureCommitment(SignatureCommitment&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id) {}
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -292,8 +313,8 @@ public:
     uint32_t operation_id;
     frost_sigshare share;
 
-    SignatureShare(xonly_pubkey&& pk, uint32_t opid) : FrostMessage(FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
-    SignatureShare(SignatureShare&& r) : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
+    SignatureShare(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
+    SignatureShare(SignatureShare&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const

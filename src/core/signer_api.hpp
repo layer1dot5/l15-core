@@ -15,6 +15,7 @@
 #include <type_traits>
 
 #include <tbb/concurrent_unordered_map.h>
+#include <tbb/concurrent_vector.h>
 
 
 #include "common.hpp"
@@ -114,7 +115,7 @@ typedef std::function<void(operation_id)> sigop_handler;
 struct RemoteSignerData
 {
     mutable p2p::frost_link_handler link;
-    std::list<secp256k1_frost_pubnonce> ephemeral_pubkeys;
+    boost::container::flat_map<operation_id, secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
     std::optional<secp256k1_frost_share> keyshare;
@@ -160,6 +161,7 @@ private:
                 std::optional<secp256k1_frost_session>,
                 sigshare_peers_cache,
                 size_t, // sigshare count; TODO: provide atomicity
+                std::unique_ptr<std::mutex>,
                 std::unique_ptr<MovingBinderBase>, // all_signature_commitments_received_handler
                 std::unique_ptr<MovingBinderBase>  // all_signature_shares_received_handler
             > sigop_cache;
@@ -200,11 +202,14 @@ private:
     static size_t& SigOpSigShareCount(sigops_cache::value_type& op_val)
     { return std::get<2>(op_val.second); }
 
+    static std::mutex& SigOpSigShareMutex(sigops_cache::value_type& op_val)
+    { return *std::get<3>(op_val.second); }
+
     static std::unique_ptr<MovingBinderBase>& SigOpCommitmentsReceived(sigops_cache::value_type& op_val)
-    { return std::get<3>(op_val.second); }
+    { return std::get<4>(op_val.second); }
 
     static std::unique_ptr<MovingBinderBase>& SigOpSigSharesReceived(sigops_cache::value_type& op_val)
-    { return std::get<4>(op_val.second); }
+    { return std::get<5>(op_val.second); }
 
     void DistributeKeySharesImpl();
     void InitSignatureImpl(operation_id opid);
@@ -272,6 +277,7 @@ public:
                         std::optional < secp256k1_frost_session > {},
                         sigshare_peers_cache(m_threshold_size),
                         (size_t)0,
+                        std::make_unique<std::mutex>(),
                         std::make_unique<Callable1>(std::forward<Callable1>(all_sig_commitments_received_handler)),
                         std::make_unique<Callable2>(std::forward<Callable2>(all_sig_shares_received_handler)));
 

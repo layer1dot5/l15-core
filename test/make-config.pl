@@ -41,7 +41,13 @@ for (my $i = 0; $i < $count; $i++) {
     my $port = 12001 + $i;
     open(my $configfh, '>', "signer$texti.conf") or die $!;
 
-    print $scriptfh "signer --config signer$texti.conf -vi text > signer$texti.log 2>&1 &\n";
+    if ($i % 2 != 0) {
+        print $scriptfh "signer --config signer$texti.conf -vvi text > signer$texti.log 2>&1 &\n";
+    }
+    else {
+        print $scriptfh "signer --config signer$texti.conf -svvi text > signer$texti.log 2>&1 &\n";
+    }
+
 
     print $configfh "seckey=$sk[$i]\n";
     print $configfh "listen-addr=tcp://*:$port\n";
