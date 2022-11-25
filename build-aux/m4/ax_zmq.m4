@@ -25,6 +25,7 @@
 # LICENSE
 #
 #   Copyright (c) 2016 Jeroen Meijer <jjgmeijer@gmail.com>
+#   Copyright (c) 2022 l2xl <l2xl@proton.me>
 #
 #   Copying and distribution of this file, with or without modification, are
 #   permitted in any medium without royalty provided the copyright notice
@@ -34,10 +35,15 @@
 #serial 3
 
 AC_DEFUN([AX_ZMQ], [
-    AC_ARG_WITH([zmq], [AS_HELP_STRING([--with-zmq=<prefix>],[ZMQ prefix directory])], [
-        ZMQ_LDFLAGS="-L${with_zmq}/lib"
-        ZMQ_CPPFLAGS="-I${with_zmq}/include"
-    ])
+    AC_ARG_WITH([zmq], [AS_HELP_STRING([--with-zmq=@<:@=ARG@:>@],
+            [use ZMQ from standard location (default),
+             use ZMQ prefix path (ARG=<path>),
+             or disable ZMQ (ARG=no)])], [
+             AS_CASE(["x${withval}"],
+                [x],[with_zmq=yes],
+                [xno],[with_zmq=no],
+                [with_zmq=yes; ZMQ_LDFLAGS="-L${withval}/lib"; ZMQ_CPPFLAGS="-I${withval}/include"]
+    )])
 
     HAVE_ZMQ=0
     if test "$with_zmq" != "no"; then
