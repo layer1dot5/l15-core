@@ -18,9 +18,9 @@ namespace service {
 class FrostMessagePipeLine {
     std::list<p2p::frost_message_ptr> m_queue;
     p2p::FROST_MESSAGE m_last_phase;
-    std::unique_ptr<std::shared_mutex> m_queue_mutex;
+    std::unique_ptr<std::mutex> m_queue_mutex;
 public:
-    FrostMessagePipeLine() : m_queue(), m_last_phase(p2p::FROST_MESSAGE::KEY_COMMITMENT), m_queue_mutex(std::make_unique<std::shared_mutex>()) {}
+    FrostMessagePipeLine() : m_queue(), m_last_phase(p2p::FROST_MESSAGE::KEY_COMMITMENT), m_queue_mutex(std::make_unique<std::mutex>()) {}
     FrostMessagePipeLine(FrostMessagePipeLine&&) noexcept = default;
     void PushMessage(p2p::frost_message_ptr msg);
     p2p::frost_message_ptr PeekCurrentMessage();

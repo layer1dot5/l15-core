@@ -1,10 +1,13 @@
 
 #include <span>
+#include <algorithm>
+
+#include "smartinserter.hpp"
+
 
 #define CATCH_CONFIG_MAIN
 #include "catch/catch.hpp"
 
-#include "smartinserter.hpp"
 #include "wrapstream.hpp"
 
 #include "util/strencodings.h"
@@ -131,6 +134,102 @@ TEST_CASE("KeyShareCommitment")
     CHECK((m.pubkey == m1->pubkey));
     CHECK((memcmp(m.share_commitment[0].data, m1->share_commitment[0].data, sizeof(secp256k1_pubkey::data))==0));
     CHECK((memcmp(m.share_commitment[1].data, m1->share_commitment[1].data, sizeof(secp256k1_pubkey::data))==0));
+}
+
+TEST_CASE("KeyShareCommitment15")
+{
+    const size_t K = 30;
+
+    std::vector<seckey> sk;
+    sk.resize(K);
+
+    std::for_each(sk.begin(), sk.end(), [](auto& k) {
+        do {
+            GetStrongRandBytes(k);
+        } while (!secp256k1_ec_seckey_verify(w.Secp256k1Context(), k.data()));
+    });
+
+    std::vector<secp256k1_pubkey> pk;
+    pk.resize(K);
+    std::transform(sk.begin(), sk.end(), pk.begin(), [](auto& k)
+    {
+        secp256k1_pubkey p;
+        if (!secp256k1_ec_pubkey_create(w.Secp256k1Context(), &p, k.data())) {
+            throw WrongKeyError();
+        }
+        uint8_t buf[33];
+        const size_t buflen = sizeof(buf);
+        size_t outlen = buflen;
+        if (!secp256k1_ec_pubkey_serialize(w.Secp256k1Context(), buf, &outlen, &p, SECP256K1_EC_COMPRESSED)) {
+            throw std::runtime_error("FROST key share commitment serialize error 1");
+        }
+        std::clog << hex(buf) << std::endl;
+
+        return p;
+    });
+
+    l15::xonly_pubkey pk0 = ParseHex("11223344556677889900AABBCCDDEEFF11223344556677889900AABBCCDDEEFF");
+
+    KeyShareCommitment m(move(pk0));
+    m.share_commitment = move(pk);
+
+    std::clog << std::endl;
+    std::for_each(m.share_commitment.begin(), m.share_commitment.end(), [](auto& pk){
+        uint8_t buf[33];
+        const size_t buflen = sizeof(buf);
+        size_t outlen = buflen;
+        if (!secp256k1_ec_pubkey_serialize(w.Secp256k1Context(), buf, &outlen, &pk, SECP256K1_EC_COMPRESSED)) {
+            throw std::runtime_error("FROST key share commitment serialize error 2");
+        }
+        std::clog << hex(buf) << std::endl;
+
+    });
+    std::clog << std::endl;
+
+    cex::stream<std::deque<uint8_t>> s;
+    CHECK_NOTHROW(m.Serialize(w.Secp256k1Context(), s));
+
+    std::clog << l15::hex(s) << std::endl;
+
+    std::shared_ptr<FrostMessage> res;
+    CHECK_NOTHROW(res = Unserialize(w.Secp256k1Context(), s));
+
+    KeyShareCommitment *m1 = nullptr;
+    REQUIRE((m1 = dynamic_cast<KeyShareCommitment *>(res.get())));
+
+    CHECK((m.protocol_id == m1->protocol_id));
+    CHECK((m.id == m1->id));
+    CHECK((m.pubkey == m1->pubkey));
+    CHECK((memcmp(m.share_commitment[0].data, m1->share_commitment[0].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[1].data, m1->share_commitment[1].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[2].data, m1->share_commitment[2].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[3].data, m1->share_commitment[3].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[4].data, m1->share_commitment[4].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[5].data, m1->share_commitment[5].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[6].data, m1->share_commitment[6].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[7].data, m1->share_commitment[7].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[8].data, m1->share_commitment[8].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[9].data, m1->share_commitment[9].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[10].data, m1->share_commitment[10].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[11].data, m1->share_commitment[11].data, sizeof(secp256k1_pubkey::data))==0));
+    CHECK((memcmp(m.share_commitment[12].data, m1->share_commitment[12].data, sizeof(secp256k1_pubkey::data))==0));
+    if (K>13) { CHECK((memcmp(m.share_commitment[13].data, m1->share_commitment[13].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>14) { CHECK((memcmp(m.share_commitment[14].data, m1->share_commitment[14].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>15) { CHECK((memcmp(m.share_commitment[15].data, m1->share_commitment[15].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>16) { CHECK((memcmp(m.share_commitment[16].data, m1->share_commitment[16].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>17) { CHECK((memcmp(m.share_commitment[17].data, m1->share_commitment[17].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>18) { CHECK((memcmp(m.share_commitment[18].data, m1->share_commitment[18].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>19) { CHECK((memcmp(m.share_commitment[19].data, m1->share_commitment[19].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>20) { CHECK((memcmp(m.share_commitment[20].data, m1->share_commitment[20].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>21) { CHECK((memcmp(m.share_commitment[21].data, m1->share_commitment[21].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>22) { CHECK((memcmp(m.share_commitment[22].data, m1->share_commitment[22].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>23) { CHECK((memcmp(m.share_commitment[23].data, m1->share_commitment[23].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>24) { CHECK((memcmp(m.share_commitment[24].data, m1->share_commitment[24].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>25) { CHECK((memcmp(m.share_commitment[25].data, m1->share_commitment[25].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>26) { CHECK((memcmp(m.share_commitment[26].data, m1->share_commitment[26].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>27) { CHECK((memcmp(m.share_commitment[27].data, m1->share_commitment[27].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>28) { CHECK((memcmp(m.share_commitment[28].data, m1->share_commitment[28].data, sizeof(secp256k1_pubkey::data))==0));}
+    if (K>29) { CHECK((memcmp(m.share_commitment[29].data, m1->share_commitment[29].data, sizeof(secp256k1_pubkey::data))==0));}
 }
 
 TEST_CASE("KeyShare")

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <type_traits>
 
+#include "smartinserter.hpp"
+
 #include "p2p_protocol.hpp"
 #include "p2p_link.hpp"
 #include "common_frost.hpp"
@@ -119,7 +121,7 @@ public:
                 hexstr << hex(stream);
                 throw UnserializeError(hexstr.str());
             }
-            stream.write(buf, 66);
+            stream.write(buf, sizeof(buf));
         });
     }
 
@@ -134,19 +136,26 @@ public:
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
         }
-        nonce_commitments.resize(pubnonce_count);
 
-        auto nonce_it = nonce_commitments.begin();
+        nonce_commitments.clear();
+        nonce_commitments.reserve(pubnonce_count);
+
+        auto nonce_it = cex::smartinserter(nonce_commitments, nonce_commitments.end());
+
+        uint8_t buf[66];
+        const size_t buflen = sizeof(buf);
+        secp256k1_frost_pubnonce cur_pubnonce;
 
         while (stream.remains()) {
-            const uint8_t* data = stream.read_pointer();
-            stream.expand(66);
-            if (!secp256k1_frost_pubnonce_parse(ctx, &(*nonce_it++), data)) {
+            stream.read(buf, buflen);
+            if (!secp256k1_frost_pubnonce_parse(ctx, &cur_pubnonce, buf)) {
                 nonce_commitments.clear();
                 std::stringstream hexstr;
                 hexstr << hex(stream);
                 throw UnserializeError(hexstr.str());
             }
+            *nonce_it = cur_pubnonce;
+            ++nonce_it;
         }
     }
 
@@ -176,15 +185,19 @@ public:
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
     {
         uint8_t buf[33];
-        size_t buflen = 33;
+        const size_t buflen = sizeof(buf);
         FrostMessage::Serialize(stream);
 
         std::for_each(share_commitment.begin(), share_commitment.end(), [&](const auto& comm) {
-            if (!secp256k1_ec_pubkey_serialize(ctx, buf, &buflen, &comm, SECP256K1_EC_COMPRESSED)) {
+            size_t outlen = buflen;
+            if (!secp256k1_ec_pubkey_serialize(ctx, buf, &outlen, &comm, SECP256K1_EC_COMPRESSED)) {
                 throw std::runtime_error("FROST key share commitment serialize error");
             }
-            stream.write(buf, 33);
+            if (outlen != buflen) {
+                throw std::runtime_error("FROST key share commitment serialize error: wrong data output length");
+            }
 
+            stream.write(buf, buflen);
         });
     }
 
@@ -199,19 +212,25 @@ public:
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
         }
-        share_commitment.resize(count);
+        share_commitment.clear();
+        share_commitment.reserve(count);
 
-        auto comm_it = share_commitment.begin();
+        auto comm_it = cex::smartinserter(share_commitment, share_commitment.end());
+
+        uint8_t buf[33];
+        const size_t keysize = sizeof(buf);
+        secp256k1_pubkey cur_pk;
 
         while (stream.remains()) {
-            const uint8_t* data = stream.read_pointer();
-            stream.expand(33);
-            if (!secp256k1_ec_pubkey_parse(ctx, &(*comm_it++), data, 33)) {
+            stream.read(buf, keysize);
+            if (!secp256k1_ec_pubkey_parse(ctx, &cur_pk, buf, keysize)) {
                 share_commitment.clear();
                 std::stringstream hexstr;
-                hexstr << hex(stream);
+                hexstr << stream.size() << " bytes\n" << hex(stream);
                 throw UnserializeError(hexstr.str());
             }
+            *comm_it = cur_pk;
+            ++comm_it;
         }
     }
 
