@@ -99,11 +99,18 @@ void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state &peer)
             cex::stream<std::deque<uint8_t>> data;
             p2p::Serialize<cex::stream<std::deque<uint8_t>>>(data, m_ctx, *msg);
 
+            std::clog << "Sending " << data.size() <<" bytes:\n" << hex(data) << std::endl;
+
             try {
                 zmq::message_t zmq_msg(data.begin(), data.end());
 
-                if (!peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait)) {
+                auto res = peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait);
+                if (!res) {
                     throw std::runtime_error("send returned zero bytes sent");
+                }
+
+                if (res.value() < data.size()) {
+                    throw std::runtime_error((std::ostringstream() << "just part of message has been sent: " << res.value() << " of " << data.size()).str());
                 }
 
                 peer_outgoing_pipeline(peer).PopCurrentMessage();
@@ -234,20 +241,20 @@ void ZmqService::CheckPeers()
 
 void FrostMessagePipeLine::PushMessage(p2p::frost_message_ptr msg)
 {
-    std::unique_lock lock(*m_queue_mutex);
+    std::lock_guard lock(*m_queue_mutex);
     auto ins_it = std::find_if(m_queue.begin(), m_queue.end(), [msg](const p2p::frost_message_ptr& que_msg){ return que_msg->id > msg->id; });
     m_queue.insert(ins_it, move(msg));
 }
 
 p2p::frost_message_ptr FrostMessagePipeLine::PeekCurrentMessage()
 {
-    std::shared_lock lock(*m_queue_mutex);
+    std::lock_guard lock(*m_queue_mutex);
     return (!m_queue.empty() && (m_queue.front()->id <= m_last_phase)) ? m_queue.front() : l15::p2p::frost_message_ptr();
 }
 
 void FrostMessagePipeLine::PopCurrentMessage()
 {
-    std::unique_lock lock(*m_queue_mutex);
+    std::lock_guard lock(*m_queue_mutex);
     if (!m_queue.empty()) {
         if (m_last_phase == m_queue.front()->id)
             m_last_phase = static_cast<p2p::FROST_MESSAGE>(static_cast<uint16_t>(m_last_phase) + 1);

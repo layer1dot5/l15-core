@@ -5,6 +5,8 @@
 #include <sstream>
 #include <concepts>
 
+#include "smartinserter.hpp"
+
 namespace cex {
 
 template <typename C>
@@ -26,15 +28,32 @@ public:
     explicit stream(container_type&& container) : m_container(std::move(container)), m_read_it(m_container.cbegin()) {}
 
     void put(const value_type& element)
-    { m_container.emplace_back(element); }
+    {
+        auto pos = position();
+        m_container.emplace_back(element);
+        m_read_it = m_container.begin();
+        std::advance(m_read_it, pos);
+    }
 
     stream& write(const value_type* p, size_type count)
-    { m_container.insert(m_container.end(), p, p + count); return *this; }
+    {
+        auto pos = position();
+        m_container.insert(m_container.end(), p, p + count);
+        m_read_it = m_container.begin();
+        std::advance(m_read_it, pos);
+        return *this;
+    }
 
 
     template<typename V>
     stream& write(const V& elements)
-    { m_container.insert(m_container.end(), elements.begin(), elements.end()); return *this;}
+    {
+        auto pos = position();
+        m_container.insert(m_container.end(), elements.begin(), elements.end());
+        m_read_it = m_container.begin();
+        std::advance(m_read_it, pos);
+        return *this;
+    }
 
     const value_type& get()
     { return *m_read_it++; }
@@ -64,8 +83,11 @@ public:
     void append(I begin, I end)
     {
         auto it = m_container.end();
-        m_container.resize(m_container.size() + (end - begin));
-        std::transform(begin, end, it, [&](const auto& v){ return static_cast<value_type>(v); });
+        auto pos = position();
+        //m_container.resize(m_container.size() + (end - begin));
+        std::transform(begin, end, smartinserter(m_container, m_container.end()), [&](const auto& v){ return static_cast<value_type>(v); });
+        m_read_it = m_container.begin();
+        std::advance(m_read_it, pos);
     }
 
     bool empty() const
