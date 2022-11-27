@@ -119,7 +119,7 @@ Signer::Signer()
                     "Input message to sign")->configurable(true);
 }
 
-error_handler error_hdl = [](Error&& e) { std::cerr << "Fatal error: " << e.what() << ": " << e.details() << std::endl; exit(1); };
+error_handler error_hdl = [](Error&& e) { std::cerr << (std::ostringstream() << "Fatal error: " << e.what() << ": " << e.details()).str() << std::endl; exit(1); };
 
 int main(int argc, char* argv[])
 {
@@ -180,10 +180,10 @@ int main(int argc, char* argv[])
     });
 
     for (const auto& peer: peerService->GetPeersMap()) {
-        signer->AddPeer(xonly_pubkey(peer.first), [&, verbose = config.mVerbose](p2p::frost_message_ptr m)
+        signer->AddPeer(xonly_pubkey(peer.first), [&, pk = peer.first, verbose = config.mVerbose](p2p::frost_message_ptr m)
         {
-            if (verbose == 2) std::clog << ">>>> " << m->ToString() << std::endl;
-            peerService->Send(peer.first, move(m));
+            if (verbose == 2) std::clog << (std::ostringstream() << ">>>> " << hex(pk).substr(0, 8) << "... | " << m->ToString()).str() << std::endl;
+            peerService->Send(pk, move(m));
         });
     }
 
@@ -200,15 +200,16 @@ int main(int argc, char* argv[])
                 std::lock_guard lock(message_cache_mutex);
                 message_cache.emplace_back(m);
             }
-            if (verbose == 2) std::clog << (stringstream() << "<<<< " << m->ToString() << " >>>> move to cache until agg pubkey is ready").str() << std::endl;
+            if (verbose == 2) std::clog << (std::ostringstream() << "<<<< " << m->ToString() << " >>>> move to cache until agg pubkey is ready").str() << std::endl;
             return;
         }
 
         if (m->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE) {
-            std::lock_guard lock(message_cache_mutex);
+            std::unique_lock lock(message_cache_mutex);
             if (std::find_if(message_cache.begin(), message_cache.end(), [m](auto m1){ return m1->pubkey == m->pubkey; }) != message_cache.end()) {
                 message_cache.emplace_back(m);
-                if (verbose == 2) std::clog << (stringstream() << "<<<< " << m->ToString() << " >>>> move to cache until sig commitment is processed").str() << std::endl;
+                lock.unlock();
+                if (verbose == 2) std::clog << (std::ostringstream() << "<<<< " << m->ToString() << " >>>> move to cache until sig commitment is processed").str() << std::endl;
                 return;
             }
         }
@@ -222,6 +223,7 @@ int main(int argc, char* argv[])
     if (config.mDoSign) {
         if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
         nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 1);
+        nonce_res.wait();
     }
 
     if (config.mVerbose) std::clog << "Starting aggregated key negotiation =====================================" << std::endl;
@@ -246,11 +248,9 @@ int main(int argc, char* argv[])
                 message_cache.pop_front();
             }
 
-            if (config.mVerbose == 2) std::clog << (stringstream() << "==== " << m->ToString()).str() << std::endl;
+            if (config.mVerbose == 2) std::clog << (std::ostringstream() << "==== " << m->ToString()).str() << std::endl;
             signerService.Accept(signer->GetLocalPubKey(), move(m));
         }
-
-        nonce_res.wait();
 
         uint256 message;
         CSHA256().Write((unsigned char *) config.mInput.data(), config.mInput.length()).Finalize(message.data());
@@ -270,9 +270,9 @@ int main(int argc, char* argv[])
         std::cout << "verify: " << res << std::endl;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     signer.reset();
 
-    return res ? 0 : 1;
+    exit(res ? 0 : 1);
 }
