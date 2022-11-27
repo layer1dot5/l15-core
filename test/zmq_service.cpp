@@ -25,14 +25,23 @@ ZmqService::~ZmqService()
         m_exit_sem.acquire();
         sock.close();
 
-        std::binary_semaphore peers_sem(0);
-        mTaskService->Serve([this, &peers_sem]() {
+        //std::binary_semaphore peers_sem(0);
+        mTaskService->Serve([this]() {
+            std::shared_lock lock(m_peers_mutex);
             for (auto &peer: m_peers) {
                 peer_socket(peer.second).close();
             }
-            peers_sem.release();
+            //peers_sem.release();
         });
-        peers_sem.acquire();
+        //peers_sem.acquire();
+
+        std::unique_lock lock(m_peers_mutex);
+        m_peers.clear();
+    }
+
+    if (zmq_ctx.has_value()) {
+        zmq_ctx->shutdown();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
@@ -51,6 +60,7 @@ void ZmqService::StartService(const std::string& addr, p2p::frost_link_handler&&
 
 void ZmqService::Publish(p2p::frost_message_ptr m)
 {
+    std::shared_lock lock(m_peers_mutex);
     for (auto& peer_data: m_peers) {
         SendInternal(peer_data.second, m);
     }
@@ -58,15 +68,17 @@ void ZmqService::Publish(p2p::frost_message_ptr m)
 
 void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m)
 {
+    std::shared_lock lock(m_peers_mutex);
     auto peer_it = m_peers.find(pk);
     if (peer_it == m_peers.end()) {
         throw std::invalid_argument(hex(pk));
     }
+    lock.unlock();
 
     SendInternal(peer_it->second, move(m));
 }
 
-void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state &peer, p2p::frost_link_handler h)
+void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state peer, p2p::frost_link_handler h)
 {
     std::unique_lock lock(peer_incoming_mutex(peer), std::try_to_lock);
     if (lock.owns_lock()) {
@@ -89,7 +101,7 @@ void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state &peer, p2p::fros
     }
 }
 
-void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state &peer)
+void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state peer)
 {
     std::unique_lock lock(peer_outgoing_mutex(peer), std::try_to_lock);
     if (lock.owns_lock()) {
@@ -97,7 +109,7 @@ void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state &peer)
         while((msg = peer_outgoing_pipeline(peer).PeekCurrentMessage())) {
 
             cex::stream<std::deque<uint8_t>> data;
-            p2p::Serialize<cex::stream<std::deque<uint8_t>>>(data, m_ctx, *msg);
+            p2p::Serialize(data, m_ctx, *msg);
 
             std::clog << "Sending " << data.size() <<" bytes:\n" << hex(data) << std::endl;
 
@@ -128,10 +140,10 @@ void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state &peer)
     }
 }
 
-void ZmqService::SendInternal(ZmqService::peer_state &peer, p2p::frost_message_ptr m)
+void ZmqService::SendInternal(ZmqService::peer_state peer, p2p::frost_message_ptr m)
 {
     peer_outgoing_pipeline(peer).PushMessage(move(m));
-    mTaskService->Serve([this, &peer]()
+    mTaskService->Serve([this, peer]()
     {
         ProcessOutgoingPipeline(peer);
     });
@@ -155,33 +167,16 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
                     p2p::frost_message_ptr msg = p2p::Unserialize(m_ctx, buffer);
                     buffer.clear();
 
-                    auto peer_it = m_peers.find(msg->pubkey);
+                    std::shared_lock lock(m_peers_mutex);
+                    peers_map::iterator peer_it = m_peers.find(msg->pubkey);
                     if (peer_it == m_peers.end()) {
                         throw p2p::WrongMessageData(*msg);
                     }
-                    peer_state &peer = peer_it->second;
+                    peer_state peer = peer_it->second;
+                    lock.unlock();
 
                     peer_incoming_pipeline(peer).PushMessage(move(msg));
-                    mTaskService->Serve([this, &peer, h]() { ProcessIncomingPipeline(peer, h); });
-
-//                try {
-//                    // !!! lock through blocing socket call !!!
-//                    std::lock_guard lock(peer_mutex(peer_it->second));
-//                    if (!peer_message_queue(peer_it->second).empty()) {
-//                        cex::stream<std::deque<uint8_t>> buf;
-//                        p2p::Serialize<cex::stream<std::deque<uint8_t>>>(buf, m_ctx, *peer_message_queue(peer_it->second).front());
-//                        zmq::message_t zmq_rep_msg(buf.begin(), buf.end());
-//                        if (!peer_socket(peer_it->second)) {
-//                            peer_socket(peer_it->second).connect(peer_address(peer_it->second));
-//                        }
-//                        if (peer_socket(peer_it->second).send(move(zmq_rep_msg), zmq::send_flags::dontwait)) {
-//                            peer_message_queue(peer_it->second).pop_front();
-//                        }
-//                    }
-//                }
-//                catch (...) {
-//
-//                }
+                    mTaskService->Serve([this, p = move(peer), h]() { ProcessIncomingPipeline(p, h); });
                 }
                 catch(p2p::UnserializeError& e) {
                     buffer.clear();

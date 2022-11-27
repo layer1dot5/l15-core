@@ -36,7 +36,9 @@ public:
                         std::unique_ptr<std::mutex>, // This mutex is used to guarantee that a peer related message send happens from single thread only
                         FrostMessagePipeLine,        // Incoming message pipeline
                         std::unique_ptr<std::mutex>  // This mutex is used to guarantee that a peer related message receive happens from single thread only
-                        > peer_state;
+    > peer;
+
+    typedef std::shared_ptr<peer> peer_state;
     typedef std::unordered_map<xonly_pubkey, peer_state, l15::hash<xonly_pubkey>> peers_map;
 private:
     const static std::string STOP;
@@ -53,19 +55,19 @@ private:
     std::binary_semaphore m_exit_sem;
 
 private:
-    static inline std::string& peer_address(peer_state& state) { return get<0>(state); }
-    static inline zmq::socket_t& peer_socket(peer_state& state) { return get<1>(state); }
-    static inline FrostMessagePipeLine& peer_outgoing_pipeline(peer_state& state) { return get<2>(state); }
-    static inline std::mutex& peer_outgoing_mutex(peer_state& state) { return *get<3>(state); }
-    static inline FrostMessagePipeLine& peer_incoming_pipeline(peer_state& state) { return get<4>(state); }
-    static inline std::mutex& peer_incoming_mutex(peer_state& state) { return *get<5>(state); }
+    static inline std::string& peer_address(peer_state& state) { return get<0>(*state); }
+    static inline zmq::socket_t& peer_socket(peer_state& state) { return get<1>(*state); }
+    static inline FrostMessagePipeLine& peer_outgoing_pipeline(peer_state& state) { return get<2>(*state); }
+    static inline std::mutex& peer_outgoing_mutex(peer_state& state) { return *get<3>(*state); }
+    static inline FrostMessagePipeLine& peer_incoming_pipeline(peer_state& state) { return get<4>(*state); }
+    static inline std::mutex& peer_incoming_mutex(peer_state& state) { return *get<5>(*state); }
 
     void ListenCycle(p2p::frost_link_handler h);
     void CheckPeers();
 
-    void ProcessIncomingPipeline(peer_state& peer, p2p::frost_link_handler h);
-    void ProcessOutgoingPipeline(peer_state& peer);
-    void SendInternal(peer_state& peer, p2p::frost_message_ptr m);
+    void ProcessIncomingPipeline(peer_state peer, p2p::frost_link_handler h);
+    void ProcessOutgoingPipeline(peer_state peer);
+    void SendInternal(peer_state peer, p2p::frost_message_ptr m);
 
 public:
     explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
@@ -75,11 +77,11 @@ public:
 
     void AddPeer(xonly_pubkey&& pk, string&& addr)
     {
-        m_peers.emplace(move(pk), peer_state {
+        m_peers.emplace(move(pk), std::make_shared<peer>(
             move(addr), zmq::socket_t(zmq_ctx.value(), zmq::socket_type::push),
             FrostMessagePipeLine(), std::make_unique<std::mutex>(),
             FrostMessagePipeLine(), std::make_unique<std::mutex>()
-        });
+        ));
     }
 
     void SetSelfPubKey(const xonly_pubkey& pk)
