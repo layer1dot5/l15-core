@@ -235,7 +235,9 @@ AC_DEFUN([AX_SUBDIRS_CONFIGURE],
            ax_candidate_content="${ax_candidate#*=}"
            if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
              if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
-               [ax_args=$(echo $ax_args | sed "s,\(${ax_candidate_flag}=[^']*\),\1 ${ax_candidate_content},")]
+               m4_ifnblank([$ax_candidate_content],
+                 [ax_args=$(echo $ax_args | sed "s,\(${ax_candidate_flag}=[^']*\),\1 ${ax_candidate_content},")
+               ])
              else
                AS_VAR_APPEND(ax_args, " 'opt'")
              fi
