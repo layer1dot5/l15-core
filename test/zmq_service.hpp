@@ -17,14 +17,31 @@ namespace service {
 
 class FrostMessagePipeLine {
     std::list<p2p::frost_message_ptr> m_queue;
-    p2p::FROST_MESSAGE m_last_phase;
+    p2p::FROST_MESSAGE m_confirmed_phase;
+    p2p::FROST_MESSAGE m_next_phase;
+    std::chrono::time_point<std::chrono::steady_clock> m_phase_time;
     std::unique_ptr<std::mutex> m_queue_mutex;
 public:
-    FrostMessagePipeLine() : m_queue(), m_last_phase(p2p::FROST_MESSAGE::KEY_COMMITMENT), m_queue_mutex(std::make_unique<std::mutex>()) {}
+    FrostMessagePipeLine() :
+        m_queue(),
+        m_confirmed_phase(p2p::FROST_MESSAGE::NONCE_COMMITMENTS),
+        m_next_phase(p2p::FROST_MESSAGE::NONCE_COMMITMENTS),
+        m_phase_time(std::chrono::steady_clock::now()),
+        m_queue_mutex(std::make_unique<std::mutex>())
+        {}
     FrostMessagePipeLine(FrostMessagePipeLine&&) noexcept = default;
     void PushMessage(p2p::frost_message_ptr msg);
-    p2p::frost_message_ptr PeekCurrentMessage();
+    p2p::frost_message_ptr PeekNextMessage();
+    p2p::frost_message_ptr PeekUnconfirmedMessage(std::chrono::milliseconds confirmation_timeout);
     void PopCurrentMessage();
+    p2p::FROST_MESSAGE GetCurPhase() const
+    {
+        p2p::FROST_MESSAGE cur_phase = m_next_phase;
+        if (cur_phase != p2p::FROST_MESSAGE::NONCE_COMMITMENTS)
+            cur_phase = static_cast<p2p::FROST_MESSAGE>(static_cast<uint16_t>(m_next_phase) - 1);
+        return cur_phase;
+    }
+    void ConfirmPhase(p2p::FROST_MESSAGE confirm_phase);
 };
 
 class ZmqService// : public service::ZmqContextSingleton
@@ -65,9 +82,12 @@ private:
     void ListenCycle(p2p::frost_link_handler h);
     void CheckPeers();
 
+    void SendInternal(ZmqService::peer_state peer, p2p::frost_message_ptr m);
+
     void ProcessIncomingPipeline(peer_state peer, p2p::frost_link_handler h);
     void ProcessOutgoingPipeline(peer_state peer);
-    void SendInternal(peer_state peer, p2p::frost_message_ptr m);
+    void ConfirmOutgoingPipeline(peer_state peer, p2p::FROST_MESSAGE last_recv_id);
+    void SendWithPipeline(peer_state peer, p2p::frost_message_ptr m);
 
 public:
     explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
