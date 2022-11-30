@@ -41,6 +41,7 @@ AC_DEFUN([AX_ZMQ], [
              or disable ZMQ (ARG=no)])], [
              AS_CASE(["x${withval}"],
                 [x],[with_zmq=yes],
+                [xyes],[with_zmq=yes],
                 [xno],[with_zmq=no],
                 [with_zmq=yes; ZMQ_LDFLAGS="-L${withval}/lib"; ZMQ_CPPFLAGS="-I${withval}/include"]
     )])
