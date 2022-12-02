@@ -130,12 +130,12 @@ public:
     {
         FrostMessage::Unserialize(stream);
 
-        size_t pubnonce_count = stream.remains() / 66;
-        if ((pubnonce_count * 66) !=  stream.remains()) {
+        if (stream.remains() < 66) {
             std::stringstream hexstr;
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
         }
+        size_t pubnonce_count = stream.remains() / 66;
 
         nonce_commitments.clear();
         nonce_commitments.reserve(pubnonce_count);
@@ -146,7 +146,7 @@ public:
         const size_t buflen = sizeof(buf);
         secp256k1_frost_pubnonce cur_pubnonce;
 
-        while (stream.remains()) {
+        while (stream.remains() >= buflen) {
             stream.read(buf, buflen);
             if (!secp256k1_frost_pubnonce_parse(ctx, &cur_pubnonce, buf)) {
                 nonce_commitments.clear();
@@ -207,7 +207,7 @@ public:
         FrostMessage::Unserialize(stream);
 
         size_t count = stream.remains() / 33;
-        if ((count * 33) !=  stream.remains()) {
+        if (count < 3) {
             std::stringstream hexstr;
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
@@ -221,7 +221,7 @@ public:
         const size_t keysize = sizeof(buf);
         secp256k1_pubkey cur_pk;
 
-        while (stream.remains()) {
+        while (stream.remains() >= keysize) {
             stream.read(buf, keysize);
             if (!secp256k1_ec_pubkey_parse(ctx, &cur_pk, buf, keysize)) {
                 share_commitment.clear();
@@ -268,7 +268,7 @@ public:
     {
         FrostMessage::Unserialize(stream);
 
-        if (sizeof(share.data) !=  stream.remains()) {
+        if (sizeof(share.data) > stream.remains()) {
             std::stringstream hexstr;
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
@@ -346,6 +346,13 @@ public:
     void Unserialize(const secp256k1_context* ctx, STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
+
+        if ((sizeof(operation_id) + share.size()) > stream.remains()) {
+            std::stringstream hexstr;
+            hexstr << hex(stream);
+            throw UnserializeError(hexstr.str());
+        }
+
         stream >> operation_id >> share;
     }
 

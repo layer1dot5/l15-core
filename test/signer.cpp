@@ -220,13 +220,13 @@ int main(int argc, char* argv[])
 
 
     std::future<void> nonce_res;
-    if (config.mDoSign) {
+    //if (config.mDoSign) {
         if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
         nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 1);
         nonce_res.wait();
-    }
+    //}
 
-    if (config.mVerbose) std::clog << "Starting aggregated key negotiation =====================================" << std::endl;
+    if (config.mVerbose) std::clog << "Aggregated key negotiation =====================================" << std::endl;
     auto aggKeyFuture = signerService.NegotiateKey(signer->GetLocalPubKey());
     xonly_pubkey shared_pk = aggKeyFuture.get();
     agg_pubkey_ready = true;
