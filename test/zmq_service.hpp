@@ -19,14 +19,14 @@ class FrostMessagePipeLine {
     std::list<p2p::frost_message_ptr> m_queue;
     p2p::FROST_MESSAGE m_confirmed_phase;
     p2p::FROST_MESSAGE m_next_phase;
-    std::chrono::time_point<std::chrono::steady_clock> m_phase_time;
+    std::chrono::time_point<std::chrono::steady_clock> m_last_to_confirm_time;
     std::unique_ptr<std::mutex> m_queue_mutex;
 public:
     FrostMessagePipeLine() :
         m_queue(),
         m_confirmed_phase(p2p::FROST_MESSAGE::NONCE_COMMITMENTS),
         m_next_phase(p2p::FROST_MESSAGE::NONCE_COMMITMENTS),
-        m_phase_time(std::chrono::steady_clock::now()),
+        m_last_to_confirm_time(std::chrono::steady_clock::now()),
         m_queue_mutex(std::make_unique<std::mutex>())
         {}
     FrostMessagePipeLine(FrostMessagePipeLine&&) noexcept = default;
@@ -86,7 +86,6 @@ private:
 
     void ProcessIncomingPipeline(peer_state peer, p2p::frost_link_handler h);
     void ProcessOutgoingPipeline(peer_state peer);
-    void ConfirmOutgoingPipeline(peer_state peer, p2p::FROST_MESSAGE last_recv_id);
     void SendWithPipeline(peer_state peer, p2p::frost_message_ptr m);
 
 public:

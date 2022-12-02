@@ -78,24 +78,24 @@ void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m)
 
 void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state peer, p2p::frost_link_handler h)
 {
-    std::unique_lock lock(peer_incoming_mutex(peer), std::try_to_lock);
-    if (lock.owns_lock()) {
-        p2p::frost_message_ptr msg;
-        while((msg = peer_incoming_pipeline(peer).PeekNextMessage())) {
-            try {
+    try {
+        std::unique_lock lock(peer_incoming_mutex(peer), std::try_to_lock);
+        if (lock.owns_lock()) {
+            p2p::frost_message_ptr msg;
+            while ((msg = peer_incoming_pipeline(peer).PeekNextMessage())) {
                 h(move(msg));
                 peer_incoming_pipeline(peer).PopCurrentMessage();
             }
-            catch (Error &e) {
-                std::cerr << "Cannot process FROST message: " << e.what() << ": " << e.details() << std::endl;
-            }
-            catch (std::exception &e) {
-                std::cerr << "Cannot process FROST message: " << e.what() << std::endl;
-            }
-            catch (...) {
-                std::cerr << "Cannot process FROST message: unknown error" << std::endl;
-            }
         }
+    }
+    catch (Error &e) {
+        std::cerr << "Cannot process FROST message: " << e.what() << ": " << e.details() << std::endl;
+    }
+    catch (std::exception &e) {
+        std::cerr << "Cannot process FROST message: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "Cannot process FROST message: unknown error" << std::endl;
     }
 }
 
@@ -110,19 +110,30 @@ void ZmqService::SendInternal(ZmqService::peer_state peer, p2p::frost_message_pt
 
     std::clog << "Sending " << data.size() <<" bytes:\n" << hex(data) << std::endl;
 
+    zmq::message_t zmq_msg(data.begin(), data.end());
+
+    auto res = peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait);
+    if (!res) {
+        throw std::runtime_error("send returned zero bytes sent");
+    }
+
+    if (res.value() < data.size()) {
+        throw std::runtime_error((std::ostringstream() << "just part of message has been sent: " << res.value() << " of " << data.size()).str());
+    }
+}
+
+
+void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state peer)
+{
     try {
-        zmq::message_t zmq_msg(data.begin(), data.end());
-
-        auto res = peer_socket(peer).send(move(zmq_msg), zmq::send_flags::dontwait);
-        if (!res) {
-            throw std::runtime_error("send returned zero bytes sent");
+        std::unique_lock lock(peer_outgoing_mutex(peer), std::try_to_lock);
+        if (lock.owns_lock()) {
+            p2p::frost_message_ptr msg;
+            while ((msg = peer_outgoing_pipeline(peer).PeekNextMessage())) {
+                SendInternal(peer, msg);
+                peer_outgoing_pipeline(peer).PopCurrentMessage();
+            }
         }
-
-        if (res.value() < data.size()) {
-            throw std::runtime_error((std::ostringstream() << "just part of message has been sent: " << res.value() << " of " << data.size()).str());
-        }
-
-        //peer_outgoing_pipeline(peer).PopCurrentMessage();
     }
     catch (Error &e) {
         std::cerr << "Send error: " << e.what() << ": " << e.details() << std::endl;
@@ -133,20 +144,8 @@ void ZmqService::SendInternal(ZmqService::peer_state peer, p2p::frost_message_pt
     catch (...) {
         std::cerr << "Send error: unknown error" << std::endl;
     }
-
 }
 
-
-void ZmqService::ProcessOutgoingPipeline(ZmqService::peer_state peer)
-{
-    std::unique_lock lock(peer_outgoing_mutex(peer), std::try_to_lock);
-    if (lock.owns_lock()) {
-        p2p::frost_message_ptr msg;
-        while((msg = peer_outgoing_pipeline(peer).PeekNextMessage())) {
-            SendInternal(peer, msg);
-        }
-    }
-}
 
 void ZmqService::SendWithPipeline(ZmqService::peer_state peer, p2p::frost_message_ptr m)
 {
@@ -156,6 +155,33 @@ void ZmqService::SendWithPipeline(ZmqService::peer_state peer, p2p::frost_messag
         ProcessOutgoingPipeline(peer);
     });
 }
+
+
+void ZmqService::CheckPeers()
+{
+    std::for_each(m_peers.begin(), m_peers.end(), [this](auto & peer) {
+        try {
+            std::unique_lock lock(peer_outgoing_mutex(peer.second), std::try_to_lock);
+            if (lock.owns_lock()) {
+                p2p::frost_message_ptr msg = peer_outgoing_pipeline(peer.second).PeekUnconfirmedMessage(std::chrono::seconds(15));
+                if (msg) {
+                    std::clog << "Repeat sending" << std::endl;
+                    SendInternal(peer.second, msg);
+                }
+            }
+        }
+        catch (Error &e) {
+            std::cerr << "Send error: " << e.what() << ": " << e.details() << std::endl;
+        }
+        catch (std::exception &e) {
+            std::cerr << "Send error: " << e.what() << std::endl;
+        }
+        catch (...) {
+            std::cerr << "Send error: unknown error" << std::endl;
+        }
+    });
+}
+
 
 void ZmqService::ListenCycle(p2p::frost_link_handler h)
 {
@@ -190,7 +216,7 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
                     lock.unlock();
 
                     if (last_recv_id != p2p::FROST_MESSAGE::MESSAGE_ID_COUNT) {
-                        ConfirmOutgoingPipeline(peer, last_recv_id);
+                        peer_outgoing_pipeline(peer).ConfirmPhase(last_recv_id);
                     }
 
                     peer_incoming_pipeline(peer).PushMessage(move(msg));
@@ -245,21 +271,6 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
 }
 
 
-void ZmqService::CheckPeers()
-{
-    std::for_each(m_peers.begin(), m_peers.end(), [this](auto & peer) {
-        p2p::frost_message_ptr msg = peer_outgoing_pipeline(peer.second).PeekUnconfirmedMessage(std::chrono::seconds(15));
-        if (msg) {
-            SendInternal(peer.second, msg);
-        }
-    });
-}
-
-void ZmqService::ConfirmOutgoingPipeline(ZmqService::peer_state peer, p2p::FROST_MESSAGE last_recv_id)
-{
-    peer_outgoing_pipeline(peer).ConfirmPhase(last_recv_id);
-}
-
 void FrostMessagePipeLine::PushMessage(p2p::frost_message_ptr msg)
 {
     std::lock_guard lock(*m_queue_mutex);
@@ -278,7 +289,12 @@ p2p::frost_message_ptr FrostMessagePipeLine::PeekUnconfirmedMessage(std::chrono:
 {
     auto time = std::chrono::steady_clock::now();
     std::lock_guard lock(*m_queue_mutex);
-    return ((time - m_phase_time > confirmation_timeout) && !m_queue.empty() && m_confirmed_phase < m_queue.front()->id) ? m_queue.front() : l15::p2p::frost_message_ptr();
+    if ((time - m_last_to_confirm_time > confirmation_timeout) && !m_queue.empty() && m_confirmed_phase < m_queue.front()->id) {
+        m_last_to_confirm_time = time;
+        return m_queue.front();
+    } else {
+        return l15::p2p::frost_message_ptr();
+    }
 }
 
 void FrostMessagePipeLine::PopCurrentMessage()
@@ -288,15 +304,18 @@ void FrostMessagePipeLine::PopCurrentMessage()
     auto it = std::find_if(m_queue.begin(), m_queue.end(), [this](auto& m){ return m->id == m_next_phase; });
     if (it != m_queue.end()) {
         m_next_phase = static_cast<p2p::FROST_MESSAGE>(static_cast<uint16_t>(m_next_phase) + 1);
-        m_phase_time = time;
+        m_last_to_confirm_time = time;
     }
 }
 
 void FrostMessagePipeLine::ConfirmPhase(p2p::FROST_MESSAGE confirm_phase)
 {
+    auto time = std::chrono::steady_clock::now();
     std::lock_guard lock(*m_queue_mutex);
-    while (confirm_phase >= m_queue.front()->id) {
+    while (!m_queue.empty() && confirm_phase >= m_queue.front()->id) {
+        //std::clog << "Drop confirmed message" << std::endl;
         m_queue.pop_front();
+        m_last_to_confirm_time = time;
     }
 }
 
