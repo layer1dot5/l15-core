@@ -69,7 +69,11 @@ protected:
 
 class WrongMessage: public Error {
 public:
-    explicit WrongMessage(const FrostMessage& m) : protocol_id(static_cast<uint16_t>(m.protocol_id)), message_id(static_cast<uint16_t>(m.id)) {}
+    explicit WrongMessage(const FrostMessage& m) :
+        protocol_id(static_cast<uint16_t>(m.protocol_id)),
+        message_id(static_cast<uint16_t>(m.id)),
+        pubkey(m.pubkey){}
+
     ~WrongMessage() override = default;
 
     const char* what() const noexcept override
@@ -77,6 +81,7 @@ public:
 
     uint16_t protocol_id;
     uint16_t message_id;
+    xonly_pubkey pubkey;
 };
 
 class WrongMessageData: public Error {
