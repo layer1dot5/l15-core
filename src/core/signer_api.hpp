@@ -31,7 +31,6 @@
 namespace l15::core {
 
 typedef size_t operation_id;
-typedef size_t peer_index;
 
 class PeerNotFoundError : public Error {
 public:
@@ -152,7 +151,6 @@ private:
     typedef std::optional<frost_sigshare> sigshare_cache;
 
     typedef tbb::concurrent_unordered_map<
-//    typedef std::unordered_map<
                 secp256k1_xonly_pubkey,
                 sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal
             > sigshare_peers_cache;

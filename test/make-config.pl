@@ -33,19 +33,23 @@ for (my $i = 0; $i < $count; $i++) {
 
 }
 
+if (! -e './testsigners') {
+    mkdir('./testsigners') or die "Can't create testsigners dir: $!\n";
+}
+
 open(my $scriptfh, '>', "run-signers.sh") or die $!;
 print $scriptfh "#!/bin/sh\n\n";
 
 for (my $i = 0; $i < $count; $i++) {
     my $texti = $i +1;
     my $port = 12001 + $i;
-    open(my $configfh, '>', "signer$texti.conf") or die $!;
+    open(my $configfh, '>', "testsigners/signer$texti.conf") or die $!;
 
     if ($i % 2 != 0) {
-        print $scriptfh "signer --config signer$texti.conf -vvi text > signer$texti.log 2>&1 &\n";
+        print $scriptfh "signer --config testsigners/signer$texti.conf -vvi text > testsigners/signer$texti.log 2>&1 &\n";
     }
     else {
-        print $scriptfh "signer --config signer$texti.conf -svvi text > signer$texti.log 2>&1 &\n";
+        print $scriptfh "signer --config testsigners/signer$texti.conf -svvi text > testsigners/signer$texti.log 2>&1 &\n";
     }
 
 
