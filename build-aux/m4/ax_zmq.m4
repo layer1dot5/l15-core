@@ -88,5 +88,5 @@ AC_DEFUN([AX_ZMQ], [
         AC_MSG_NOTICE([not checking for ZMQ])
     fi
 
-    AC_DEFINE(HAVE_ZMQ,,[define if the ZMQ library is available])
+    AC_DEFINE(HAVE_ZMQ,[1],[define if the ZMQ library is available])
 ])

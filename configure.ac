@@ -1,5 +1,10 @@
 AC_PREREQ([2.69])
-AC_INIT([L15 Core], [0.0], [l2xl@protonmail.com])
+
+m4_define([VERSION_MAJOR], [0])
+m4_define([VERSION_MINOR], [0])
+m4_define([VERSION_BUILD], [m4_default_nblank_quoted(m4_esyscmd_s([echo $COMMIT_SHORT_SHA]), [dev])])
+
+AC_INIT([L15 Core], m4_join([.], [VERSION_MAJOR], [VERSION_MINOR], [VERSION_BUILD]), [l2xl@protonmail.com])
 AC_CONFIG_SRCDIR([src/core/chain_api.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
@@ -153,6 +158,7 @@ AC_OUTPUT
 echo
 echo "  ==============================================================================================================="
 echo "  L15 config result:"
+echo "  build version   = $VERSION"
 echo
 echo "  debug enabled   = $enable_debug"
 echo "  werror          = $enable_werror"
