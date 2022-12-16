@@ -80,6 +80,8 @@ private:
     std::mutex m_protocol_confirmation_mutex;
     std::binary_semaphore m_exit_sem;
 
+    bool m_debug_traces;
+
 private:
     static inline std::string& peer_address(peer_state& state) { return get<0>(*state); }
     static inline zmq::socket_t& peer_socket(peer_state& state) { return get<1>(*state); }
@@ -98,8 +100,8 @@ private:
     void SendWithPipeline(peer_state peer, p2p::frost_message_ptr m);
 
 public:
-    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv, xonly_pubkey pk, p2p::FROST_MESSAGE end_phase)
-    : m_ctx(ctx), zmq_ctx(zmq::context_t(10, 1005)), m_pk(move(pk)), m_end_phase(end_phase), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex(), m_exit_sem(0) {}
+    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv, xonly_pubkey pk, p2p::FROST_MESSAGE end_phase, bool debug_traces)
+    : m_ctx(ctx), zmq_ctx(zmq::context_t(10, 1005)), m_pk(move(pk)), m_end_phase(end_phase), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex(), m_exit_sem(0), m_debug_traces(debug_traces) {}
 
     ~ZmqService();
 

@@ -27,6 +27,7 @@ const char * const LISTEN_ADDR = "--listen-addr,-l";
 const char * const PEER_ADDR = "--peer,-p";
 const char * const INPUT = "--input,-i";
 const char * const VERBOSE = "--verbose,-v";
+const char * const TRACE = "--debug-trace,-t";
 const char * const DRYRUN = "--dry-run,-d";
 const char * const DOSIGN = "--sign,-s";
 
@@ -38,6 +39,7 @@ class Signer
 
 public:
     size_t mVerbose;
+    bool mTrace;
     bool mDryRun;
     bool mDoSign;
     std::string mSecKey;
@@ -84,6 +86,8 @@ Signer::Signer()
     mApp.set_help_flag("--help,-h", "Display this help information and exit");
 
     mApp.add_flag(VERBOSE, mVerbose, "Log more traces including configuration, -vv forces to print all the peer from configuration");
+
+    mApp.add_flag(TRACE, mTrace, "Print debug traces to log");
 
     mApp.add_flag(DRYRUN, mDryRun, "Does not run signer service, just checks config and prints its output");
 
@@ -162,7 +166,8 @@ int main(int argc, char* argv[])
                 config.mWallet.Secp256k1Context(),
                 config.mTaskService,
                 signer->GetLocalPubKey(),
-                config.mDoSign ? p2p::FROST_MESSAGE::SIGNATURE_SHARE : p2p::FROST_MESSAGE::KEY_SHARE);
+                config.mDoSign ? p2p::FROST_MESSAGE::SIGNATURE_SHARE : p2p::FROST_MESSAGE::KEY_SHARE,
+                config.mTrace);
 
         for (const auto &peer: config.m_peers) {
             if (peer.first != signer->GetLocalPubKey()) {

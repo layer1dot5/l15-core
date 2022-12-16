@@ -114,7 +114,8 @@ void ZmqService::SendInternal(ZmqService::peer_state peer, p2p::frost_message_pt
     auto cur_phase = peer_incoming_pipeline(peer).GetCurPhase();
     data << cur_phase;
 
-    std::clog << (std::ostringstream() << "Sending to " << hex(peer_outgoing_pipeline(peer).Pubkey()).substr(0, 8) << "... "<< data.size() <<"b:\n" << hex(data)).str() << std::endl;
+    if (m_debug_traces)
+        std::clog << (std::ostringstream() << "Sending to " << hex(peer_outgoing_pipeline(peer).Pubkey()).substr(0, 8) << "... "<< data.size() <<"b:\n" << hex(data)).str() << std::endl;
 
     zmq::message_t zmq_msg(data.begin(), data.end());
 
@@ -184,7 +185,8 @@ void ZmqService::CheckPeers()
                     out_msg = peer_outgoing_pipeline(peer.second).PeekUnconfirmedMessage(std::chrono::seconds(7), unconfirmed_out_count);
                     confirmation_wait_count += unconfirmed_out_count;
                     if (out_msg) {
-                        std::clog << (std::ostringstream() << "Repeat sending to " << hex(peer.first).substr(0, 8)).str() << std::endl;
+                        if (m_debug_traces)
+                            std::clog << (std::ostringstream() << "Repeat sending to " << hex(peer.first).substr(0, 8)).str() << std::endl;
                         SendInternal(peer.second, out_msg);
                     }
                     else {
@@ -265,7 +267,9 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
                     peer_state peer = peer_it->second;
                     lock.unlock();
 
-                    std::clog << (std::ostringstream() << "++++ " << hex(msg->pubkey).substr(0, 8) << "... -> " << static_cast<uint16_t>(last_recv_id)).str() << std::endl;
+                    if (m_debug_traces)
+                        std::clog << (std::ostringstream() << "++++ " << hex(msg->pubkey).substr(0, 8) << "... -> " << static_cast<uint16_t>(last_recv_id)).str() << std::endl;
+
                     if (last_recv_id != p2p::FROST_MESSAGE::MESSAGE_ID_COUNT) {
                         peer_outgoing_pipeline(peer).ConfirmPhase(last_recv_id);
                     }
@@ -379,6 +383,7 @@ void FrostMessagePipeLine::ConfirmPhase(p2p::FROST_MESSAGE confirm_phase)
             m_last_to_confirm_time = time;
         }
     }
+
     for (auto& m: confirmed) {
         std::clog << (std::ostringstream() << "@@@@: " << hex(m_pk).substr(0,8) << "... " << m->ToString()).str() << std::endl;
     }
