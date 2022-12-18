@@ -21,13 +21,15 @@ class FrostMessagePipeLine {
     p2p::FROST_MESSAGE m_next_phase;
     std::chrono::time_point<std::chrono::steady_clock> m_last_to_confirm_time;
     std::unique_ptr<std::mutex> m_queue_mutex;
+    bool m_debug_traces;
 public:
-    explicit FrostMessagePipeLine(xonly_pubkey&& pk) :
+    explicit FrostMessagePipeLine(xonly_pubkey&& pk, bool debug_traces) :
         m_pk(move(pk)),
         m_queue(),
         m_next_phase(p2p::FROST_MESSAGE::NONCE_COMMITMENTS),
         m_last_to_confirm_time(std::chrono::steady_clock::now()),
-        m_queue_mutex(std::make_unique<std::mutex>())
+        m_queue_mutex(std::make_unique<std::mutex>()),
+        m_debug_traces(debug_traces)
         {}
     FrostMessagePipeLine(FrostMessagePipeLine&&) noexcept = default;
 
@@ -110,8 +112,8 @@ public:
         xonly_pubkey pk1(pk), pk2(pk);
         m_peers.emplace(move(pk), std::make_shared<peer>(
             move(addr), zmq::socket_t(zmq_ctx.value(), zmq::socket_type::push),
-            FrostMessagePipeLine(move(pk1)), std::make_unique<std::mutex>(),
-            FrostMessagePipeLine((move(pk2))), std::make_unique<std::mutex>()
+            FrostMessagePipeLine(move(pk1), m_debug_traces), std::make_unique<std::mutex>(),
+            FrostMessagePipeLine(move(pk2), m_debug_traces), std::make_unique<std::mutex>()
         ));
     }
 

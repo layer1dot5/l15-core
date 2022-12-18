@@ -25,15 +25,12 @@ ZmqService::~ZmqService()
         m_exit_sem.acquire();
         sock.close();
 
-        //std::binary_semaphore peers_sem(0);
         mTaskService->Serve([this]() {
             std::shared_lock lock(m_peers_mutex);
             for (auto &peer: m_peers) {
                 peer_socket(peer.second).close();
             }
-            //peers_sem.release();
         });
-        //peers_sem.acquire();
 
         std::unique_lock lock(m_peers_mutex);
         m_peers.clear();
@@ -172,8 +169,6 @@ void ZmqService::CheckPeers()
 {
     mTaskService->Serve([this]() {
 
-        //std::clog << "^^^^ End phase: " << static_cast<uint16_t>(m_end_phase) << std::endl;
-
         size_t confirmation_wait_count = 0;
         std::for_each(m_peers.begin(), m_peers.end(), [this, &confirmation_wait_count](auto & peer) {
             try {
@@ -194,8 +189,6 @@ void ZmqService::CheckPeers()
                         p2p::frost_message_ptr in_msg = peer_incoming_pipeline(peer.second).PeekUnconfirmedMessage(std::chrono::seconds(7), unconfirmed_in_count);
                         confirmation_wait_count += unconfirmed_in_count;
 
-                        //std::clog << "Check peer's incoming pipeline | current phase: " << static_cast<uint16_t>(peer_outgoing_pipeline(peer.second).GetCurPhase()) << ", unconfirmed count: " << unconfirmed_in_count << std::endl;
-
                         if (in_msg && peer_outgoing_pipeline(peer.second).GetCurPhase() == m_end_phase) {
                             //std::clog << "Schedule confirmation send for peer" << std::endl;
                             SendInternal(peer.second, nullptr);
@@ -213,9 +206,6 @@ void ZmqService::CheckPeers()
                 std::cerr << "Send error: unknown error" << std::endl;
             }
         });
-
-        //std::clog << "^^^^ Confirmation wait count: " << confirmation_wait_count << std::endl;
-
 
         if (confirmation_wait_count == 0) {
             m_protocol_confirmation_mutex.unlock();
@@ -243,7 +233,7 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
                     try {
                         msg = p2p::Unserialize(m_ctx, buffer);
                     }
-                    catch(p2p::WrongMessage e) {
+                    catch(p2p::WrongMessage& e) {
                         if (e.protocol_id != static_cast<uint16_t>(p2p::PROTOCOL::FROST) ||
                             e.message_id != static_cast<uint16_t>(p2p::FROST_MESSAGE::MESSAGE_ID_COUNT))
                         {
@@ -384,9 +374,10 @@ void FrostMessagePipeLine::ConfirmPhase(p2p::FROST_MESSAGE confirm_phase)
         }
     }
 
-    for (auto& m: confirmed) {
-        std::clog << (std::ostringstream() << "@@@@: " << hex(m_pk).substr(0,8) << "... " << m->ToString()).str() << std::endl;
-    }
+    if (m_debug_traces)
+        for (auto& m: confirmed) {
+            std::clog << (std::ostringstream() << "@@@@: " << hex(m_pk).substr(0,8) << "... " << m->ToString()).str() << std::endl;
+        }
 }
 
 
