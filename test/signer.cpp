@@ -78,7 +78,7 @@ public:
 
 Signer::Signer()
 : mApp("Tool to generate threshold signature", "signer")
-, mVerbose(0), mDryRun(false), mDoSign(false)
+, mVerbose(0), mTrace(false), mDryRun(false), mDoSign(false)
 , mTaskService(std::make_shared<service::GenericService>(10))
 , mWallet()
 {
