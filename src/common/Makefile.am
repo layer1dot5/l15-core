@@ -1,4 +1,10 @@
 
+version.cpp: $(top_srcdir)/version.sh Makefile
+	echo '#include "version.hpp"' >$@
+	(echo 'const char* const l15::Version::core_version = "'; $< $(top_srcdir); echo '";') | tr -d '\n' >>$@; echo >>$@
+	(echo 'const char* const l15::Version::node_version = "'; $< $(top_srcdir)/node; echo '";')| tr -d '\n' >>$@; echo >>$@
+	(echo 'const char* const l15::Version::secp256k1_version = "'; $< $(top_srcdir)/contrib/secp256k1; echo '";')| tr -d '\n' >>$@; echo >>$@
+
 AM_CPPFLAGS = \
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
@@ -14,3 +20,5 @@ noinst_LTLIBRARIES = libl15-common.la
 libl15_common_la_SOURCES = \
 	common.cpp \
 	utils.cpp
+
+nodist_libl15_common_la_SOURCES = version.cpp

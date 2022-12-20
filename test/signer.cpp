@@ -10,6 +10,7 @@
 
 #include "CLI11.hpp"
 #include "common.hpp"
+#include "version.hpp"
 #include "channel_keys.hpp"
 #include "wallet_api.hpp"
 #include "signer_api.hpp"
@@ -82,7 +83,7 @@ Signer::Signer()
 , mWallet()
 {
     mApp.set_config(CONF, "signer.conf", "Read the configuration file");
-    mApp.set_version_flag("--version", [](){ return std::string("L15 test signer v: ") + PACKAGE_VERSION; });
+    mApp.set_version_flag("--version", [](){ return std::string("Test Signer\nL15 components' versions:\n") + Version::MakeFullVersion(); });
     mApp.set_help_flag("--help,-h", "Display this help information and exit");
 
     mApp.add_flag(VERBOSE, mVerbose, "Log more traces including configuration, -vv forces to print all the peer from configuration");
