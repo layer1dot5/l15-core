@@ -110,10 +110,12 @@ typedef std::function<void(Error&&)> error_handler;
 typedef std::function<void()> general_handler;
 typedef std::function<void(operation_id)> sigop_handler;
 
+typedef std::function<void(p2p::frost_message_ptr)> frost_publish_handler;
+typedef std::function<void(const xonly_pubkey& peer_pk, p2p::frost_message_ptr)> frost_peer_link_handler;
 
 struct RemoteSignerData
 {
-    mutable p2p::frost_link_handler link;
+    mutable frost_peer_link_handler link;
     boost::container::flat_map<operation_id, secp256k1_frost_pubnonce> ephemeral_pubkeys;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
@@ -129,10 +131,11 @@ private:
     const secp256k1_context* m_ctx;
     ChannelKeys mKeypair;
     ChannelKeys mKeyShare;
+    seckey m_keyshare_random_session;
 
     size_t m_nonce_count;
 
-    p2p::frost_link_handler m_publisher;
+    frost_publish_handler m_publisher;
 
     const size_t m_threshold_size;
     peers_data_type m_peers_data;
@@ -168,7 +171,7 @@ private:
 
     sigops_cache m_sigops_cache;
 
-    const error_handler m_err_handler;
+    error_handler m_err_handler;
 
     void Publish(p2p::frost_message_ptr&& data)
     {
@@ -183,7 +186,7 @@ private:
             std::unique_ptr<DATA> data = std::make_unique<DATA>(xonly_pubkey(mKeypair.GetLocalPubKey()));
             datagen(*data, peer.first, peer.second);
             if (mKeypair.GetLocalPubKey() != peer.first) {
-                peer.second.link(move(data));
+                peer.second.link(peer.first, move(data));
             }
             else {
                 Accept(*data);
@@ -215,8 +218,10 @@ private:
 public:
     SignerApi(ChannelKeys &&keypair,
               size_t cluster_size,
-              size_t threshold_size,
-              error_handler e);
+              size_t threshold_size);
+
+    void SetErrorHandler(error_handler f)
+    { m_err_handler = f; }
 
     const xonly_pubkey& GetLocalPubKey() const
     { return mKeypair.GetLocalPubKey(); }
@@ -228,7 +233,7 @@ public:
     { return m_nonce_count; }
 
 
-    void SetPublisher(p2p::frost_link_handler h)
+    void SetPublisher(frost_publish_handler h)
     { m_publisher = move(h); }
 
     // Methods to access internal data to use by tests
@@ -250,6 +255,8 @@ public:
     { return m_peers_data; }
 
     void Accept(const p2p::FrostMessage& m);
+
+    void CommitKeyShares();
 
     template<typename Callable, typename... Args>
     void DistributeKeyShares(Callable key_shares_received_handler, Args&&... args)
@@ -282,8 +289,8 @@ public:
                 m_sigops_cache.emplace(opid, move(peers_cache));
             }
             else {
-                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(move(all_sig_commitments_received_handler));
-                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(move(all_sig_shares_received_handler));
+                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(std::forward<Callable1>(all_sig_commitments_received_handler));
+                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(std::forward<Callable2>(all_sig_shares_received_handler));
             }
         }
 

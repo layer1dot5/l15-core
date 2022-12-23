@@ -49,9 +49,13 @@ TEST_CASE("2-of-3 local")
     sigop_handler sig_hdl = [](operation_id) { };
     error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
 
-    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K);
+    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K);
+    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K);
+
+    signer0.SetErrorHandler(error_hdl);
+    signer1.SetErrorHandler(error_hdl);
+    signer2.SetErrorHandler(error_hdl);
 
     signer0.SetPublisher([&](frost_message_ptr&& m) {
         signer1.Accept(*m);
@@ -68,12 +72,12 @@ TEST_CASE("2-of-3 local")
 
     // Connect peers
 
-    signer0.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](auto m){signer1.Accept(*m);});
-    signer0.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](auto m){signer2.Accept(*m);});
-    signer1.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](auto m){signer0.Accept(*m);});
-    signer1.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](auto m){signer2.Accept(*m);});
-    signer2.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](auto m){signer0.Accept(*m);});
-    signer2.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](auto m){signer1.Accept(*m);});
+    signer0.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](const auto& pk, auto m){signer1.Accept(*m);});
+    signer0.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](const auto& pk, auto m){signer2.Accept(*m);});
+    signer1.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](const auto& pk, auto m){signer0.Accept(*m);});
+    signer1.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](const auto& pk, auto m){signer2.Accept(*m);});
+    signer2.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](const auto& pk, auto m){signer0.Accept(*m);});
+    signer2.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](const auto& pk, auto m){signer1.Accept(*m);});
 
 
     // Negotiate Aggregated Pubkey
@@ -175,9 +179,13 @@ TEST_CASE("Try sign without pubnonce")
         }
     };
 
-    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K);
+    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K);
+    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K);
+
+    signer0.SetErrorHandler(error_hdl);
+    signer1.SetErrorHandler(error_hdl);
+    signer2.SetErrorHandler(error_hdl);
 
     signer0.SetPublisher([&](frost_message_ptr&& m) {
         signer1.Accept(*m);
@@ -194,15 +202,19 @@ TEST_CASE("Try sign without pubnonce")
 
     // Connect peers
 
-    signer0.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](auto m){signer1.Accept(*m);});
-    signer0.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](auto m){signer2.Accept(*m);});
-    signer1.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](auto m){signer0.Accept(*m);});
-    signer1.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](auto m){signer2.Accept(*m);});
-    signer2.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](auto m){signer0.Accept(*m);});
-    signer2.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](auto m){signer1.Accept(*m);});
+    signer0.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](const auto& pk, auto m){signer1.Accept(*m);});
+    signer0.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](const auto& pk, auto m){signer2.Accept(*m);});
+    signer1.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](const auto& pk, auto m){signer0.Accept(*m);});
+    signer1.AddPeer(xonly_pubkey(signer2.GetLocalPubKey()), [&signer2](const auto& pk, auto m){signer2.Accept(*m);});
+    signer2.AddPeer(xonly_pubkey(signer0.GetLocalPubKey()), [&signer0](const auto& pk, auto m){signer0.Accept(*m);});
+    signer2.AddPeer(xonly_pubkey(signer1.GetLocalPubKey()), [&signer1](const auto& pk, auto m){signer1.Accept(*m);});
 
 
     // Negotiate Aggregated Pubkey
+
+    CHECK_NOTHROW(signer0.CommitKeyShares());
+    CHECK_NOTHROW(signer1.CommitKeyShares());
+    CHECK_NOTHROW(signer2.CommitKeyShares());
 
     CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl));
     CHECK_NOTHROW(signer1.DistributeKeyShares(key_hdl));
@@ -228,15 +240,15 @@ TEST_CASE("Try sign without pubnonce")
 
     CHECK(signer0.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
     CHECK(signer0.Peers().at(signer1.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
-    CHECK(signer0.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.size() == 0);
+    CHECK(signer0.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.empty());
 
     CHECK(signer1.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
     CHECK(signer1.Peers().at(signer1.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
-    CHECK(signer1.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.size() == 0);
+    CHECK(signer1.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.empty());
 
     CHECK(signer2.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
     CHECK(signer2.Peers().at(signer1.GetLocalPubKey()).ephemeral_pubkeys.size() == 3);
-    CHECK(signer2.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.size() == 0);
+    CHECK(signer2.Peers().at(signer2.GetLocalPubKey()).ephemeral_pubkeys.empty());
 
     CHECK(signer0.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys == signer1.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys);
     CHECK(signer0.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys == signer2.Peers().at(signer0.GetLocalPubKey()).ephemeral_pubkeys);
@@ -284,15 +296,17 @@ TEST_CASE("500 of 1K local")
     };
 
     std::ranges::transform(
-       std::ranges::common_view(std::views::iota(0) | std::views::take(N)),
+       std::views::iota(0) | std::views::take(N),
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
-           return std::make_unique<SignerApi> (
-                   ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+           auto s = std::make_unique<SignerApi> (
+                   ChannelKeys(wallet.Secp256k1Context()), N, K);
+           s->SetErrorHandler(error_hdl);
+           return s;
        }
     );
 
-    frost_link_handler publisher = [&signers](frost_message_ptr m) {
+    frost_publish_handler publisher = [&signers](frost_message_ptr m) {
         std::for_each(std::execution::par_unseq, signers.begin(), signers.end(), [&m](const auto& s){
             s->Accept(*m);
         });
@@ -307,7 +321,7 @@ TEST_CASE("500 of 1K local")
                 si->SetPublisher(publisher);
                 for (auto &sj: signers) {
                     if (si != sj) {
-                        si->AddPeer(xonly_pubkey(sj->GetLocalPubKey()), [&sj](auto m){sj->Accept(*m);});
+                        si->AddPeer(xonly_pubkey(sj->GetLocalPubKey()), [&sj](const auto& pk, auto m){sj->Accept(*m);});
                     }
                 }
                 return 0;
@@ -316,6 +330,22 @@ TEST_CASE("500 of 1K local")
         reg_measure.Report(std::clog);
     }
 
+    {
+        TimeMeasure distrib_measure("Commit Key shares");
+        size_t i = 0;
+        std::for_each(signers.begin(), signers.end(), [&](auto& s){
+            distrib_measure.Measure([&](){
+                ++i;
+                s->CommitKeyShares();
+                if(i % 100 == 99)
+                {
+                    std::clog << "Peer " << i << " commited key share" << std::endl;
+                }
+                return 0;
+            });
+        });
+        distrib_measure.Report(std::clog);
+    }
 
     {
         TimeMeasure distrib_measure("Exchange Key shares");

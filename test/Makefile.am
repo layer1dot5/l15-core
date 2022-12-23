@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/src/frost \
  -I$(top_srcdir)/src/service \
  -I$(top_srcdir)/src/app
 
@@ -20,7 +21,7 @@ AM_CPPFLAGS = \
 AM_LDFLAGS=$(ZMQ_LDFLAGS) -L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
 L15_LIBS = \
-$(top_builddir)/src/app/libl15-app.la \
+$(top_builddir)/src/frost/libl15-frost.la \
 $(top_builddir)/src/service/libl15-srv.la \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \

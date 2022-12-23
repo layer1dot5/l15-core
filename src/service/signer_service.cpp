@@ -4,23 +4,30 @@
 
 namespace l15::signer_service {
 
-void SignerService::Accept(const xonly_pubkey &pk, p2p::frost_message_ptr msg)
+void SignerService::Accept(std::shared_ptr<core::SignerApi> ps, p2p::frost_message_ptr msg)
 {
-    auto it = m_signers.find(&pk);
-    if (it != m_signers.end()) {
-        std::shared_ptr<core::SignerApi> signer = it->second;
+    ps->Accept(*msg);
 
-        signer->Accept(*msg);
-
-        //mBgService->Serve([=](){ signer->Accept(*msg); });
-    }
+    //mBgService->Serve([=](){ ps->Accept(*msg); });
 }
 
-
-std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey &signer_key)
+std::future<void> SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> ps)
 {
-    auto ps = m_signers[&signer_key];
+    std::promise<void> p;
+    auto res = p.get_future();
 
+    mBgService->Serve([ps](std::promise<void>&& p1)
+                      {
+                          ps->CommitKeyShares();
+                          p1.set_value();
+                      }, move(p));
+
+    return move(res);
+
+}
+
+std::future<const xonly_pubkey&> SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> ps)
+{
     std::promise<const xonly_pubkey&> p;
     auto res = p.get_future();
 
@@ -39,10 +46,8 @@ std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey 
     return move(res);
 }
 
-std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, size_t count)
+std::future<void> SignerService::PublishNonces(std::shared_ptr<core::SignerApi> ps, size_t count)
 {
-    auto ps = m_signers[&signer_key];
-
     std::promise<void> p;
     auto res = p.get_future();
 
@@ -55,11 +60,8 @@ std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, s
     return move(res);
 }
 
-std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const uint256 &message, core::operation_id opid)
+std::future<signature> SignerService::Sign(std::shared_ptr<core::SignerApi> ps, const uint256 &message, core::operation_id opid)
 {
-
-    auto ps = m_signers[&signer_key];
-
     std::promise<signature> p;
     auto res = p.get_future();
 

@@ -19,12 +19,12 @@ using namespace p2p;
 
 SignerApi::SignerApi(ChannelKeys &&keypair,
                      size_t cluster_size,
-                     size_t threshold_size,
-                     error_handler e)
+                     size_t threshold_size)
 
     : m_ctx(keypair.Secp256k1Context())
     , mKeypair(keypair)
     , mKeyShare(m_ctx)
+    , m_keyshare_random_session()
     , m_nonce_count(0)
     , m_threshold_size(threshold_size)
     , m_peers_data(cluster_size)
@@ -33,7 +33,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_key_handler()
     , m_secnonces()
     , mHandlers()
-    , m_err_handler(std::move(e))
+    , m_err_handler([](Error&&){})
 {
     mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
     mHandlers[(size_t)FROST_MESSAGE::KEY_COMMITMENT] = &SignerApi::AcceptKeyShareCommitment;
@@ -41,7 +41,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_COMMITMENT] = &SignerApi::AcceptSignatureCommitment;
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerApi::AcceptSignatureShare;
 
-    AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), [this](p2p::frost_message_ptr&& m){ Accept(*m); });
+    AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), [this](const xonly_pubkey& pk, p2p::frost_message_ptr&& m){ Accept(*m); });
 }
 
 void SignerApi::Accept(const FrostMessage& m)
@@ -265,10 +265,9 @@ void SignerApi::CommitNonces(size_t count)
     m_nonce_count += count;
 }
 
-void SignerApi::DistributeKeySharesImpl()
+void SignerApi::CommitKeyShares()
 {
-    seckey session;
-    GetStrongRandBytes(session);
+    GetStrongRandBytes(m_keyshare_random_session);
 
     secp256k1_keypair keypair;
     if (!secp256k1_keypair_create(m_ctx, &keypair, mKeypair.GetLocalPrivKey().data())) {
@@ -285,17 +284,25 @@ void SignerApi::DistributeKeySharesImpl()
 
     if (!secp256k1_frost_share_gen(m_ctx,
                                    message->share_commitment.data(), &(tmp_share),
-                                   session.data(), &keypair, &thispk, m_threshold_size)) {
+                                   m_keyshare_random_session.data(), &keypair, &thispk, m_threshold_size)) {
         throw SignatureError("FROST share generation error");
     }
 
     Publish(move(message));
+}
+
+void SignerApi::DistributeKeySharesImpl()
+{
+    secp256k1_keypair keypair;
+    if (!secp256k1_keypair_create(m_ctx, &keypair, mKeypair.GetLocalPrivKey().data())) {
+        throw WrongKeyError();
+    }
 
     SendToPeers<KeyShare>([&](KeyShare& m, const xonly_pubkey& remote_pk, const RemoteSignerData& s){
         secp256k1_xonly_pubkey pk = remote_pk.get(m_ctx);
         if (!secp256k1_frost_share_gen(m_ctx,
                                        nullptr, &(m.share),
-                                       session.data(), &keypair, &pk, m_threshold_size)) {
+                                       m_keyshare_random_session.data(), &keypair, &pk, m_threshold_size)) {
             throw SignatureError("secp256k1_frost_share_gen");
         }
     });

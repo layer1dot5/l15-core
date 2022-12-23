@@ -1,2 +1,2 @@
-SUBDIRS = common service core app tools
+SUBDIRS = common frost service core tools
 

@@ -13,6 +13,8 @@ namespace l15::p2p {
 
 
 enum class FROST_MESSAGE: uint16_t {
+    NO_VALUE,
+    KEEP_ALIVE = NO_VALUE,
     NONCE_COMMITMENTS,
     KEY_COMMITMENT,
     KEY_SHARE,
@@ -34,24 +36,25 @@ STREAM& operator >> (STREAM& s, FROST_MESSAGE& p)
 class FrostMessage;
 
 typedef std::shared_ptr<FrostMessage> frost_message_ptr;
-typedef std::function<void(frost_message_ptr)> frost_link_handler;
+//typedef std::function<void(frost_message_ptr)> frost_link_handler;
 
 class FrostMessage : public Message
 {
 public:
     FROST_MESSAGE id;
+    FROST_MESSAGE confirmed_id;
     xonly_pubkey pubkey;
 
-    FrostMessage(FROST_MESSAGE msg_id, xonly_pubkey&& pk): Message(PROTOCOL::FROST), id(msg_id), pubkey(move(pk)) {}
-    FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST), id(r.id), pubkey(move(r.pubkey)) {}
+    FrostMessage(FROST_MESSAGE msg_id, xonly_pubkey&& pk): Message(PROTOCOL::FROST), id(msg_id), confirmed_id(FROST_MESSAGE::NO_VALUE), pubkey(move(pk)) {}
+    FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST), id(r.id), confirmed_id(r.confirmed_id), pubkey(move(r.pubkey)) {}
 
     template <typename STREAM>
     void Serialize(STREAM& stream) const
-    { stream << protocol_id << id << pubkey; }
+    { stream << protocol_id << id << confirmed_id << pubkey; }
 
     template <typename STREAM>
     void Unserialize(STREAM& stream)
-    { stream >> protocol_id >> id >> pubkey; }
+    { stream >> protocol_id >> id >> confirmed_id >> pubkey; }
 
     ~FrostMessage() override = default;
 
@@ -59,7 +62,7 @@ public:
     { return ""; };
 
 protected:
-    FrostMessage() : Message(PROTOCOL::WRONG_PROTOCOL), id(FROST_MESSAGE::MESSAGE_ID_COUNT), pubkey() {}
+    FrostMessage() : Message(PROTOCOL::WRONG_PROTOCOL), id(FROST_MESSAGE::NO_VALUE), confirmed_id(FROST_MESSAGE::NO_VALUE), pubkey() {}
 
     template<typename STREAM>
     friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);

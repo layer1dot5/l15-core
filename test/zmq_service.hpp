@@ -5,6 +5,8 @@
 #include <mutex>
 #include <semaphore>
 
+#include <tbb/concurrent_vector.h>
+
 #include "common.hpp"
 #include "zmq_context.hpp"
 #include "p2p_frost.hpp"
@@ -14,6 +16,8 @@ namespace l15 {
 namespace service {
     class GenericService;
 }
+
+typedef std::function<void(p2p::frost_message_ptr)> frost_link_handler;
 
 class FrostMessagePipeLine {
     xonly_pubkey m_pk;
@@ -50,7 +54,7 @@ public:
     void ConfirmPhase(p2p::FROST_MESSAGE confirm_phase);
 };
 
-class ZmqService// : public service::ZmqContextSingleton
+class ZmqService : public p2p::P2PInterface<xonly_pubkey, p2p::FrostMessage>
 {
 public:
     typedef std::tuple<std::string,
@@ -68,17 +72,15 @@ private:
 
     const secp256k1_context_struct *m_ctx;
     std::optional<zmq::context_t> zmq_ctx;
-    const xonly_pubkey m_pk;
-    const p2p::FROST_MESSAGE m_end_phase;
     peers_map m_peers;
     std::shared_mutex m_peers_mutex;
 
     std::shared_ptr<service::GenericService> mTaskService;
 
-    std::string m_server_addr;
+    tbb::concurrent_vector<std::string> m_server_addresses;
 
     std::mutex m_protocol_confirmation_mutex;
-    std::binary_semaphore m_exit_sem;
+    std::shared_mutex m_exit_mutex;
 
 private:
     static inline std::string& peer_address(peer_state& state) { return get<0>(*state); }
@@ -88,20 +90,20 @@ private:
     static inline FrostMessagePipeLine& peer_incoming_pipeline(peer_state& state) { return get<4>(*state); }
     static inline std::mutex& peer_incoming_mutex(peer_state& state) { return *get<5>(*state); }
 
-    void ListenCycle(p2p::frost_link_handler h);
+    void ListenCycle(const std::string server_addr, frost_link_handler h);
     void CheckPeers();
 
     void SendInternal(ZmqService::peer_state peer, p2p::frost_message_ptr m);
 
-    void ProcessIncomingPipeline(peer_state peer, p2p::frost_link_handler h);
+    void ProcessIncomingPipeline(peer_state peer, frost_link_handler h);
     void ProcessOutgoingPipeline(peer_state peer);
     void SendWithPipeline(peer_state peer, p2p::frost_message_ptr m);
 
 public:
-    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv, xonly_pubkey pk, p2p::FROST_MESSAGE end_phase)
-    : m_ctx(ctx), zmq_ctx(zmq::context_t(10, 1005)), m_pk(move(pk)), m_end_phase(end_phase), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex(), m_exit_sem(0) {}
+    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
+    : m_ctx(ctx), zmq_ctx(zmq::context_t(10)), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex() {}
 
-    ~ZmqService();
+    ~ZmqService() override;
 
     void AddPeer(xonly_pubkey&& pk, string&& addr)
     {
@@ -116,10 +118,9 @@ public:
     const peers_map& GetPeersMap() const
     { return m_peers; }
 
-    void StartService(const std::string& addr, p2p::frost_link_handler&& h);
-
-    void Publish(p2p::frost_message_ptr m);
-    void Send(const xonly_pubkey& pk, p2p::frost_message_ptr m);
+    void Publish(p2p::frost_message_ptr m) override;
+    void Send(const xonly_pubkey& pk, p2p::frost_message_ptr m) override;
+    void Subscribe(const xonly_pubkey&, std::function<void(p2p::frost_message_ptr)>) override;
 
     void WaitForConfirmations();
 };

@@ -14,30 +14,28 @@ const std::string ZmqService::STOP("stop");
 
 ZmqService::~ZmqService()
 {
-    if (!m_server_addr.empty()) {
+    for (std::string server_addr: m_server_addresses) {
         zmq::socket_t sock(zmq_ctx.value(), zmq::socket_type::push);
         zmq::message_t stop(STOP);
 
-        std::string local_addr = m_server_addr.replace(m_server_addr.find('*'), 1, "localhost");
+        std::string local_addr = server_addr.replace(server_addr.find('*'), 1, "localhost");
 
         sock.connect(local_addr);
         sock.send(stop, zmq::send_flags::none);
-        m_exit_sem.acquire();
         sock.close();
 
-        //std::binary_semaphore peers_sem(0);
-        mTaskService->Serve([this]() {
-            std::shared_lock lock(m_peers_mutex);
+//        mTaskService->Serve([this]() {
+//            std::shared_lock lock(m_peers_mutex);
             for (auto &peer: m_peers) {
                 peer_socket(peer.second).close();
             }
-            //peers_sem.release();
-        });
-        //peers_sem.acquire();
+//        });
 
-        std::unique_lock lock(m_peers_mutex);
+//        std::unique_lock lock(m_peers_mutex);
         m_peers.clear();
     }
+
+    std::unique_lock exit_lock(m_exit_mutex);
 
     if (zmq_ctx.has_value()) {
         zmq_ctx->shutdown();
@@ -45,15 +43,16 @@ ZmqService::~ZmqService()
     }
 }
 
-void ZmqService::StartService(const std::string& addr, p2p::frost_link_handler&& h)
+void ZmqService::Subscribe(const xonly_pubkey& local_pk, std::function<void(p2p::frost_message_ptr)> h)
 {
-    m_server_addr = addr;
-
-    for (auto &peer: m_peers) {
-        peer_socket(peer.second).connect(peer_address(peer.second));
+    auto peer_it = m_peers.find(local_pk);
+    if (peer_it != m_peers.end()) {
+        m_server_addresses.push_back(peer_address(peer_it->second));
+        std::thread(&ZmqService::ListenCycle, this, peer_address(peer_it->second), move(h)).detach();
     }
-
-    std::thread(&ZmqService::ListenCycle, this, move(h)).detach();
+    else {
+        throw p2p::WrongPeer(hex(local_pk));
+    }
 }
 
 void ZmqService::Publish(p2p::frost_message_ptr m)
@@ -76,7 +75,7 @@ void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m)
     SendWithPipeline(peer_it->second, move(m));
 }
 
-void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state peer, p2p::frost_link_handler h)
+void ZmqService::ProcessIncomingPipeline(ZmqService::peer_state peer, frost_link_handler h)
 {
     try {
         std::unique_lock lock(peer_incoming_mutex(peer), std::try_to_lock);
@@ -106,10 +105,10 @@ void ZmqService::SendInternal(ZmqService::peer_state peer, p2p::frost_message_pt
     if (msg) {
         p2p::Serialize(data, m_ctx, *msg);
     }
-    else {
-        p2p::FrostMessage m(p2p::FROST_MESSAGE::MESSAGE_ID_COUNT, xonly_pubkey(m_pk));
-        m.Serialize(data);
-    }
+//    else {
+//        p2p::FrostMessage m(p2p::FROST_MESSAGE::MESSAGE_ID_COUNT, xonly_pubkey(m_pk));
+//        m.Serialize(data);
+//    }
 
     auto cur_phase = peer_incoming_pipeline(peer).GetCurPhase();
     data << cur_phase;
@@ -192,12 +191,6 @@ void ZmqService::CheckPeers()
                         p2p::frost_message_ptr in_msg = peer_incoming_pipeline(peer.second).PeekUnconfirmedMessage(std::chrono::seconds(7), unconfirmed_in_count);
                         confirmation_wait_count += unconfirmed_in_count;
 
-                        //std::clog << "Check peer's incoming pipeline | current phase: " << static_cast<uint16_t>(peer_outgoing_pipeline(peer.second).GetCurPhase()) << ", unconfirmed count: " << unconfirmed_in_count << std::endl;
-
-                        if (in_msg && peer_outgoing_pipeline(peer.second).GetCurPhase() == m_end_phase) {
-                            //std::clog << "Schedule confirmation send for peer" << std::endl;
-                            SendInternal(peer.second, nullptr);
-                        }
                     }
                 }
             }
@@ -222,15 +215,17 @@ void ZmqService::CheckPeers()
 }
 
 
-void ZmqService::ListenCycle(p2p::frost_link_handler h)
+void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h)
 {
+    std::shared_lock thread_lock(m_exit_mutex);
+
     cex::stream<std::deque<uint8_t>> buffer;
 
     zmq::socket_t server_sock(zmq_ctx.value(), zmq::socket_type::pull);
 
-    server_sock.bind(m_server_addr);
+    server_sock.bind(server_addr);
 
-    std::clog << "Listening at: " << m_server_addr << std::endl;
+    std::clog << "Listening at: " << server_addr << std::endl;
 
     for(bool next_block = false;;) {
         try {
@@ -241,7 +236,7 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
                     try {
                         msg = p2p::Unserialize(m_ctx, buffer);
                     }
-                    catch(p2p::WrongMessage e) {
+                    catch(p2p::WrongMessage& e) {
                         if (e.protocol_id != static_cast<uint16_t>(p2p::PROTOCOL::FROST) ||
                             e.message_id != static_cast<uint16_t>(p2p::FROST_MESSAGE::MESSAGE_ID_COUNT))
                         {
@@ -319,8 +314,6 @@ void ZmqService::ListenCycle(p2p::frost_link_handler h)
     }
 
     server_sock.close();
-
-    m_exit_sem.release();
 }
 
 void ZmqService::WaitForConfirmations()

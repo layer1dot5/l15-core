@@ -101,7 +101,7 @@ AC_CONFIG_FILES([Makefile
                  src/tools/Makefile
                  src/core/Makefile
                  src/service/Makefile
-                 src/app/Makefile
+                 src/frost/Makefile
                  test/Makefile
                  test/core/Makefile
                  test/p2p/Makefile
