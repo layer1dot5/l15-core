@@ -6,6 +6,7 @@
 #include <semaphore>
 
 #include <tbb/concurrent_vector.h>
+#include <boost/container/flat_map.hpp>
 
 #include "common.hpp"
 #include "zmq_context.hpp"
@@ -82,6 +83,9 @@ private:
     std::mutex m_protocol_confirmation_mutex;
     std::shared_mutex m_exit_mutex;
 
+    std::function<bool(p2p::frost_message_ptr)> m_message_filter;
+    boost::container::flat_map<xonly_pubkey, std::function<void(p2p::frost_message_ptr)>, l15::less<xonly_pubkey>> m_subscription_handlers;
+
 private:
     static inline std::string& peer_address(peer_state& state) { return get<0>(*state); }
     static inline zmq::socket_t& peer_socket(peer_state& state) { return get<1>(*state); }
@@ -100,8 +104,8 @@ private:
     void SendWithPipeline(peer_state peer, p2p::frost_message_ptr m);
 
 public:
-    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv)
-    : m_ctx(ctx), zmq_ctx(zmq::context_t(10)), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex() {}
+    explicit ZmqService(const secp256k1_context_struct *ctx, std::shared_ptr<service::GenericService> srv, std::function<bool(p2p::frost_message_ptr)> msg_filter = [](p2p::frost_message_ptr){ return true;})
+    : m_ctx(ctx), zmq_ctx(zmq::context_t(10)), m_peers(), mTaskService(move(srv)), m_protocol_confirmation_mutex(), m_exit_mutex(), m_message_filter(move(msg_filter)) {}
 
     ~ZmqService() override;
 
@@ -117,6 +121,9 @@ public:
 
     const peers_map& GetPeersMap() const
     { return m_peers; }
+
+    const std::function<void(p2p::frost_message_ptr)>& GetMessageHandler(const xonly_pubkey& pk)
+    { return m_subscription_handlers.at(pk); }
 
     void Publish(p2p::frost_message_ptr m) override;
     void Send(const xonly_pubkey& pk, p2p::frost_message_ptr m) override;

@@ -48,7 +48,13 @@ void ZmqService::Subscribe(const xonly_pubkey& local_pk, std::function<void(p2p:
     auto peer_it = m_peers.find(local_pk);
     if (peer_it != m_peers.end()) {
         m_server_addresses.push_back(peer_address(peer_it->second));
-        std::thread(&ZmqService::ListenCycle, this, peer_address(peer_it->second), move(h)).detach();
+        m_subscription_handlers[local_pk] = h;
+        std::thread(&ZmqService::ListenCycle, this, peer_address(peer_it->second),
+                    [this, message_handler = move(h)] (p2p::frost_message_ptr m) {
+                        if (m_message_filter(m))
+                            message_handler(m);
+                    }
+        ).detach();
     }
     else {
         throw p2p::WrongPeer(hex(local_pk));
@@ -233,17 +239,7 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
             if (!next_block && !buffer.empty()) {
                 try {
                     p2p::frost_message_ptr msg = nullptr;
-                    try {
-                        msg = p2p::Unserialize(m_ctx, buffer);
-                    }
-                    catch(p2p::WrongMessage& e) {
-                        if (e.protocol_id != static_cast<uint16_t>(p2p::PROTOCOL::FROST) ||
-                            e.message_id != static_cast<uint16_t>(p2p::FROST_MESSAGE::MESSAGE_ID_COUNT))
-                        {
-                            std::rethrow_exception(std::current_exception());
-                        }
-                        msg = std::make_shared<p2p::FrostMessage>(static_cast<p2p::FROST_MESSAGE>(e.message_id), move(e.pubkey));
-                    }
+                    msg = p2p::Unserialize(m_ctx, buffer);
 
                     p2p::FROST_MESSAGE last_recv_id = p2p::FROST_MESSAGE::MESSAGE_ID_COUNT;
                     if (buffer.remains() >= sizeof(p2p::FROST_MESSAGE)) {

@@ -47,6 +47,10 @@ public:
 
     FrostMessage(FROST_MESSAGE msg_id, xonly_pubkey&& pk): Message(PROTOCOL::FROST), id(msg_id), confirmed_id(FROST_MESSAGE::NO_VALUE), pubkey(move(pk)) {}
     FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST), id(r.id), confirmed_id(r.confirmed_id), pubkey(move(r.pubkey)) {}
+    FrostMessage(const FrostMessage& r) : Message(PROTOCOL::FROST), id(r.id), confirmed_id(r.confirmed_id), pubkey(r.pubkey) {}
+
+    virtual bool operator==(const FrostMessage& r) const
+    { return id == r.id && pubkey == r.pubkey; }
 
     template <typename STREAM>
     void Serialize(STREAM& stream) const
@@ -57,6 +61,9 @@ public:
     { stream >> protocol_id >> id >> confirmed_id >> pubkey; }
 
     ~FrostMessage() override = default;
+
+    virtual frost_message_ptr Copy()
+    { return std::make_shared<FrostMessage>(*this); }
 
     virtual std::string ToString() const
     { return ""; };
@@ -116,6 +123,10 @@ public:
 
     explicit NonceCommitments(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::NONCE_COMMITMENTS, move(pk)) {}
     NonceCommitments(NonceCommitments&& r) noexcept : FrostMessage(move(r)), nonce_commitments(move(r.nonce_commitments)) {}
+    NonceCommitments(const NonceCommitments& ) = default;
+
+    bool operator==(const FrostMessage& r) const override
+    { return false; } // Nonce commitments are not confirmed and cannot be repeated
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -167,6 +178,9 @@ public:
         }
     }
 
+    frost_message_ptr Copy() override
+    { return std::make_shared<NonceCommitments>(*this); }
+
     std::string ToString() const override
     {
         std::stringstream buf;
@@ -188,6 +202,7 @@ public:
 
     explicit KeyShareCommitment(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_COMMITMENT, move(pk)) {}
     KeyShareCommitment(KeyShareCommitment&& r) noexcept: FrostMessage(move(r)), share_commitment(move(r.share_commitment)) {}
+    KeyShareCommitment(const KeyShareCommitment& ) = default;
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* ctx, STREAM& stream) const
@@ -242,6 +257,9 @@ public:
         }
     }
 
+    frost_message_ptr Copy() override
+    { return std::make_shared<KeyShareCommitment>(*this); }
+
     std::string ToString() const override
     {
         std::stringstream buf;
@@ -261,18 +279,19 @@ class KeyShare : public FrostMessage
 public:
     secp256k1_frost_share share;
 
-    explicit KeyShare(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_SHARE, move(pk)) {}
+    explicit KeyShare(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_SHARE, move(pk)), share() {}
     KeyShare(KeyShare&& r) noexcept: FrostMessage(move(r)), share(r.share) {}
+    KeyShare(const KeyShare& ) = default;
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
+    void Serialize(const secp256k1_context* , STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream.write(share.data, sizeof(share.data));
     }
 
     template <typename STREAM>
-    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* , STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
 
@@ -284,6 +303,9 @@ public:
 
         stream.read(share.data, sizeof(share.data));
     }
+
+    frost_message_ptr Copy() override
+    { return std::make_shared<KeyShare>(*this); }
 
     std::string ToString() const override
     {
@@ -305,20 +327,24 @@ public:
     uint32_t operation_id;
     SignatureCommitment(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
     SignatureCommitment(SignatureCommitment&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id) {}
+    SignatureCommitment(const SignatureCommitment& ) = default;
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
+    void Serialize(const secp256k1_context* , STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream << operation_id;
     }
 
     template <typename STREAM>
-    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* , STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
         stream >> operation_id;
     }
+
+    frost_message_ptr Copy() override
+    { return std::make_shared<SignatureCommitment>(*this); }
 
     std::string ToString() const override
     {
@@ -342,16 +368,17 @@ public:
 
     SignatureShare(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
     SignatureShare(SignatureShare&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
+    SignatureShare(const SignatureShare& ) = default;
 
     template <typename STREAM>
-    void Serialize(const secp256k1_context* ctx, STREAM& stream) const
+    void Serialize(const secp256k1_context* , STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
         stream << operation_id << share;
     }
 
     template <typename STREAM>
-    void Unserialize(const secp256k1_context* ctx, STREAM& stream)
+    void Unserialize(const secp256k1_context* , STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
 
@@ -363,6 +390,9 @@ public:
 
         stream >> operation_id >> share;
     }
+
+    frost_message_ptr Copy() override
+    { return std::make_shared<SignatureShare>(*this); }
 
     std::string ToString() const override
     {

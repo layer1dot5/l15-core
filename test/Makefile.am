@@ -14,8 +14,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/src/frost \
- -I$(top_srcdir)/src/service \
- -I$(top_srcdir)/src/app
+ -I$(top_srcdir)/src/service
 
 
 AM_LDFLAGS=$(ZMQ_LDFLAGS) -L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto

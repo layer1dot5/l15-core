@@ -70,6 +70,7 @@ void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
         auto& ephemeral_pubkeys = m_peers_data[message.pubkey].ephemeral_pubkeys;
         std::for_each(message.nonce_commitments.begin(), message.nonce_commitments.end(), [&ephemeral_pubkeys](const secp256k1_frost_pubnonce& pubnonce)
         {
+            // TODO: Need implement a check for uniquness
             if (!ephemeral_pubkeys.empty()) {
                 operation_id lastopid = ephemeral_pubkeys.nth(ephemeral_pubkeys.size() - 1)->first;
                 ephemeral_pubkeys[lastopid+1] = pubnonce;

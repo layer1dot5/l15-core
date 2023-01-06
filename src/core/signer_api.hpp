@@ -145,6 +145,7 @@ private:
 
     std::unique_ptr<MovingBinderBase> m_key_handler;
 
+    // TODO: refactor into flat_map<opid, secp256k1_frost_secnonce> and remove secnonce elements when used
     std::list<secp256k1_frost_secnonce> m_secnonces;
 
     std::array<void(SignerApi::*)(const p2p::FrostMessage& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;

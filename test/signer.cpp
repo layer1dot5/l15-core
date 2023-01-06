@@ -4,6 +4,7 @@
 #include <sstream>
 #include <deque>
 #include <memory>
+#include <ranges>
 
 #include <unistd.h>
 
@@ -33,7 +34,7 @@ const char * const DOSIGN = "--sign,-s";
 
 
 
-class Signer
+class TestSigner
 {
     CLI::App mApp;
 
@@ -48,8 +49,8 @@ public:
     boost::container::flat_map<xonly_pubkey, std::string, l15::less<xonly_pubkey>> m_peers;
     std::string mInput;
 
-    Signer();
-    ~Signer() = default;
+    TestSigner();
+    ~TestSigner() = default;
 
     void ProcessConfig(int argc, const char *const argv[])
     {
@@ -74,7 +75,7 @@ public:
 };
 
 
-Signer::Signer()
+TestSigner::TestSigner()
 : mApp("Tool to generate threshold signature", "signer")
 , mVerbose(0), mDryRun(false), mDoSign(false)
 , mTaskService(std::make_shared<service::GenericService>(10))
@@ -119,7 +120,6 @@ Signer::Signer()
                     "Input message to sign")->configurable(true);
 }
 
-//error_handler error_hdl = [](Error&& e) { std::cerr << (std::ostringstream() << "Fatal error: " << e.what() << ": " << e.details()).str() << std::endl; exit(1); };
 
 int main(int argc, char* argv[])
 {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
         std::deque<p2p::frost_message_ptr> message_cache;
         std::mutex message_cache_mutex;
         std::atomic<bool> agg_pubkey_ready = false;
-        Signer config;
+        TestSigner config;
         config.ProcessConfig(argc, argv);
 
         if (config.mVerbose > 1) config.Print();
@@ -142,17 +142,6 @@ int main(int argc, char* argv[])
                              ? l15::core::ChannelKeys(config.mWallet.Secp256k1Context())
                              : l15::core::ChannelKeys(config.mWallet.Secp256k1Context(), std::move(sk));
 
-//        size_t N = config.m_peers.size();
-//        size_t K = (N%2) ? (N+1)/2 : N/2;
-//
-//        std::shared_ptr<SignerApi> signer = std::make_shared<SignerApi>(
-//                         config.mSecKey.empty()
-//                             ? l15::core::ChannelKeys(config.mWallet.Secp256k1Context())
-//                             : l15::core::ChannelKeys(config.mWallet.Secp256k1Context(), std::move(sk)),
-//                         N, K);
-//
-//        signer->SetErrorHandler(error_hdl);
-//
         if (config.mVerbose) {
             std::clog << "pid: " << getpid() << "\n";
 //            std::clog << "sign: " << K << "-of-" << N << "\n";
@@ -166,7 +155,34 @@ int main(int argc, char* argv[])
 
         std::shared_ptr<ZmqService> peerService = std::make_shared<ZmqService>(
                 config.mWallet.Secp256k1Context(),
-                config.mTaskService);
+                config.mTaskService, [&, verbose = config.mVerbose](p2p::frost_message_ptr m) {
+                    if ((m->id == p2p::FROST_MESSAGE::SIGNATURE_COMMITMENT || m->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE) && !agg_pubkey_ready) {
+                        {
+                            std::lock_guard lock(message_cache_mutex);
+                            message_cache.emplace_back(m);
+                        }
+                        if (verbose == 2)
+                            std::clog << (std::ostringstream() << "<<<< " << m->ToString() << " >>>> move to cache until agg pubkey is ready").str()
+                                      << std::endl;
+                        return false;
+                    }
+
+                    if (m->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE) {
+                        std::unique_lock lock(message_cache_mutex);
+                        if (std::find_if(message_cache.begin(), message_cache.end(), [m](auto m1) { return m1->pubkey == m->pubkey; }) !=
+                            message_cache.end()) {
+                            message_cache.emplace_back(m);
+                            lock.unlock();
+                            if (verbose == 2)
+                                std::clog << (std::ostringstream() << "<<<< " << m->ToString()
+                                                                   << " >>>> move to cache until sig commitment is processed").str() << std::endl;
+                            return false;
+                        }
+                    }
+
+                    if (verbose == 2) std::clog << (std::ostringstream() << "<<<< " << m->ToString()).str() << std::endl;
+                    return true;
+                });
 
         for (const auto &peer: config.m_peers) {
             if (peer.first != keypair.GetLocalPubKey()) {
@@ -179,67 +195,14 @@ int main(int argc, char* argv[])
             }
         }
 
-
-//        //config.mPeerService.SetSelfPubKey(signer->GetLocalPubKey());
-//        signer->SetPublisher([&peerService, verbose = config.mVerbose](p2p::frost_message_ptr m) {
-//            if (verbose == 2) std::clog << ">>>> " << m->ToString() << std::endl;
-//            peerService->Publish(move(m));
-//        });
-//
-//        for (const auto &peer: peerService->GetPeersMap()) {
-//            signer->AddPeer(xonly_pubkey(peer.first), [&, pk = peer.first, verbose = config.mVerbose](const xonly_pubkey& peer_pk, p2p::frost_message_ptr m) {
-//                if (verbose == 2)
-//                    std::clog << (std::ostringstream() << ">>>> " << hex(pk).substr(0, 8) << "... | " << m->ToString()).str() << std::endl;
-//                peerService->Send(pk, move(m));
-//            });
-//        }
-
         if (config.mVerbose) std::clog << "Starting signer =================================================" << std::endl;
         auto signerService = std::make_shared<signer_service::SignerService>(config.mTaskService);
 
-        auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers, signerService, peerService);
-
-//        if (config.mVerbose) std::clog << "Starting network service ================================================" << std::endl;
-//        peerService->StartService(config.mListenAddress, [&, signer, verbose = config.mVerbose](p2p::frost_message_ptr m) {
-//            if ((m->id == p2p::FROST_MESSAGE::SIGNATURE_COMMITMENT || m->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE) && !agg_pubkey_ready) {
-//                {
-//                    std::lock_guard lock(message_cache_mutex);
-//                    message_cache.emplace_back(m);
-//                }
-//                if (verbose == 2)
-//                    std::clog << (std::ostringstream() << "<<<< " << m->ToString() << " >>>> move to cache until agg pubkey is ready").str()
-//                              << std::endl;
-//                return;
-//            }
-//
-//            if (m->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE) {
-//                std::unique_lock lock(message_cache_mutex);
-//                if (std::find_if(message_cache.begin(), message_cache.end(), [m](auto m1) { return m1->pubkey == m->pubkey; }) !=
-//                    message_cache.end()) {
-//                    message_cache.emplace_back(m);
-//                    lock.unlock();
-//                    if (verbose == 2)
-//                        std::clog << (std::ostringstream() << "<<<< " << m->ToString()
-//                                                           << " >>>> move to cache until sig commitment is processed").str() << std::endl;
-//                    return;
-//                }
-//            }
-//
-//            if (verbose == 2) std::clog << (std::ostringstream() << "<<<< " << m->ToString()).str() << std::endl;
-//            signerService.Accept(signer->GetLocalPubKey(), m);
-//        });
-
-
-//        std::future<void> nonce_res;
-//        //if (config.mDoSign) {
-//        if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
-//        nonce_res = signerService.PublishNonces(signer->GetLocalPubKey(), 1);
-//        nonce_res.wait();
-//        //}
+        auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers | std::views::transform([](const auto& el){ return el.first; }), signerService, peerService);
 
         if (config.mVerbose) std::clog << "Aggregated key negotiation =====================================" << std::endl;
 
-        signer->StartKeyAgg();
+        signer->AggregateKey();
 
         auto aggKeyFuture = signer->GetAggregatedPubKey();
         xonly_pubkey shared_pk = aggKeyFuture.get();
@@ -247,49 +210,56 @@ int main(int argc, char* argv[])
 
         std::cout << "\nagg_pk:" << hex(shared_pk) << std::endl;
 
+        if (config.mDoSign) {
+            if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
+            signer->CommitNonces(1).wait();
+        }
+
 //        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //Just get some time to handle what coming to the message cache ^^^
 //
         bool res = true;
-//        if (config.mDoSign) {
-//            while (true) {
-//                p2p::frost_message_ptr m;
-//                {
-//                    std::lock_guard lock(message_cache_mutex);
-//                    if (message_cache.empty())
-//                        break;
-//
-//                    m = message_cache.front();
-//                    message_cache.pop_front();
-//                }
-//
-//                if (config.mVerbose == 2) std::clog << (std::ostringstream() << "==== " << m->ToString()).str() << std::endl;
-//                signerService.Accept(signer->GetLocalPubKey(), move(m));
-//            }
-//
-//            uint256 message;
-//            CSHA256().Write((unsigned char *) config.mInput.data(), config.mInput.length()).Finalize(message.data());
-//
-//            if (config.mVerbose) std::clog << "Signing =================================================================" << std::endl;
-//            auto sign_res = signerService.Sign(signer->GetLocalPubKey(), message, 0);
-//            signature sig = sign_res.get();
-//
-//            std::cout << "sig: " << hex(sig) << std::endl;
-//
-//            try {
-//                signer->Verify(message, sig);
-//            }
-//            catch (SignatureError &e) {
-//                res = false;
-//            }
-//            std::cout << "verify: " << res << std::endl;
-//
-//            std::this_thread::sleep_for(std::chrono::seconds(15)); // take time to send messages from queue if any
-//        }
-//        else {
-//            peerService->WaitForConfirmations();
-//        }
-//
-//        signer.reset();
+        if (config.mDoSign) {
+            while (true) {
+                p2p::frost_message_ptr m;
+                {
+                    std::lock_guard lock(message_cache_mutex);
+                    if (message_cache.empty())
+                        break;
+
+                    m = message_cache.front();
+                    message_cache.pop_front();
+                }
+
+                if (config.mVerbose == 2) std::clog << (std::ostringstream() << "==== " << m->ToString()).str() << std::endl;
+
+                peerService->GetMessageHandler(keypair.GetLocalPubKey())(move(m));
+            }
+
+            uint256 message;
+            CSHA256().Write((unsigned char *) config.mInput.data(), config.mInput.length()).Finalize(message.data());
+
+            if (config.mVerbose) std::clog << "Signing =================================================================" << std::endl;
+
+            auto sign_res = signer->Sign(message, 1);
+            signature sig = sign_res.get();
+
+            std::cout << "sig: " << hex(sig) << std::endl;
+
+            try {
+                signer->Verify(message, sig);
+            }
+            catch (SignatureError &e) {
+                res = false;
+            }
+            std::cout << "verify: " << res << std::endl;
+
+            std::this_thread::sleep_for(std::chrono::seconds(15)); // take time to send messages from queue if any
+        }
+        else {
+            peerService->WaitForConfirmations();
+        }
+
+        signer.reset();
         return res ? 0 : 1;
     }
     catch (const CLI::Error& e) {
