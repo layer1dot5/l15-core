@@ -1,6 +1,6 @@
 
 AM_CPPFLAGS = \
- -I$(top_srcdir)/test \
+ -DZMQ_BUILD_DRAFT_API=1 $(ZMQ_CPPFLAGS) \
  -I$(top_srcdir)/contrib \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/contrib/cli11 \
@@ -15,7 +15,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/service
 
 
-AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
+AM_LDFLAGS=-L$(top_builddir)/node/src
 
 L15_LIBS = \
 $(top_builddir)/src/service/libl15-srv.la \

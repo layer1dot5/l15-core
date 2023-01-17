@@ -34,6 +34,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_secnonces()
     , mHandlers()
     , m_err_handler([](Error&&){})
+    , m_operation_seqnum(1)
 {
     mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
     mHandlers[(size_t)FROST_MESSAGE::KEY_COMMITMENT] = &SignerApi::AcceptKeyShareCommitment;
@@ -245,7 +246,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
 
 void SignerApi::CommitNonces(size_t count)
 {
-    std::unique_ptr<NonceCommitments> message = std::make_unique<NonceCommitments>(xonly_pubkey(mKeypair.GetPubKey()));
+    std::unique_ptr<NonceCommitments> message = std::make_unique<NonceCommitments>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetPubKey()));
     message->nonce_commitments.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
@@ -278,7 +279,7 @@ void SignerApi::CommitKeyShares()
     //TODO: Optimization is needed by parallelisation (but only when secp256k1_frost is optimized at commitment generation)
 
     secp256k1_frost_share tmp_share;
-    std::unique_ptr<KeyShareCommitment> message = std::make_unique<KeyShareCommitment>(xonly_pubkey(mKeypair.GetPubKey()));
+    std::unique_ptr<KeyShareCommitment> message = std::make_unique<KeyShareCommitment>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetPubKey()));
     message->share_commitment.resize(m_threshold_size);
 
     secp256k1_xonly_pubkey thispk = mKeypair.GetPubKey().get(m_ctx);
@@ -401,7 +402,7 @@ signature SignerApi::AggregateSignature(operation_id opid)
 
 void SignerApi::InitSignatureImpl(operation_id opid)
 {
-    Publish(std::make_unique<SignatureCommitment>(xonly_pubkey(mKeypair.GetLocalPubKey()), opid));
+    Publish(std::make_unique<SignatureCommitment>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetLocalPubKey()), opid));
 }
 
 void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
@@ -483,7 +484,7 @@ void SignerApi::DistributeSigShares(operation_id opid)
         throw SignatureError("Signing error");
     }
 
-    std::unique_ptr<SignatureShare> message = std::make_unique<SignatureShare>(xonly_pubkey(mKeypair.GetPubKey()), opid);
+    std::unique_ptr<SignatureShare> message = std::make_unique<SignatureShare>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetPubKey()), opid);
     secp256k1_frost_partial_sig_serialize(m_ctx, message->share.data(), &sigshare);
 
     Publish(move(message));

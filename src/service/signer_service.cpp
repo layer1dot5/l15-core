@@ -11,93 +11,117 @@ void SignerService::Accept(std::shared_ptr<core::SignerApi> ps, p2p::frost_messa
     //mBgService->Serve([=](){ ps->Accept(*msg); });
 }
 
-std::future<void> SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> ps)
+void SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> ps,
+                                              std::function<void()>&& on_complete,
+                                              std::function<void()>&& on_error)
 {
-    std::promise<void> p;
-    auto res = p.get_future();
-
-    mBgService->Serve([ps](std::promise<void>&& p1)
-                      {
-                          ps->CommitKeyShares();
-                          p1.set_value();
-                      }, move(p));
-
-    return move(res);
-
+    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() {
+        try {
+            auto ps(ws.lock());
+            if (ps) {
+                ps->CommitKeyShares();
+                on_complete();
+            }
+            else {
+                std::cerr << "Signer API destroyed" << std::endl;
+            }
+        }
+        catch (...) {
+            on_error();
+        }
+    });
 }
 
-std::future<const xonly_pubkey&> SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> ps)
+void SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> ps,
+                                 std::function<void(const xonly_pubkey&)>&& on_complete,
+                                 std::function<void()>&& on_error)
 {
-    std::promise<const xonly_pubkey&> p;
-    auto res = p.get_future();
-
-    mBgService->Serve([this, ps](std::promise<const xonly_pubkey&>&& p1)
-        {
-            ps->DistributeKeyShares([this, ps] (std::promise<const xonly_pubkey&>&& p2)
-                {
-                    mBgService->Serve([ps](std::promise<const xonly_pubkey&>&& p3)
-                    {
-                        ps->AggregateKey();
-                        p3.set_value(ps->GetAggregatedPubKey());
-                    }, move(p2));
-                }, move(p1));
-        }, move(p));
-
-    return move(res);
+    mBgService->Serve([bgService = mBgService, ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() {
+        try {
+            auto ps(ws.lock());
+            if (ps) {
+                ps->DistributeKeyShares([bgService, ws, on_complete, on_error]() {
+                    bgService->Serve([ws, on_complete, on_error]() {
+                        auto ps(ws.lock());
+                        if (ps) {
+                            try {
+                                ps->AggregateKey();
+                                on_complete(ps->GetAggregatedPubKey());
+                            }
+                            catch (...) {
+                                on_error();
+                            }
+                        }
+                        else {
+                            std::cerr << "Signer API destroyed" << std::endl;
+                        }
+                    });
+                });
+            }
+            else {
+                std::cerr << "Signer API destroyed" << std::endl;
+            }
+        }
+        catch (...) {
+            on_error();
+        }
+    });
 }
 
-std::future<void> SignerService::PublishNonces(std::shared_ptr<core::SignerApi> ps, size_t count)
+void SignerService::PublishNonces(std::shared_ptr<core::SignerApi> ps, size_t count,
+                                               std::function<void()>&& on_complete,
+                                               std::function<void()>&& on_error)
 {
-    std::promise<void> p;
-    auto res = p.get_future();
-
-    mBgService->Serve([ps, count](std::promise<void>&& p1)
-        {
-            ps->CommitNonces(count);
-            p1.set_value();
-        }, move(p));
-
-    return move(res);
+    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), count, on_complete = move(on_complete), on_error = move(on_error)]() {
+        try {
+            auto ps(ws.lock());
+            if (ps) {
+                ps->CommitNonces(count);
+                on_complete();
+            }
+            else {
+                std::cerr << "Signer API destroyed" << std::endl;
+            }
+        }
+        catch(...) {
+            on_error();
+        }
+    });
 }
 
-std::future<signature> SignerService::Sign(std::shared_ptr<core::SignerApi> ps, const uint256 &message, core::operation_id opid)
+void SignerService::Sign(std::shared_ptr<core::SignerApi> ps, const uint256 &message, core::operation_id opid,
+                         std::function<void(signature)>&& on_complete,
+                         std::function<void()>&& on_error)
 {
-    std::promise<signature> p;
-    auto res = p.get_future();
+    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), message, opid, on_complete = move(on_complete), on_error = move(on_error)]() {
 
-    mBgService->Serve([=](std::promise<signature>&& p1)
-        {
-
-            auto comm_recv_hdl =  [=]()
-            {
+        auto ps(ws.lock());
+        if (ps) {
+            ps->InitSignature(opid, core::make_moving_callable([=]() {
                 try {
-                    ps->PreprocessSignature(message, opid);
-                    ps->DistributeSigShares(opid);
+                    auto ps(ws.lock());
+                    if (ps) {
+                        ps->PreprocessSignature(message, opid);
+                        ps->DistributeSigShares(opid);
+                    }
                 }
-                catch(std::exception& e) {
-                    // TODO: implement error processing here
-                    std::cerr << "Uncaught error: " << e.what() << std::endl;
+                catch (...) {
+                    on_error();
                 }
-            };
-
-            auto sigshares_recv_hdl = [=](std::promise<signature>&& p2)
-            {
-                try {
-                    p2.set_value(ps->AggregateSignature(opid));
+            }), core::make_moving_callable([=]() {
+                auto ps(ws.lock());
+                if (ps) {
+                    try {
+                        on_complete(ps->AggregateSignature(opid));
+                    }
+                    catch (...) {
+                        on_error();
+                    }
+                    ps->ClearSignatureCache(opid);
                 }
-                catch(...) {
-                    p2.set_exception(std::current_exception());
-                }
-                ps->ClearSignatureCache(opid);
-            };
-
-            ps->InitSignature(opid,
-                              core::make_callable_with_signer(move(comm_recv_hdl)),
-                              core::make_callable_with_signer(move(sigshares_recv_hdl), move(p1))
-            );
-        }, move(p));
-
-    return move(res);
+            }));
+        }
+    });
 }
 
 

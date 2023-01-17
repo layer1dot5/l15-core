@@ -2,7 +2,6 @@
 #include <memory>
 #include <future>
 #include <algorithm>
-#include <ranges>
 
 #include "smartinserter.hpp"
 
@@ -80,26 +79,54 @@ TEST_CASE("2-of-3 local")
     signer2->AddPeer(xonly_pubkey(signer0->GetLocalPubKey()), [&](const auto& pk, frost_message_ptr m){ signerService.Accept(signer0, m); });
     signer2->AddPeer(xonly_pubkey(signer1->GetLocalPubKey()), [&](const auto& pk, frost_message_ptr m){ signerService.Accept(signer1, m); });
 
-    auto commkey_res0 = signerService.PublishKeyShareCommitment(signer0);
-    auto commkey_res1 = signerService.PublishKeyShareCommitment(signer1);
-    auto commkey_res2 = signerService.PublishKeyShareCommitment(signer2);
+    auto commkey_promise0 = std::make_shared<std::promise<void>>();
+    auto commkey_promise1 = std::make_shared<std::promise<void>>();
+    auto commkey_promise2 = std::make_shared<std::promise<void>>();
 
-    commkey_res0.wait();
-    commkey_res1.wait();
-    commkey_res2.wait();
+    auto commkey_res0 = commkey_promise0->get_future();
+    auto commkey_res1 = commkey_promise1->get_future();
+    auto commkey_res2 = commkey_promise2->get_future();
 
-    auto aggkey_res0 = signerService.NegotiateKey(signer0);
-    auto aggkey_res1 = signerService.NegotiateKey(signer1);
-    auto aggkey_res2 = signerService.NegotiateKey(signer2);
+    signerService.PublishKeyShareCommitment(signer0, [p=commkey_promise0](){p->set_value();}, [p=commkey_promise0](){p->set_exception(std::current_exception());});
+    signerService.PublishKeyShareCommitment(signer1, [p=commkey_promise1](){p->set_value();}, [p=commkey_promise1](){p->set_exception(std::current_exception());});
+    signerService.PublishKeyShareCommitment(signer2, [p=commkey_promise2](){p->set_value();}, [p=commkey_promise2](){p->set_exception(std::current_exception());});
+
+    CHECK_NOTHROW(commkey_res0.wait());
+    CHECK_NOTHROW(commkey_res1.wait());
+    CHECK_NOTHROW(commkey_res2.wait());
+
+    auto aggkey_promise0 = std::make_shared<std::promise<const xonly_pubkey&>>();
+    auto aggkey_promise1 = std::make_shared<std::promise<const xonly_pubkey&>>();
+    auto aggkey_promise2 = std::make_shared<std::promise<const xonly_pubkey&>>();
+
+    auto aggkey_res0 = aggkey_promise0->get_future();
+    auto aggkey_res1 = aggkey_promise1->get_future();
+    auto aggkey_res2 = aggkey_promise2->get_future();
+
+    signerService.NegotiateKey(signer0, [p=aggkey_promise0](const xonly_pubkey& pk){p->set_value(pk);}, [p=aggkey_promise0](){p->set_exception(std::current_exception());});
+    signerService.NegotiateKey(signer1, [p=aggkey_promise1](const xonly_pubkey& pk){p->set_value(pk);}, [p=aggkey_promise1](){p->set_exception(std::current_exception());});
+    signerService.NegotiateKey(signer2, [p=aggkey_promise2](const xonly_pubkey& pk){p->set_value(pk);}, [p=aggkey_promise2](){p->set_exception(std::current_exception());});
 
     xonly_pubkey shared_pk0, shared_pk1, shared_pk2;
     CHECK_NOTHROW(shared_pk0 = aggkey_res0.get());
     CHECK_NOTHROW(shared_pk1 = aggkey_res1.get());
     CHECK_NOTHROW(shared_pk2 = aggkey_res2.get());
 
-    auto nonce_res0 = signerService.PublishNonces(signer0, 2);
-    auto nonce_res1 = signerService.PublishNonces(signer1, 2);
-    auto nonce_res2 = signerService.PublishNonces(signer2, 2);
+    REQUIRE_FALSE(IsZeroArray(shared_pk0));
+    CHECK((shared_pk0 == shared_pk1));
+    CHECK((shared_pk0 == shared_pk2));
+
+    auto nonce_promise0 = std::make_shared<std::promise<void>>();
+    auto nonce_promise1 = std::make_shared<std::promise<void>>();
+    auto nonce_promise2 = std::make_shared<std::promise<void>>();
+
+    auto nonce_res0 = nonce_promise0->get_future();
+    auto nonce_res1 = nonce_promise1->get_future();
+    auto nonce_res2 = nonce_promise2->get_future();
+
+    signerService.PublishNonces(signer0, 2, [p=nonce_promise0](){p->set_value();}, [p=nonce_promise0](){p->set_exception(std::current_exception());});
+    signerService.PublishNonces(signer1, 2, [p=nonce_promise1](){p->set_value();}, [p=nonce_promise1](){p->set_exception(std::current_exception());});
+    signerService.PublishNonces(signer2, 2, [p=nonce_promise2](){p->set_value();}, [p=nonce_promise2](){p->set_exception(std::current_exception());});
 
     CHECK_NOTHROW(nonce_res0.wait());
     CHECK_NOTHROW(nonce_res1.wait());
@@ -110,17 +137,23 @@ TEST_CASE("2-of-3 local")
 
     uint256 m(message_data32);
 
-    auto sign_res0 = signerService.Sign(signer0, m, 0);
-    auto sign_res1 = signerService.Sign(signer1, m, 0);
+    auto sig_promise0 = std::make_shared<std::promise<signature>>();
+    auto sig_promise2 = std::make_shared<std::promise<signature>>();
 
-    signature sig0, sig1;
+    auto sign_res0 = sig_promise0->get_future();
+    auto sign_res2 = sig_promise2->get_future();
+
+    signerService.Sign(signer0, m, 1, [p=sig_promise0](signature s){p->set_value(s);}, [p=sig_promise0](){p->set_exception(std::current_exception());});
+    signerService.Sign(signer2, m, 1, [p=sig_promise2](signature s){p->set_value(s);}, [p=sig_promise2](){p->set_exception(std::current_exception());});
+
+    signature sig0, sig2;
     CHECK_NOTHROW(sig0 = sign_res0.get());
-    CHECK_NOTHROW(sig1 = sign_res1.get());
+    CHECK_NOTHROW(sig2 = sign_res2.get());
 
     std::cout << HexStr(sig0) << std::endl;
 
-    REQUIRE_FALSE(IsZeroArray(sig1));
-    CHECK((sig0 == sig1));
+    REQUIRE_FALSE(IsZeroArray(sig0));
+    CHECK((sig0 == sig2));
 
     CHECK_NOTHROW(signer0->Verify(m, sig0));
 }

@@ -200,10 +200,6 @@ int main(int argc, char* argv[])
 
         auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers | std::views::transform([](const auto& el){ return el.first; }), signerService, peerService);
 
-        if (config.mVerbose) std::clog << "Aggregated key negotiation =====================================" << std::endl;
-
-        signer->AggregateKey();
-
         auto aggKeyFuture = signer->GetAggregatedPubKey();
         xonly_pubkey shared_pk = aggKeyFuture.get();
         agg_pubkey_ready = true;
@@ -232,7 +228,7 @@ int main(int argc, char* argv[])
 
                 if (config.mVerbose == 2) std::clog << (std::ostringstream() << "==== " << m->ToString()).str() << std::endl;
 
-                peerService->GetMessageHandler(keypair.GetLocalPubKey())(move(m));
+                peerService->GetMessageHandler()(move(m));
             }
 
             uint256 message;

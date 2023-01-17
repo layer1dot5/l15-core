@@ -1,5 +1,6 @@
 
 AM_CPPFLAGS = $(ZMQ_CPPFLAGS) \
+ -DZMQ_BUILD_DRAFT_API=1 $(ZMQ_CPPFLAGS) \
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
  -I$(top_srcdir)/node/src/consensus \

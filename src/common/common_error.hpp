@@ -8,6 +8,8 @@ class Error : std::exception {
     const std::string m_details;
 public:
     Error() noexcept = default;
+    Error(const Error&) = default;
+    Error(Error&&) noexcept = default;
     explicit Error(std::string&& details) noexcept : m_details(move(details)) {}
     ~Error() override = default;
 

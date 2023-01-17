@@ -44,7 +44,7 @@ TEST_CASE("2-of-3 local")
 
     // Create peers
 
-    general_handler key_hdl = []() {  };
+    const auto key_hdl = []() {  };
     sigop_handler new_sigop_hdl = [](operation_id) { };
     sigop_handler sig_hdl = [](operation_id) { };
     error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
@@ -81,10 +81,13 @@ TEST_CASE("2-of-3 local")
 
 
     // Negotiate Aggregated Pubkey
+    CHECK_NOTHROW(signer0.CommitKeyShares());
+    CHECK_NOTHROW(signer1.CommitKeyShares());
+    CHECK_NOTHROW(signer2.CommitKeyShares());
 
-    CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl));
-    CHECK_NOTHROW(signer1.DistributeKeyShares(key_hdl));
-    CHECK_NOTHROW(signer2.DistributeKeyShares(key_hdl));
+    CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl)); // Check it accepts both lambda
+    CHECK_NOTHROW(signer1.DistributeKeyShares(make_moving_callable(key_hdl))); //and moving callable wrapper
+    CHECK_NOTHROW(signer2.DistributeKeyShares(make_moving_callable(key_hdl)));
 
     CHECK_NOTHROW(signer0.AggregateKey());
     CHECK_NOTHROW(signer1.AggregateKey());
@@ -134,9 +137,9 @@ TEST_CASE("2-of-3 local")
 
     uint256 m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0), false));
-    CHECK_NOTHROW(signer1.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
-    CHECK_NOTHROW(signer2.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
+    CHECK_NOTHROW(signer0.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0), false));
+    CHECK_NOTHROW(signer1.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer2.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
 
     CHECK_NOTHROW(signer0.PreprocessSignature(m, 0));
     CHECK_NOTHROW(signer1.PreprocessSignature(m, 0));
@@ -216,9 +219,9 @@ TEST_CASE("Try sign without pubnonce")
     CHECK_NOTHROW(signer1.CommitKeyShares());
     CHECK_NOTHROW(signer2.CommitKeyShares());
 
-    CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl));
-    CHECK_NOTHROW(signer1.DistributeKeyShares(key_hdl));
-    CHECK_NOTHROW(signer2.DistributeKeyShares(key_hdl));
+    CHECK_NOTHROW(signer0.DistributeKeyShares(make_moving_callable(key_hdl)));
+    CHECK_NOTHROW(signer1.DistributeKeyShares(make_moving_callable(key_hdl)));
+    CHECK_NOTHROW(signer2.DistributeKeyShares(make_moving_callable(key_hdl)));
 
     CHECK_NOTHROW(signer0.AggregateKey());
     CHECK_NOTHROW(signer1.AggregateKey());
@@ -268,9 +271,9 @@ TEST_CASE("Try sign without pubnonce")
 
     uint256 m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0), false));
-    CHECK_NOTHROW(signer1.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
-    CHECK_NOTHROW(signer2.InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0)));
+    CHECK_NOTHROW(signer0.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0), false));
+    CHECK_NOTHROW(signer1.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer2.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
 
     REQUIRE_THROWS(signer0.PreprocessSignature(m, 0));
     REQUIRE_THROWS(signer1.PreprocessSignature(m, 0));
@@ -353,7 +356,7 @@ TEST_CASE("500 of 1K local")
         std::for_each(signers.begin(), signers.end(), [&](auto& s){
             distrib_measure.Measure([&](){
                 ++i;
-                s->DistributeKeyShares(key_hdl);
+                s->DistributeKeyShares(make_moving_callable(key_hdl));
                 if(i % 100 == 99)
                 {
                     std::clog << "Peer " << i << " key share completed" << std::endl;
@@ -412,7 +415,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure initsig_measure("Init signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             initsig_measure.Measure([&]() {
-                signers[i]->InitSignature(0, make_callable_with_signer(new_sigop_hdl, 0), make_callable_with_signer(sig_hdl, 0));
+                signers[i]->InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0));
                 return 0;
             });
         });

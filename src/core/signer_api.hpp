@@ -102,7 +102,7 @@ struct MovingBinder : MovingBinderBase
 };
 
 template <typename Callable, typename... Args>
-MovingBinder<Callable, Args...> make_callable_with_signer(Callable f, Args&&... args)
+MovingBinder<Callable, Args...> make_moving_callable(Callable f, Args&&... args)
 { return MovingBinder<Callable, Args...>(move(f), std::forward<Args>(args)...); }
 
 
@@ -174,6 +174,8 @@ private:
 
     error_handler m_err_handler;
 
+    std::atomic_uint16_t m_operation_seqnum;
+
     void Publish(p2p::frost_message_ptr&& data)
     {
         Accept(*data); //Provide broadcasted data to self
@@ -184,7 +186,7 @@ private:
     void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
         cex::for_each(std::execution::par, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
         {
-            std::unique_ptr<DATA> data = std::make_unique<DATA>(xonly_pubkey(mKeypair.GetLocalPubKey()));
+            std::unique_ptr<DATA> data = std::make_unique<DATA>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetLocalPubKey()));
             datagen(*data, peer.first, peer.second);
             if (mKeypair.GetLocalPubKey() != peer.first) {
                 peer.second.link(peer.first, move(data));
@@ -259,10 +261,17 @@ public:
 
     void CommitKeyShares();
 
-    template<typename Callable, typename... Args>
-    void DistributeKeyShares(Callable key_shares_received_handler, Args&&... args)
+    template<typename Callable>
+    void DistributeKeyShares(const Callable& key_shares_received_handler)
     {
-        m_key_handler = std::make_unique<MovingBinder<Callable, Args...>>(move(key_shares_received_handler), std::forward<Args>(args)...);
+        m_key_handler = std::make_unique<MovingBinder<Callable>>(key_shares_received_handler);
+        DistributeKeySharesImpl();
+    }
+
+    template<typename Callable, typename... Args>
+    void DistributeKeyShares(Callable&& key_shares_received_handler, Args&&... args)
+    {
+        m_key_handler = std::make_unique<MovingBinder<Callable, Args...>>(std::forward<Callable>(key_shares_received_handler), std::forward<Args>(args)...);
         DistributeKeySharesImpl();
     }
 
@@ -284,14 +293,14 @@ public:
                         sigshare_peers_cache(m_threshold_size),
                         (size_t)0,
                         std::make_unique<std::mutex>(),
-                        std::make_unique<Callable1>(std::forward<Callable1>(all_sig_commitments_received_handler)),
-                        std::make_unique<Callable2>(std::forward<Callable2>(all_sig_shares_received_handler)));
+                        std::make_unique<MovingBinder<Callable1>>(std::forward<Callable1>(all_sig_commitments_received_handler)),
+                        std::make_unique<MovingBinder<Callable2>>(std::forward<Callable2>(all_sig_shares_received_handler)));
 
                 m_sigops_cache.emplace(opid, move(peers_cache));
             }
             else {
-                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(std::forward<Callable1>(all_sig_commitments_received_handler));
-                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(std::forward<Callable2>(all_sig_shares_received_handler));
+                SigOpCommitmentsReceived(*opit) = std::make_unique<MovingBinder<Callable1>>(std::forward<Callable1>(all_sig_commitments_received_handler));
+                SigOpSigSharesReceived(*opit) = std::make_unique<MovingBinder<Callable2>>(std::forward<Callable2>(all_sig_shares_received_handler));
             }
         }
 

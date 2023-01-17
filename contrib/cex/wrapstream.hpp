@@ -135,9 +135,9 @@ public:
     const_iterator end() const
     { return m_container.end(); }
 
-    const value_type* data() const
-    { return m_container.data(); }
-
+//    const value_type* data() const
+//    { return m_container.data(); }
+//
     size_type size() const
     { return m_container.size(); }
 };

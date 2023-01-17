@@ -106,6 +106,8 @@ AC_CONFIG_FILES([Makefile
                  test/core/Makefile
                  test/p2p/Makefile
                  test/service/Makefile
+                 test/frost/Makefile
+                 test/testlib/Makefile
                  contrib/Makefile])
 
 

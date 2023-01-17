@@ -1,6 +1,6 @@
 
 AM_CPPFLAGS = \
- -I$(top_srcdir)/test \
+ -I$(top_srcdir)/test/testlib \
  -I$(top_srcdir)/contrib \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/contrib/cli11 \

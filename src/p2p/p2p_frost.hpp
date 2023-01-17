@@ -42,23 +42,23 @@ class FrostMessage : public Message
 {
 public:
     FROST_MESSAGE id;
-    FROST_MESSAGE confirmed_id;
+    uint16_t confirmed_sequence;
     xonly_pubkey pubkey;
 
-    FrostMessage(FROST_MESSAGE msg_id, xonly_pubkey&& pk): Message(PROTOCOL::FROST), id(msg_id), confirmed_id(FROST_MESSAGE::NO_VALUE), pubkey(move(pk)) {}
-    FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST), id(r.id), confirmed_id(r.confirmed_id), pubkey(move(r.pubkey)) {}
-    FrostMessage(const FrostMessage& r) : Message(PROTOCOL::FROST), id(r.id), confirmed_id(r.confirmed_id), pubkey(r.pubkey) {}
+    FrostMessage(uint16_t seq, FROST_MESSAGE msg_id, xonly_pubkey&& pk): Message(PROTOCOL::FROST, seq), id(msg_id), confirmed_sequence(0), pubkey(move(pk)) {}
+    FrostMessage(FrostMessage&& r) noexcept : Message(PROTOCOL::FROST, r.sequence), id(r.id), confirmed_sequence(r.confirmed_sequence), pubkey(move(r.pubkey)) {}
+    FrostMessage(const FrostMessage& r) : Message(PROTOCOL::FROST, r.sequence), id(r.id), confirmed_sequence(r.confirmed_sequence), pubkey(r.pubkey) {}
 
     virtual bool operator==(const FrostMessage& r) const
     { return id == r.id && pubkey == r.pubkey; }
 
     template <typename STREAM>
     void Serialize(STREAM& stream) const
-    { stream << protocol_id << id << confirmed_id << pubkey; }
+    { stream << protocol_id << sequence << confirmed_sequence << id << pubkey; }
 
     template <typename STREAM>
     void Unserialize(STREAM& stream)
-    { stream >> protocol_id >> id >> confirmed_id >> pubkey; }
+    { stream >> protocol_id >> sequence >> confirmed_sequence >> id >> pubkey; }
 
     ~FrostMessage() override = default;
 
@@ -69,7 +69,7 @@ public:
     { return ""; };
 
 protected:
-    FrostMessage() : Message(PROTOCOL::WRONG_PROTOCOL), id(FROST_MESSAGE::NO_VALUE), confirmed_id(FROST_MESSAGE::NO_VALUE), pubkey() {}
+    FrostMessage() : Message(), id(FROST_MESSAGE::NO_VALUE), confirmed_sequence(0), pubkey() {}
 
     template<typename STREAM>
     friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
@@ -115,13 +115,36 @@ public:
 
 };
 
+class UnknownPeer: public Error {
+public:
+    explicit UnknownPeer(std::string&& peer) : Error(move(peer)) {}
+
+    const char* what() const noexcept override
+    { return "UnknownPeer"; }
+};
+
+class SendError: public Error {
+public:
+    explicit SendError(std::string&& peer) : Error(move(peer)) {}
+
+    const char* what() const noexcept override
+    { return "SendError"; }
+};
+
+class WrongAddress: public Error {
+public:
+    explicit WrongAddress(std::string&& addr) : Error(move(addr)) {}
+
+    const char* what() const noexcept override
+    { return "WrongAddress"; }
+};
 
 class NonceCommitments : public FrostMessage
 {
 public:
     std::vector<secp256k1_frost_pubnonce> nonce_commitments;
 
-    explicit NonceCommitments(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::NONCE_COMMITMENTS, move(pk)) {}
+    explicit NonceCommitments(uint16_t sequence, xonly_pubkey&& pk) noexcept : FrostMessage(sequence, FROST_MESSAGE::NONCE_COMMITMENTS, move(pk)) {}
     NonceCommitments(NonceCommitments&& r) noexcept : FrostMessage(move(r)), nonce_commitments(move(r.nonce_commitments)) {}
     NonceCommitments(const NonceCommitments& ) = default;
 
@@ -200,7 +223,7 @@ class KeyShareCommitment : public FrostMessage
 public:
     std::vector<secp256k1_pubkey> share_commitment;
 
-    explicit KeyShareCommitment(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_COMMITMENT, move(pk)) {}
+    explicit KeyShareCommitment(uint16_t sequence, xonly_pubkey&& pk) noexcept : FrostMessage(sequence, FROST_MESSAGE::KEY_COMMITMENT, move(pk)) {}
     KeyShareCommitment(KeyShareCommitment&& r) noexcept: FrostMessage(move(r)), share_commitment(move(r.share_commitment)) {}
     KeyShareCommitment(const KeyShareCommitment& ) = default;
 
@@ -230,7 +253,7 @@ public:
         FrostMessage::Unserialize(stream);
 
         size_t count = stream.remains() / 33;
-        if (count < 3) {
+        if (count < 2) {
             std::stringstream hexstr;
             hexstr << hex(stream);
             throw UnserializeError(hexstr.str());
@@ -279,7 +302,7 @@ class KeyShare : public FrostMessage
 public:
     secp256k1_frost_share share;
 
-    explicit KeyShare(xonly_pubkey&& pk) noexcept : FrostMessage(FROST_MESSAGE::KEY_SHARE, move(pk)), share() {}
+    explicit KeyShare(uint16_t sequence, xonly_pubkey&& pk) noexcept : FrostMessage(sequence, FROST_MESSAGE::KEY_SHARE, move(pk)), share() {}
     KeyShare(KeyShare&& r) noexcept: FrostMessage(move(r)), share(r.share) {}
     KeyShare(const KeyShare& ) = default;
 
@@ -325,7 +348,7 @@ class SignatureCommitment : public FrostMessage
 {
 public:
     uint32_t operation_id;
-    SignatureCommitment(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
+    SignatureCommitment(uint16_t sequence, xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
     SignatureCommitment(SignatureCommitment&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id) {}
     SignatureCommitment(const SignatureCommitment& ) = default;
 
@@ -366,7 +389,7 @@ public:
     uint32_t operation_id;
     frost_sigshare share;
 
-    SignatureShare(xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
+    SignatureShare(uint16_t sequence, xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
     SignatureShare(SignatureShare&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
     SignatureShare(const SignatureShare& ) = default;
 
@@ -453,6 +476,9 @@ frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream)
     FrostMessage header;
     auto pos = stream.position();
     header.Unserialize(stream);
+    if (header.id == FROST_MESSAGE::KEEP_ALIVE) {
+        return std::make_shared<FrostMessage>(move(header));
+    }
     stream.rewind(stream.position() - pos);
 
     switch (header.id) {

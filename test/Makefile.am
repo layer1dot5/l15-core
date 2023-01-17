@@ -1,7 +1,8 @@
-SUBDIRS = core service p2p
+SUBDIRS = testlib core service p2p frost
 
 AM_CPPFLAGS = \
- -I$(top_srcdir)/test \
+ -DZMQ_BUILD_DRAFT_API=1 $(ZMQ_CPPFLAGS) \
+ -I$(top_srcdir)/test/testlib \
  -I$(top_srcdir)/contrib \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/contrib/cli11 \
@@ -17,7 +18,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/service
 
 
-AM_LDFLAGS=$(ZMQ_LDFLAGS) -L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
+AM_LDFLAGS=$(ZMQ_LDFLAGS) -L$(top_builddir)/node/src
 
 L15_LIBS = \
 $(top_builddir)/src/frost/libl15-frost.la \
@@ -25,6 +26,7 @@ $(top_builddir)/src/service/libl15-srv.la \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \
+$(top_builddir)/test/testlib/libl15-test.la \
 -lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
@@ -36,7 +38,7 @@ $(BOOST_FILESYSTEM_LIB)
 
 bin_PROGRAMS = signer
 
-signer_SOURCES = zmq_service.cpp signer.cpp
+signer_SOURCES = signer.cpp
 signer_LDADD = $(L15_LIBS) $(ZMQ_LIBS)
 
 

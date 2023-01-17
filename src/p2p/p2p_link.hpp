@@ -11,13 +11,13 @@ namespace l15::p2p {
 
 struct Message
 {
-    PROTOCOL protocol_id;
+    PROTOCOL protocol_id; //uint16_t
+    uint16_t sequence;
 
-    Message() noexcept : protocol_id(PROTOCOL::WRONG_PROTOCOL) {}
-    explicit Message(PROTOCOL protocol) noexcept : protocol_id(protocol) {}
+    Message() noexcept : protocol_id(PROTOCOL::WRONG_PROTOCOL), sequence(1) {}
+    explicit Message(PROTOCOL protocol, uint16_t seq) noexcept : protocol_id(protocol), sequence(seq) {}
 
     virtual ~Message() = default;
-
 };
 
 
@@ -30,20 +30,18 @@ public:
     { return "WrongProtocol"; }
 };
 
-class WrongPeer: public Error {
-public:
-    explicit WrongPeer(std::string&& peer) : Error(move(peer)) {}
-
-    const char* what() const noexcept override
-    { return "WrongPeer"; }
-};
 
 template <class ADDR, class MESSAGE>
 class P2PInterface {
 public:
-    virtual void Publish(std::shared_ptr<MESSAGE>) = 0;
-    virtual void Send(const ADDR&, std::shared_ptr<MESSAGE>) = 0;
-    virtual void Subscribe(const ADDR&, std::function<void(std::shared_ptr<MESSAGE>)>) = 0;
+    virtual void Publish(std::shared_ptr<MESSAGE>,
+                         std::function<void(const ADDR&, std::shared_ptr<MESSAGE>)> on_send,
+                         std::function<void(const ADDR&, std::shared_ptr<MESSAGE>)> on_error) = 0;
+
+    virtual void Send(const ADDR&, std::shared_ptr<MESSAGE>,
+                      std::function<void()> on_error) = 0;
+
+    virtual void Connect(const ADDR&, std::function<void(std::shared_ptr<MESSAGE>)>) = 0;
 
     virtual ~P2PInterface() = default;
 };
