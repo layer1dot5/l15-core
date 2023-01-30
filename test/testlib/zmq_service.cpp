@@ -97,8 +97,8 @@ void ZmqService::Publish(p2p::frost_message_ptr m,
 
         auto peer_msg = m->Copy();
         mTaskService->Serve([=, this]() {
-            on_send(peer.first, peer_msg);
             try {
+                on_send(peer.first, peer_msg);
                 SendInternal(peer, peer_msg);
             } catch(...) {
                 on_error(peer.first, peer_msg);

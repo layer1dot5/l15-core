@@ -13,18 +13,28 @@ void SignerService::Accept(std::shared_ptr<core::SignerApi> ps, p2p::frost_messa
 
 void SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> ps,
                                               std::function<void()>&& on_complete,
-                                              std::function<void()>&& on_error)
+                                              std::function<void()> on_error)
 {
-    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() {
+    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() mutable {
         try {
-            auto ps(ws.lock());
-            if (ps) {
-                ps->CommitKeyShares();
-                on_complete();
+            if (auto ps = ws.lock()) {
+                ps->CommitKeyShares(move(on_complete));
             }
             else {
                 std::cerr << "Signer API destroyed" << std::endl;
             }
+        }
+        catch (Error& e) {
+            on_error();
+        }
+        catch (std::runtime_error& e) {
+            on_error();
+        }
+        catch (std::exception& e) {
+            on_error();
+        }
+        catch (error_t e) {
+            on_error();
         }
         catch (...) {
             on_error();
@@ -34,14 +44,13 @@ void SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> p
 
 void SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> ps,
                                  std::function<void(const xonly_pubkey&)>&& on_complete,
-                                 std::function<void()>&& on_error)
+                                 std::function<void()> on_error)
 {
-    mBgService->Serve([bgService = mBgService, ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() {
+    mBgService->Serve([bgService = mBgService, ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() mutable {
         try {
-            auto ps(ws.lock());
-            if (ps) {
-                ps->DistributeKeyShares([bgService, ws, on_complete, on_error]() {
-                    bgService->Serve([ws, on_complete, on_error]() {
+            if (auto ps = ws.lock()) {
+                ps->DistributeKeyShares([bgService, ws, on_complete = move(on_complete), on_error]() mutable {
+                    bgService->Serve([ws, on_complete = move(on_complete), on_error]() {
                         auto ps(ws.lock());
                         if (ps) {
                             try {
@@ -70,7 +79,7 @@ void SignerService::NegotiateKey(std::shared_ptr<core::SignerApi> ps,
 
 void SignerService::PublishNonces(std::shared_ptr<core::SignerApi> ps, size_t count,
                                                std::function<void()>&& on_complete,
-                                               std::function<void()>&& on_error)
+                                               std::function<void()> on_error)
 {
     mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), count, on_complete = move(on_complete), on_error = move(on_error)]() {
         try {
@@ -91,9 +100,9 @@ void SignerService::PublishNonces(std::shared_ptr<core::SignerApi> ps, size_t co
 
 void SignerService::Sign(std::shared_ptr<core::SignerApi> ps, const uint256 &message, core::operation_id opid,
                          std::function<void(signature)>&& on_complete,
-                         std::function<void()>&& on_error)
+                         std::function<void()> on_error)
 {
-    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), message, opid, on_complete = move(on_complete), on_error = move(on_error)]() {
+    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), message, opid, on_complete = move(on_complete), on_error = move(on_error)]() mutable {
 
         auto ps(ws.lock());
         if (ps) {
@@ -108,7 +117,7 @@ void SignerService::Sign(std::shared_ptr<core::SignerApi> ps, const uint256 &mes
                 catch (...) {
                     on_error();
                 }
-            }), core::make_moving_callable([=]() {
+            }), core::make_moving_callable([=, on_complete = move(on_complete)]() {
                 auto ps(ws.lock());
                 if (ps) {
                     try {

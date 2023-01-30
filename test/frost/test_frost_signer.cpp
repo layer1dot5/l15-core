@@ -40,7 +40,7 @@ TEST_CASE("2-of-3 local")
     ChannelKeys keypair1(wallet.Secp256k1Context());
     ChannelKeys keypair2(wallet.Secp256k1Context());
 
-    auto service = std::make_shared<service::GenericService>(1);
+    auto service = std::make_shared<service::GenericService>(10);
     auto signerService = std::make_shared<SignerService>(service);
 
     std::shared_ptr<ZmqService> peer0 = std::make_shared<ZmqService>(wallet.Secp256k1Context(), service);
@@ -63,7 +63,9 @@ TEST_CASE("2-of-3 local")
     auto signer2 = make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2);
 
     CHECK_NOTHROW(signer0->Start());
+    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK_NOTHROW(signer1->Start());
+    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK_NOTHROW(signer2->Start());
 
     CHECK_NOTHROW(signer0->AggregateKey());

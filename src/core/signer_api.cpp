@@ -28,6 +28,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_nonce_count(0)
     , m_threshold_size(threshold_size)
     , m_peers_data(cluster_size)
+    , m_keycommit_count(0)
     , m_keyshare_count(0)
     , m_vss_hash()
     , m_key_handler()
@@ -94,7 +95,11 @@ void SignerApi::AcceptKeyShareCommitment(const FrostMessage &m)
     if (peer_it != m_peers_data.end()/*
         && peer_it->second.keyshare_commitment.empty()*/)
     {
+        bool was_empty = peer_it->second.keyshare_commitment.empty();
         peer_it->second.keyshare_commitment = message.share_commitment;
+        if (was_empty && ++m_keycommit_count >= m_peers_data.size()) {
+            (*m_key_commits_handler)();
+        }
     }
     else {
         m_err_handler(PeerNotFoundError(message.pubkey));
@@ -267,7 +272,7 @@ void SignerApi::CommitNonces(size_t count)
     m_nonce_count += count;
 }
 
-void SignerApi::CommitKeyShares()
+void SignerApi::CommitKeySharesImpl()
 {
     GetStrongRandBytes(m_keyshare_random_session);
 

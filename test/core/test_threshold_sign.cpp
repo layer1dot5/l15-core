@@ -45,9 +45,9 @@ TEST_CASE("2-of-3 local")
     // Create peers
 
     const auto key_hdl = []() {  };
-    sigop_handler new_sigop_hdl = [](operation_id) { };
-    sigop_handler sig_hdl = [](operation_id) { };
-    error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
+    const sigop_handler new_sigop_hdl = [](operation_id) { };
+    const sigop_handler sig_hdl = [](operation_id) { };
+    const error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
 
     SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K);
     SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K);
@@ -81,9 +81,9 @@ TEST_CASE("2-of-3 local")
 
 
     // Negotiate Aggregated Pubkey
-    CHECK_NOTHROW(signer0.CommitKeyShares());
-    CHECK_NOTHROW(signer1.CommitKeyShares());
-    CHECK_NOTHROW(signer2.CommitKeyShares());
+    CHECK_NOTHROW(signer0.CommitKeyShares(key_hdl));
+    CHECK_NOTHROW(signer1.CommitKeyShares(key_hdl));
+    CHECK_NOTHROW(signer2.CommitKeyShares(key_hdl));
 
     CHECK_NOTHROW(signer0.DistributeKeyShares(key_hdl)); // Check it accepts both lambda
     CHECK_NOTHROW(signer1.DistributeKeyShares(make_moving_callable(key_hdl))); //and moving callable wrapper
@@ -171,10 +171,10 @@ TEST_CASE("Try sign without pubnonce")
 
     // Create peers
 
-    general_handler key_hdl = []() {  };
-    sigop_handler new_sigop_hdl = [](operation_id) { };
-    sigop_handler sig_hdl = [](operation_id) { };
-    error_handler error_hdl = [](Error&& e) {
+    const general_handler key_hdl = []() {  };
+    const sigop_handler new_sigop_hdl = [](operation_id) { };
+    const sigop_handler sig_hdl = [](operation_id) { };
+    const error_handler error_hdl = [](Error&& e) {
         if (std::string("OutOfOrderMessageError") == e.what() || std::string(e.details()).starts_with("SignatureCommitment")) {
         }
         else {
@@ -215,9 +215,9 @@ TEST_CASE("Try sign without pubnonce")
 
     // Negotiate Aggregated Pubkey
 
-    CHECK_NOTHROW(signer0.CommitKeyShares());
-    CHECK_NOTHROW(signer1.CommitKeyShares());
-    CHECK_NOTHROW(signer2.CommitKeyShares());
+    CHECK_NOTHROW(signer0.CommitKeyShares(key_hdl));
+    CHECK_NOTHROW(signer1.CommitKeyShares(key_hdl));
+    CHECK_NOTHROW(signer2.CommitKeyShares(key_hdl));
 
     CHECK_NOTHROW(signer0.DistributeKeyShares(make_moving_callable(key_hdl)));
     CHECK_NOTHROW(signer1.DistributeKeyShares(make_moving_callable(key_hdl)));
@@ -291,10 +291,10 @@ TEST_CASE("500 of 1K local")
     std::vector<std::unique_ptr<SignerApi>> signers;
     signers.reserve(N);
 
-    general_handler key_hdl = []() { };
-    sigop_handler new_sigop_hdl = [](operation_id) { };
-    sigop_handler sig_hdl = [](operation_id) { };
-    error_handler error_hdl = [&](Error&& e) {
+    const general_handler key_hdl = []() { };
+    const sigop_handler new_sigop_hdl = [](operation_id) { };
+    const sigop_handler sig_hdl = [](operation_id) { };
+    const error_handler error_hdl = [&](Error&& e) {
         FAIL(std::string(e.what()) + ": " + e.details());
     };
 
@@ -339,7 +339,7 @@ TEST_CASE("500 of 1K local")
         std::for_each(signers.begin(), signers.end(), [&](auto& s){
             distrib_measure.Measure([&](){
                 ++i;
-                s->CommitKeyShares();
+                s->CommitKeyShares(key_hdl);
                 if(i % 100 == 99)
                 {
                     std::clog << "Peer " << i << " commited key share" << std::endl;

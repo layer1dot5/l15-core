@@ -140,9 +140,11 @@ private:
     const size_t m_threshold_size;
     peers_data_type m_peers_data;
 
+    std::atomic<size_t> m_keycommit_count;
     std::atomic<size_t> m_keyshare_count;
     uint256 m_vss_hash;
 
+    std::unique_ptr<MovingBinderBase> m_key_commits_handler;
     std::unique_ptr<MovingBinderBase> m_key_handler;
 
     // TODO: refactor into flat_map<opid, secp256k1_frost_secnonce> and remove secnonce elements when used
@@ -215,6 +217,7 @@ private:
     static std::unique_ptr<MovingBinderBase>& SigOpSigSharesReceived(sigops_cache::value_type& op_val)
     { return std::get<5>(op_val.second); }
 
+    void CommitKeySharesImpl();
     void DistributeKeySharesImpl();
     void InitSignatureImpl(operation_id opid);
 
@@ -259,7 +262,19 @@ public:
 
     void Accept(const p2p::FrostMessage& m);
 
-    void CommitKeyShares();
+    template<typename Callable>
+    void CommitKeyShares(const Callable& key_commits_received_handler)
+    {
+        m_key_commits_handler = std::make_unique<MovingBinder<Callable>>(key_commits_received_handler);
+        CommitKeySharesImpl();
+    }
+
+    template<typename Callable, typename... Args>
+    void CommitKeyShares(Callable&& key_commits_received_handler, Args&&... args)
+    {
+        m_key_commits_handler = std::make_unique<MovingBinder<Callable, Args...>>(std::forward<Callable>(key_commits_received_handler), std::forward<Args>(args)...);
+        CommitKeySharesImpl();
+    }
 
     template<typename Callable>
     void DistributeKeyShares(const Callable& key_shares_received_handler)

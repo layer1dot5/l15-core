@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
     try {
         std::deque<p2p::frost_message_ptr> message_cache;
         std::mutex message_cache_mutex;
-        std::atomic<bool> agg_pubkey_ready = false;
+        std::atomic_bool agg_pubkey_ready = false;
         TestSigner config;
         config.ProcessConfig(argc, argv);
 
@@ -198,7 +198,9 @@ int main(int argc, char* argv[])
         if (config.mVerbose) std::clog << "Starting signer =================================================" << std::endl;
         auto signerService = std::make_shared<signer_service::SignerService>(config.mTaskService);
 
-        auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers | std::views::transform([](const auto& el){ return el.first; }), signerService, peerService);
+        auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers | std::views::keys, signerService, peerService);
+        signer->Start();
+        signer->AggregateKey();
 
         auto aggKeyFuture = signer->GetAggregatedPubKey();
         xonly_pubkey shared_pk = aggKeyFuture.get();

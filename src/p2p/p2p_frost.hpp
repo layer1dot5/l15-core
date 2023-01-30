@@ -24,6 +24,25 @@ enum class FROST_MESSAGE: uint16_t {
     MESSAGE_ID_COUNT
 };
 
+inline std::string describe(FROST_MESSAGE id)
+{
+    switch(id) {
+    case FROST_MESSAGE::NO_VALUE:
+        return "NO_VALUE/KEEP_ALIVE";
+    case FROST_MESSAGE::NONCE_COMMITMENTS:
+        return "NONCE_COMMITMENTS";
+    case FROST_MESSAGE::KEY_COMMITMENT:
+        return "KEY_COMMITMENT";
+    case FROST_MESSAGE::KEY_SHARE:
+        return "KEY_SHARE";
+    case FROST_MESSAGE::SIGNATURE_COMMITMENT:
+        return "SIGNATURE_COMMITMENT";
+    case FROST_MESSAGE::SIGNATURE_SHARE:
+        return "SIGNATURE_SHARE";
+    default:
+        throw std::runtime_error("Wrong FROST_MESSAGE");
+    }
+}
 
 template <typename STREAM>
 STREAM& operator << (STREAM& s, const FROST_MESSAGE& p)
