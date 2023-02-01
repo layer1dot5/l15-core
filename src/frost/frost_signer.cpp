@@ -162,7 +162,8 @@ bool FrostStep::CheckAndQueueSendImpl(FrostSigner &signer, const std::optional<c
                                       p2p::FROST_MESSAGE frost_step)
 {
     bool res;
-    if ((res = m->id == frost_step && !(get_send_status(m_status) & (uint16_t) FrostStatus::Completed) )) {
+    bool is_completed = (get_send_status(m_status) & (uint16_t)FrostStatus::Completed);
+    if ((res = m->id == frost_step && !is_completed )) {
         if (peer_pk) {
             auto peer_it = signer.m_peers_cache.find(*peer_pk);
             if ((res = peer_it != signer.m_peers_cache.end())) {
@@ -205,9 +206,6 @@ bool FrostStep::CheckAndQueueReceiveImpl(FrostSigner &signer, p2p::frost_message
 void FrostStep::DefaultSend(FrostSigner& signer, const xonly_pubkey& peer_pk, details::message_status& send_status, uint16_t confirm_seq)
 {
     if (send_status.status != FrostStatus::Confirmed) { //Check the message status
-        if (SendStatus() == (uint16_t)FrostStatus::Ready) { // Set step status if not yet
-            SendStatus(FrostStatus::InProgress);
-        }
 
         p2p::frost_message_ptr send_msg = send_status.message->Copy();
 
@@ -246,7 +244,6 @@ struct ProcessSignatureNonces : public FrostStep
 
     bool CheckAndQueueSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
     {
-        if (peer_pk) throw std::runtime_error("ProcessSignatureNonces send with peer pubkey");
         return FrostStep::CheckAndQueueSendImpl(signer, peer_pk, m, p2p::FROST_MESSAGE::NONCE_COMMITMENTS);
     }
 
@@ -320,7 +317,6 @@ struct ProcessKeyCommitments : public FrostStep
 
     bool CheckAndQueueSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
     {
-        if (peer_pk) throw std::runtime_error("ProcessKeyCommitments send with peer pubkey");
         return FrostStep::CheckAndQueueSendImpl(signer, peer_pk, m, p2p::FROST_MESSAGE::KEY_COMMITMENT);
     }
 
@@ -329,6 +325,10 @@ struct ProcessKeyCommitments : public FrostStep
 
     bool MessageSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk) override
     {
+        uint16_t status = SendStatus();
+        if ((!(status & FrostStatus::InProgress)) || (status & FrostStatus::Completed))
+            return false;
+
         if (peer_pk) throw std::runtime_error("ProcessKeyCommitments send with peer pubkey");
 
         for (auto &peer: signer.m_peers_cache) {
@@ -371,7 +371,8 @@ struct ProcessKeyCommitments : public FrostStep
     {
         if (auto signer = mSigner.lock()) {
             SendStatus(FrostStatus::InProgress);
-            signer->SignerService().PublishKeyShareCommitment(signer->SignerApi(), [next_step = GetNextStep()]() {
+            signer->SignerService().PublishKeyShareCommitment(signer->SignerApi(), [next_step = GetNextStep(), signerapi = signer->SignerApi()]() {
+                std::clog << (std::ostringstream() << "KeyShareCommitment completed: " << hex(signerapi->GetLocalPubKey()).substr(0, 8)).str() << std::endl;
                 next_step->Start();
             }, [ws = mSigner, opid = mOpId]() {
                 auto signer = ws.lock();
@@ -418,6 +419,10 @@ struct ProcessKeyShares : public FrostStep
 
     bool MessageSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk) override
     {
+        uint16_t status = SendStatus();
+        if ((!(status & FrostStatus::InProgress)) || (status & FrostStatus::Completed))
+            return false;
+
         if (!peer_pk) throw std::runtime_error("ProcessKeyShares send without peer pubkey");
 
         auto &peer = signer.m_peers_cache.at(*peer_pk);
@@ -464,6 +469,7 @@ struct ProcessKeyShares : public FrostStep
     void Start() override
     {
         if (auto signer = mSigner.lock()) {
+            clog << (std::ostringstream() << "ProcessKeyShares::Start() " << hex(signer->SignerApi()->GetLocalPubKey()).substr(0, 8) << ", " << std::this_thread::get_id).str() << std::endl;
             SendStatus(FrostStatus::InProgress);
             signer->SignerService().NegotiateKey(signer->SignerApi(),[ws = mSigner](const xonly_pubkey& aggpk){
                 auto signer = ws.lock();
@@ -506,7 +512,6 @@ struct ProcessSignatureCommitments : public FrostStep
 
     bool CheckAndQueueSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
     {
-        if (peer_pk) throw std::runtime_error("ProcessSignatureCommitments send with peer pubkey");
         return FrostStep::CheckAndQueueSendImpl(signer, peer_pk, m, p2p::FROST_MESSAGE::SIGNATURE_COMMITMENT);
     }
 
@@ -515,6 +520,10 @@ struct ProcessSignatureCommitments : public FrostStep
 
     bool MessageSend(FrostSigner& signer, const std::optional<const xonly_pubkey> &peer_pk) override
     {
+        uint16_t status = SendStatus();
+        if ((!(status & FrostStatus::InProgress)) || (status & FrostStatus::Completed))
+            return false;
+
         if (peer_pk) throw std::runtime_error("ProcessSignatureCommitments send with peer pubkey");
 
         for (auto &peer: signer.m_peers_cache) {
@@ -583,7 +592,7 @@ struct AggregateSignature : public FrostStep
 
     bool CheckAndQueueSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
     {
-        if (!peer_pk) throw std::runtime_error("AggregateSignature send without peer pubkey");
+        //if (!peer_pk) throw std::runtime_error("AggregateSignature send without peer pubkey");
         return FrostStep::CheckAndQueueSendImpl(signer, peer_pk, m, p2p::FROST_MESSAGE::SIGNATURE_SHARE);
     }
 
@@ -592,6 +601,10 @@ struct AggregateSignature : public FrostStep
 
     bool MessageSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk) override
     {
+        uint16_t status = SendStatus();
+        if ((!(status & FrostStatus::InProgress)) || (status & FrostStatus::Completed))
+            return false;
+
         if (!peer_pk) throw std::runtime_error("AggregateSignature send without peer pubkey");
 
             auto &peer = signer.m_peers_cache.at(*peer_pk);
@@ -681,13 +694,13 @@ public:
 
     bool
     CheckAndQueueSendingMessage(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
-    { return MessageQueueImpl(&FrostStep::CheckAndQueueSend, signer, peer_pk, move(m)); }
+    { return MessageQueueImpl(&FrostStep::CheckAndQueueSend, signer, peer_pk, m); }
 
     FrostStatus HandleSend(FrostSigner& signer, const std::optional<const xonly_pubkey> &peer_pk) override
     { return MessageProcImpl(&FrostStep::MessageSend, signer, peer_pk); }
 
     bool CheckAndQueueReceivedMessage(FrostSigner &signer, p2p::frost_message_ptr m) override
-    { return MessageQueueImpl(&FrostStep::CheckAndQueueReceive, signer, move(m)); }
+    { return MessageQueueImpl(&FrostStep::CheckAndQueueReceive, signer, m); }
 
     FrostStatus HandleReceive(FrostSigner& signer, const xonly_pubkey &peer_pk) override
     { return MessageProcImpl(&FrostStep::MessageReceive, signer, peer_pk); }
@@ -727,25 +740,25 @@ FrostStatus FrostOperationImpl<START_STEP>::MessageProcImpl(CALLABLE action, ARG
         // or
         //stepState->MessageIsReceived(m);
         bool check_completed = (step.get()->*action)(std::forward<ARGS>(args)...);
-        if (check_completed) {
+        /*if (check_completed) {
             check_steps.emplace_back(move(step));
         }
-        else if (step->IsConfirmed() && !step->GetNextStep()) {
+        else */if (step->IsConfirmed() && !step->GetNextStep()) {
             res = FrostStatus::Completed;
         }
     }
 
     // use mutex to avoid race condition in starting of operation's steps
-    {   std::lock_guard steps_lock(m_steps_mutex);
-
-        auto completed_it = rgs::find_if(check_steps, [](auto& s)
-        {
-            return (s->IsCompleted() && s->GetNextStep() && s->GetNextStep()->Status() == FrostStatus::Ready);
-        });
-        if (completed_it != check_steps.end()) {
-            (*completed_it)->GetNextStep()->Start();
-        }
-    }
+//    {   std::lock_guard steps_lock(m_steps_mutex);
+//
+//        auto completed_it = rgs::find_if(check_steps, [](auto& s)
+//        {
+//            return (s->IsCompleted() && s->GetNextStep() && s->GetNextStep()->Status() == FrostStatus::Ready);
+//        });
+//        if (completed_it != check_steps.end()) {
+//            (*completed_it)->GetNextStep()->Start();
+//        }
+//    }
 
     return res;
 }
@@ -754,15 +767,7 @@ FrostStatus FrostOperationImpl<START_STEP>::MessageProcImpl(CALLABLE action, ARG
 
 void FrostSigner::HandleError()
 {
-    try {
-        std::rethrow_exception(std::current_exception());
-    }
-    catch(Error& e) {
-        std::cerr << e.what() << ": " << e.details() << std::endl;
-    }
-    catch(std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
+    print_error(std::cerr);
 }
 
 
@@ -845,7 +850,7 @@ void FrostSigner::Receive(p2p::frost_message_ptr m)
 void FrostSigner::Start()
 {
     auto ws = weak_from_this();
-    mSignerApi->SetErrorHandler([ws](Error&& e){
+    mSignerApi->SetErrorHandler([ws](auto&& e){
         auto signer = ws.lock();
         if (signer) {
             signer->HandleError();

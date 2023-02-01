@@ -22,7 +22,7 @@ namespace l15::frost {
 // FrostSigner API is currently WIP prototype.
 // The main focus is at internal state machine so far.
 
-enum class FrostStatus: uint16_t
+enum FrostStatus: uint16_t
 {
     Ready = 0,
     InProgress = 1,

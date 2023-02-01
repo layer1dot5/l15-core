@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <functional>
 #include <stdexcept>
+#include <sstream>
 
 #include "wrapstream.hpp"
 
@@ -111,7 +112,7 @@ void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m,
                       std::function<void()> on_error)
 {
     if (pk == m_self_address)
-        throw std::runtime_error("send to seft");
+        throw std::runtime_error("send to self");
 
     std::shared_lock lock(m_peers_mutex);
     auto peer_it = m_peers.find(pk);
@@ -130,7 +131,7 @@ void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m,
 
 void ZmqService::SendInternal(const ZmqService::peers_map::value_type& peer, p2p::frost_message_ptr msg)
 {
-    std::clog << ">>> " << msg->ToString() << std::endl;
+    std::clog << (std::ostringstream() << ">>> " << msg->ToString()).str() << std::endl;
 
     cex::stream<std::deque<uint8_t>> data;
     if (msg) {
@@ -219,11 +220,6 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                     p2p::frost_message_ptr msg = nullptr;
                     msg = p2p::Unserialize(m_ctx, buffer);
 
-                    p2p::FROST_MESSAGE last_recv_id = p2p::FROST_MESSAGE::MESSAGE_ID_COUNT;
-                    if (buffer.remains() >= sizeof(p2p::FROST_MESSAGE)) {
-                        buffer >> last_recv_id;
-                    }
-
                     buffer.clear();
 
                     std::shared_lock lock(m_peers_mutex);
@@ -234,20 +230,14 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                     peer_state peer = peer_it->second;
                     lock.unlock();
 
-                    if (msg->id != p2p::FROST_MESSAGE::MESSAGE_ID_COUNT) {
                         mTaskService->Serve([m = move(msg), h]() {
-                            std::clog << "<<< " << m->ToString() << std::endl;
+                            std::clog << (std::ostringstream() << "<<< " << m->ToString()).str() << std::endl;
                             h(m);
                         });
-                    }
-                }
-                catch(p2p::UnserializeError& e) {
-                    buffer.clear();
-                    std::cerr << (std::ostringstream() << "Skipping: " << e.what() << "\n" << e.details()).str() << std::endl;
                 }
                 catch(...) {
                     buffer.clear();
-                    std::cerr << "Skipping unknown error" << std::endl;
+                    print_error(std::cerr);
                 }
             }
 
@@ -274,12 +264,9 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                 buffer.append(m.data<uint8_t>(), m.data<uint8_t>() + m.size());
             }
         }
-        catch (std::exception& e) {
-            std::cerr << "Skipping unknown error: " << e.what() << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
         catch (...) {
             std::cerr << "Skipping unknown error" << std::endl;
+            print_error(std::cerr);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }

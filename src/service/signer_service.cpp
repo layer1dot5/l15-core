@@ -15,26 +15,23 @@ void SignerService::PublishKeyShareCommitment(std::shared_ptr<core::SignerApi> p
                                               std::function<void()>&& on_complete,
                                               std::function<void()> on_error)
 {
-    mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() mutable {
+    mBgService->Serve([bgService = mBgService, ws = std::weak_ptr<core::SignerApi>(ps), on_complete = move(on_complete), on_error = move(on_error)]() mutable {
         try {
             if (auto ps = ws.lock()) {
-                ps->CommitKeyShares(move(on_complete));
+                ps->CommitKeyShares([bgService, on_complete = move(on_complete), on_error]() mutable {
+                    bgService->Serve([on_complete = move(on_complete), on_error](){
+                        try {
+                            on_complete();
+                        }
+                        catch(...) {
+                            on_error();
+                        }
+                    });
+                });
             }
             else {
                 std::cerr << "Signer API destroyed" << std::endl;
             }
-        }
-        catch (Error& e) {
-            on_error();
-        }
-        catch (std::runtime_error& e) {
-            on_error();
-        }
-        catch (std::exception& e) {
-            on_error();
-        }
-        catch (error_t e) {
-            on_error();
         }
         catch (...) {
             on_error();

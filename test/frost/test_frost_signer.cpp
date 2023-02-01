@@ -63,9 +63,9 @@ TEST_CASE("2-of-3 local")
     auto signer2 = make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2);
 
     CHECK_NOTHROW(signer0->Start());
-    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK_NOTHROW(signer1->Start());
-    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     CHECK_NOTHROW(signer2->Start());
 
     CHECK_NOTHROW(signer0->AggregateKey());
