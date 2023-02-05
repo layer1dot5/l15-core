@@ -33,24 +33,6 @@ enum FrostStatus: uint16_t
 
 class FrostSigner;
 
-struct FrostOperation
-{
-    FrostOperation() = default;
-    virtual ~FrostOperation() = default;
-
-    virtual void Start() = 0;
-
-    /// return: true if queued to send by this operation
-    virtual bool CheckAndQueueSendingMessage(FrostSigner &signer, const std::optional<const xonly_pubkey> &, p2p::frost_message_ptr) = 0;
-    virtual FrostStatus HandleSend(FrostSigner &signer, const std::optional<const xonly_pubkey> &)
-    { throw std::runtime_error(""); };
-
-    /// return: true if queued to process by this operation
-    virtual bool CheckAndQueueReceivedMessage(FrostSigner &signer, p2p::frost_message_ptr) = 0;
-    virtual FrostStatus HandleReceive(FrostSigner &signer, const xonly_pubkey &)
-    { throw std::runtime_error(""); };
-
-};
 
 class WrongFrostState: public Error
 {
@@ -118,11 +100,11 @@ public:
 };
 
 
-class FrostStep;
+class FrostOperation;
 
 class FrostSigner : public std::enable_shared_from_this<FrostSigner>
 {
-    template <std::derived_from<FrostStep> START_STEP> friend class FrostOperationImpl;
+    friend class FrostOperation;
     friend class FrostStep;
     friend class ProcessSignatureNonces;
     friend class ProcessKeyCommitments;
@@ -142,10 +124,7 @@ class FrostSigner : public std::enable_shared_from_this<FrostSigner>
     std::promise<xonly_pubkey> m_aggpk_promise;
     mutable std::shared_future<xonly_pubkey> m_aggpk_future;
 
-    std::promise<void> m_nonces_promise;
-    mutable std::shared_future<void> m_nonces_future;
-
-    std::map<details::OperationMapId, std::unique_ptr<FrostOperation>> mOperations;
+    std::map<details::OperationMapId, std::shared_ptr<FrostOperation>> mOperations;
     std::shared_mutex m_op_mutex;
 
 private:
@@ -174,6 +153,7 @@ public:
             : N(std::ranges::size(peers)), K((N%2) ? (N+1)/2 : N/2)
             , mSignerApi(std::make_shared<core::SignerApi>(move(keypair), N, K)), mSignerService(move(signerService)), mPeerService(move(peerService))
             , m_peers_cache(N), m_aggpk_promise(), m_aggpk_future(m_aggpk_promise.get_future())
+            , mOperations(), m_op_mutex()
     {
         std::ranges::for_each(peers | std::views::filter([this](auto& p){ return p != mSignerApi->GetLocalPubKey(); }), [this](const auto &peer){
             auto& p = m_peers_cache[peer]; // Initialize map with default elements per peer
@@ -182,7 +162,7 @@ public:
         });
     }
 
-    ~FrostSigner() = default;
+    ~FrostSigner();
 
     void Start();
 

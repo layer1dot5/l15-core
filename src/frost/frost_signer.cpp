@@ -4,6 +4,7 @@
 #include <deque>
 #include <concepts>
 #include <atomic>
+#include <list>
 
 #include <tbb/concurrent_unordered_map.h>
 
@@ -73,11 +74,14 @@ void push_with_priority(details::message_queue& queue, p2p::frost_message_ptr m)
 
 }
 
-struct FrostStep : public std::enable_shared_from_this<FrostStep>
+struct FrostStep
 {
     std::weak_ptr<FrostSigner> mSigner;
     details::OperationMapId mOpId;
     std::atomic<uint16_t> m_status;
+
+    details::OperationMapId OperatonId() const
+    { return mOpId; }
 
     uint16_t SendStatus() const { return get_send_status(m_status); }
     void SendStatus(FrostStatus status)
@@ -222,7 +226,7 @@ void FrostStep::DefaultSend(FrostSigner& signer, const xonly_pubkey& peer_pk, de
 bool FrostStep::DefaultReceive(FrostSigner &signer, details::message_status &recv_status)
 {
     if (recv_status.status == FrostStatus::Ready) {
-        recv_status.status = FrostStatus::InProgress;
+        recv_status.status = FrostStatus::InProgress; //Really, excessive since the message processing happens under mutex lock
         signer.SignerService().Accept(signer.SignerApi(), recv_status.message);
         recv_status.status = FrostStatus::Completed;
         return true;
@@ -235,6 +239,8 @@ bool FrostStep::DefaultReceive(FrostSigner &signer, details::message_status &rec
 
 struct ProcessSignatureNonces : public FrostStep
 {
+    std::list<std::unique_ptr<std::promise<void>>> m_results;
+
     explicit ProcessSignatureNonces(std::weak_ptr<FrostSigner>&& s, details::OperationMapId opid) : FrostStep(move(s), opid) {
         assert(opid.optype == details::OperationType::nonce && !opid.opid);
     }
@@ -255,9 +261,11 @@ struct ProcessSignatureNonces : public FrostStep
         if (peer_pk) throw std::runtime_error("ProcessSignatureNonces send with peer pubkey");
 
         for (auto &peer: signer.m_peers_cache) {
-            uint16_t confirm_seq;
+            uint16_t confirm_seq = 0;
             {   std::shared_lock recv_lock(recv_mutex(peer.second));
-                confirm_seq = rgs::max(recv_queue(peer.second)|vs::transform([](auto& s){ return s.message->confirmed_sequence; }));
+                if (!recv_queue(peer.second).empty()) {
+                    confirm_seq = rgs::max(recv_queue(peer.second) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
+                }
             }
 
             std::unique_lock send_lock(send_mutex(peer.second));
@@ -273,10 +281,8 @@ struct ProcessSignatureNonces : public FrostStep
         return false;
     }
 
-    bool MessageReceive(FrostSigner &signer, const xonly_pubkey &peer_pk) override
+    bool MessageReceive(FrostSigner& signer, details::peer_messages& peer_cache)
     {
-        auto &peer_cache = signer.m_peers_cache.at(peer_pk);
-
         std::unique_lock recv_lock(recv_mutex(peer_cache));
 
         auto recv_it = rgs::find_if(recv_queue(peer_cache), [](const auto& s){
@@ -284,19 +290,36 @@ struct ProcessSignatureNonces : public FrostStep
         });
         if (recv_it != recv_queue(peer_cache).end()) {
             DefaultReceive(signer, *recv_it);
-            //return true;
         }
         return false;
     }
 
-    void Start() override
-    {
+    bool MessageReceive(FrostSigner &signer, const xonly_pubkey &peer_pk) override
+    { MessageReceive(signer, signer.m_peers_cache.at(peer_pk)); }
+
+    std::future<void> Start(size_t count) {
         auto signer = mSigner.lock();
         if (signer) {
-            SendStatus(FrostStatus::InProgress);
-            signer->SignerService().PublishNonces(signer->SignerApi(), 3, [](){}, [s=mSigner](){ if(auto signer = s.lock()) signer->HandleError(); });
+            auto res_it = m_results.emplace(m_results.end(), std::make_unique<std::promise<void>>());
+            signer->SignerService().PublishNonces(signer->SignerApi(), count, [res_it, s=mSigner](){
+                if(auto signer = s.lock()) (*res_it)->set_value();
+            }, [res_it, s=mSigner](){
+                if(auto signer = s.lock()) (*res_it)->set_exception(std::current_exception());
+            });
+
+            for (auto &peer_cache: signer->m_peers_cache | vs::values) {
+                MessageReceive(*signer, peer_cache);
+            }
+
+            return (*res_it)->get_future();
+        }
+        else {
+            throw std::runtime_error("Signer is destroyed");
         }
     }
+
+    void Start() override
+    { Start(1); }
 
     std::shared_ptr<FrostStep> GetNextStep() override
     { return nullptr; }
@@ -427,10 +450,12 @@ struct ProcessKeyShares : public FrostStep
 
         auto &peer = signer.m_peers_cache.at(*peer_pk);
 
-        uint16_t confirm_seq;
+        uint16_t confirm_seq = 0;
         {
             std::shared_lock recv_lock(recv_mutex(peer));
-            confirm_seq = rgs::max(recv_queue(peer) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
+            if (!recv_queue(peer).empty()) {
+                confirm_seq = rgs::max(recv_queue(peer) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
+            }
         }
 
         std::unique_lock send_lock(send_mutex(peer));
@@ -443,6 +468,11 @@ struct ProcessKeyShares : public FrostStep
 
             if (++keyshares_sent >= (signer.N - 1)) {
                 SendStatus(FrostStatus::Completed);
+
+                if (IsCompleted()) {
+                    std::clog << (std::ostringstream() << "KeyAgg completed: " << hex(signer.SignerApi()->GetLocalPubKey()).substr(0, 8)).str() << std::endl;
+                }
+
                 return true;
             }
         }
@@ -458,6 +488,11 @@ struct ProcessKeyShares : public FrostStep
         });
         if (recv_it != recv_queue(peer_cache).end() && DefaultReceive(signer, *recv_it) && ++keyshares_received >= (signer.N - 1)) {
             RecvStatus(FrostStatus::Completed);
+
+            if (IsCompleted()) {
+                std::clog << (std::ostringstream() << "KeyAgg completed: " << hex(signer.SignerApi()->GetLocalPubKey()).substr(0, 8)).str() << std::endl;
+            }
+
             return true;
         }
         return false;
@@ -505,7 +540,7 @@ struct ProcessSignatureCommitments : public FrostStep
 
     std::shared_ptr<FrostStep> MakeNextStep();
 
-    explicit ProcessSignatureCommitments(std::weak_ptr<FrostSigner>&& s, details::OperationMapId opid) : FrostStep(move(s), opid), commitments_received(0), next_step(MakeNextStep()) {}
+    explicit ProcessSignatureCommitments(std::weak_ptr<FrostSigner>&& s, details::OperationMapId opid, uint256 ) : FrostStep(move(s), opid), commitments_received(0), next_step(MakeNextStep()) {}
 
     const char *Name() const noexcept override
     { return "ProcessSignatureCommitments"; }
@@ -664,11 +699,8 @@ struct AggregateSignature : public FrostStep
 };
 
 
-template <std::derived_from<FrostStep> START_STEP>
-class FrostOperationImpl : public FrostOperation
+class FrostOperation
 {
-    std::weak_ptr<FrostSigner> mSigner;
-
     std::deque<std::shared_ptr<FrostStep>> mSteps;
     std::mutex m_steps_mutex;
 
@@ -679,30 +711,42 @@ class FrostOperationImpl : public FrostOperation
     FrostStatus MessageProcImpl(CALLABLE action, ARGS&&... args);
 
 public:
-    explicit FrostOperationImpl(std::shared_ptr<FrostSigner> s, details::OperationMapId opid): FrostOperation(), mSigner(s), mSteps()
+    explicit FrostOperation(std::shared_ptr<FrostStep> startStep): mSteps()
     {
-        mSteps.emplace_back(std::make_shared<START_STEP>(std::weak_ptr<FrostSigner>(s), details::OperationMapId(opid)));
+        mSteps.emplace_back(startStep);
         while (auto step = mSteps.back()->GetNextStep()) {
             mSteps.emplace_back(move(step));
         }
     }
 
-    ~FrostOperationImpl() override = default;
-
-    void Start() override
+    void Start()
     { mSteps.front()->Start(); }
 
+    template <std::derived_from<FrostStep> STEP, typename RETURN, typename ... ARGS>
+    std::future<RETURN> Start(ARGS&&... args)
+    {
+        try {
+            //TODO: Looking for "clean" solution. This is only used for ProcessSignatureNonces
+            FrostStep &s = *(mSteps.front());
+            STEP &startStep = dynamic_cast<STEP &>(s);
+            return startStep.Start(std::forward<ARGS>(args)...);
+        }
+        catch(...) {
+            std::throw_with_nested(FrostOperationFailure(mSteps.front()->OperatonId()));
+        }
+    }
+
     bool
-    CheckAndQueueSendingMessage(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m) override
+    CheckAndQueueSendingMessage(FrostSigner &signer, const std::optional<const xonly_pubkey> &peer_pk, p2p::frost_message_ptr m)
     { return MessageQueueImpl(&FrostStep::CheckAndQueueSend, signer, peer_pk, m); }
 
-    FrostStatus HandleSend(FrostSigner& signer, const std::optional<const xonly_pubkey> &peer_pk) override
+    FrostStatus HandleSend(FrostSigner& signer, const std::optional<const xonly_pubkey> &peer_pk)
     { return MessageProcImpl(&FrostStep::MessageSend, signer, peer_pk); }
 
-    bool CheckAndQueueReceivedMessage(FrostSigner &signer, p2p::frost_message_ptr m) override
+    bool CheckAndQueueReceivedMessage(FrostSigner &signer, p2p::frost_message_ptr m)
     { return MessageQueueImpl(&FrostStep::CheckAndQueueReceive, signer, m); }
 
-    FrostStatus HandleReceive(FrostSigner& signer, const xonly_pubkey &peer_pk) override
+    FrostStatus HandleReceive(FrostSigner& signer, const xonly_pubkey &peer_pk)
     { return MessageProcImpl(&FrostStep::MessageReceive, signer, peer_pk); }
 };
 
@@ -716,9 +760,8 @@ std::shared_ptr<FrostStep> ProcessSignatureCommitments::MakeNextStep()
 
 //====================================================================================================================
 
-template<std::derived_from<FrostStep> START_STEP>
 template <typename CALLABLE, typename... ARGS>
-bool FrostOperationImpl<START_STEP>::MessageQueueImpl(CALLABLE action, ARGS&&... args)
+bool FrostOperation::MessageQueueImpl(CALLABLE action, ARGS&&... args)
 {
     for (auto& step: mSteps) {
         if ((step.get()->*action)(std::forward<ARGS>(args)...))
@@ -727,9 +770,8 @@ bool FrostOperationImpl<START_STEP>::MessageQueueImpl(CALLABLE action, ARGS&&...
     return false;
 }
 
-template<std::derived_from<FrostStep> START_STEP>
 template <typename CALLABLE, typename... ARGS>
-FrostStatus FrostOperationImpl<START_STEP>::MessageProcImpl(CALLABLE action, ARGS&&... args)
+FrostStatus FrostOperation::MessageProcImpl(CALLABLE action, ARGS&&... args)
 {
     FrostStatus res = FrostStatus::InProgress;
     std::vector<std::shared_ptr<FrostStep>> check_steps;
@@ -881,7 +923,7 @@ void FrostSigner::Start()
     });
 
     details::OperationMapId opid {0, details::OperationType::nonce};
-    mOperations.emplace(opid, std::make_unique<FrostOperationImpl<ProcessSignatureNonces>>(std::shared_ptr<FrostSigner>(this->shared_from_this()), opid));
+    mOperations.emplace(opid, std::make_shared<FrostOperation>(std::make_shared<ProcessSignatureNonces>(shared_from_this(), opid)));
 }
 
 void FrostSigner::AggregateKey()
@@ -896,13 +938,14 @@ void FrostSigner::AggregateKey()
         throw WrongFrostState("concurent aggpk??");
 
     details::OperationMapId opid {0, details::OperationType::key};
-    auto opres = mOperations.emplace(opid, std::make_unique<FrostOperationImpl<ProcessKeyCommitments>>(std::shared_ptr<FrostSigner>(this->shared_from_this()), opid));
+    auto opres = mOperations.emplace(opid, std::make_shared<FrostOperation>(std::make_shared<ProcessKeyCommitments>(this->shared_from_this(), opid)));
     opres.first->second->Start();
 }
 
 std::shared_future<void> FrostSigner::CommitNonces(size_t count)
 {
-    return std::shared_future<void>();
+    details::OperationMapId opid {0, details::OperationType::nonce};
+    return mOperations[opid]->Start<ProcessSignatureNonces, void>(count);
 }
 
 std::shared_future<signature> FrostSigner::Sign(uint256 message, core::operation_id opid)
@@ -914,6 +957,8 @@ void FrostSigner::Verify(uint256 message, signature sig) const
 {
 
 }
+
+FrostSigner::~FrostSigner() = default;
 
 namespace details {
 

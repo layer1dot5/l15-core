@@ -16,6 +16,8 @@ const std::string ZmqService::STOP("stop");
 
 ZmqService::~ZmqService()
 {
+    std::clog << "Destroying ZMQ service" << std::endl;
+
     zmq::socket_t sock(zmq_ctx.value(), zmq::socket_type::client);
     zmq::message_t stop(STOP);
 
@@ -230,6 +232,7 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                     peer_state peer = peer_it->second;
                     lock.unlock();
 
+                    std::clog << (std::ostringstream() << "vvv " << msg->ToString()).str() << std::endl;
                         mTaskService->Serve([m = move(msg), h]() {
                             std::clog << (std::ostringstream() << "<<< " << m->ToString()).str() << std::endl;
                             h(m);
@@ -249,6 +252,9 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
             next_block = m.more();
 
             if (!res) {
+
+                std::clog << "No message" << std::endl;
+
                 CheckPeers();
 
                 auto cycle_end = std::chrono::steady_clock::now();
@@ -261,6 +267,8 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                 break;
             }
             else {
+                std::clog << (std::ostringstream() << "P2P message size: " << m.size() << ", next_block: " << next_block).str() << std::endl;
+
                 buffer.append(m.data<uint8_t>(), m.data<uint8_t>() + m.size());
             }
         }
