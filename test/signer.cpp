@@ -10,6 +10,8 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include "async_result.hpp"
+
 #include "CLI11.hpp"
 #include "common.hpp"
 #include "channel_keys.hpp"
@@ -200,17 +202,32 @@ int main(int argc, char* argv[])
 
         auto signer = make_shared<frost::FrostSigner>(keypair, config.m_peers | std::views::keys, signerService, peerService);
         signer->Start();
-        signer->AggregateKey();
 
-        auto aggKeyFuture = signer->GetAggregatedPubKey();
-        xonly_pubkey shared_pk = aggKeyFuture.get();
+        std::promise<xonly_pubkey> aggpk_promise;
+        auto aggpk_res = aggpk_promise.get_future();
+
+        signer->AggregateKey(cex::make_async_result<const xonly_pubkey&>(
+                [](const xonly_pubkey& aggpk, std::promise<xonly_pubkey>&& p) { p.set_value(aggpk); },
+                [](std::promise<xonly_pubkey>&& p){ p.set_exception(std::current_exception()); },
+                move(aggpk_promise)));
+
+        xonly_pubkey shared_pk = aggpk_res.get();
         agg_pubkey_ready = true;
 
         std::cout << "\nagg_pk:" << hex(shared_pk) << std::endl;
 
         if (config.mDoSign) {
             if (config.mVerbose) std::clog << "Commiting future signature nonces =======================================" << std::endl;
-            signer->CommitNonces(1).wait();
+
+            std::promise<void> nonce_promise;
+            auto nonce_res = nonce_promise.get_future();
+
+            signer->CommitNonces(1, cex::make_async_result<void>(
+                    [](std::promise<void>&& p){p.set_value();},
+                    [](std::promise<void>&& p){p.set_exception(std::current_exception());},
+                    move(nonce_promise)));
+
+            nonce_res.wait();
         }
 
 //        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //Just get some time to handle what coming to the message cache ^^^
@@ -238,8 +255,16 @@ int main(int argc, char* argv[])
 
             if (config.mVerbose) std::clog << "Signing =================================================================" << std::endl;
 
-            auto sign_res = signer->Sign(message, 1);
-            signature sig = sign_res.get();
+            std::promise<signature> sig_promise;
+
+            auto sig_res = sig_promise.get_future();
+
+            signer->Sign(message, 1, cex::make_async_result<signature>(
+                    [](signature sig, std::promise<signature>&& p){p.set_value(sig);},
+                    [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
+                    move(sig_promise)));
+
+            signature sig = sig_res.get();
 
             std::cout << "sig: " << hex(sig) << std::endl;
 

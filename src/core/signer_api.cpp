@@ -34,7 +34,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_key_handler()
     , m_secnonces()
     , mHandlers()
-    , m_err_handler([](Error&&){})
+    , m_err_handler([](){})
     , m_operation_seqnum(1)
 {
     mHandlers[(size_t)FROST_MESSAGE::NONCE_COMMITMENTS] = &SignerApi::AcceptNonceCommitments;
@@ -48,18 +48,22 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
 
 void SignerApi::Accept(const FrostMessage& m)
 {
-    if (m.protocol_id != PROTOCOL::FROST) {
-        m_err_handler(WrongProtocol(static_cast<std::underlying_type<PROTOCOL>::type>(m.protocol_id)));
-        return;
-    }
+    try {
+        if (m.protocol_id != PROTOCOL::FROST) {
+            throw WrongProtocol(static_cast<std::underlying_type<PROTOCOL>::type>(m.protocol_id));
+        }
 
-    if (static_cast<uint16_t>(m.id) < static_cast<uint16_t>(FROST_MESSAGE::MESSAGE_ID_COUNT)) {
-        //std::clog << (stringstream() << std::hex << std::this_thread::get_id() << " [" << hex(mKeypair.GetPubKey()).substr(0, 8) << "] " << m.ToString()).str() << std::endl;
+        if (static_cast<uint16_t>(m.id) < static_cast<uint16_t>(FROST_MESSAGE::MESSAGE_ID_COUNT)) {
+            //std::clog << (stringstream() << std::hex << std::this_thread::get_id() << " [" << hex(mKeypair.GetPubKey()).substr(0, 8) << "] " << m.ToString()).str() << std::endl;
 
-        (this->*mHandlers[static_cast<uint16_t>(m.id)])(m);
+            (this->*mHandlers[static_cast<uint16_t>(m.id)])(m);
+        }
+        else {
+            throw WrongMessage(m);
+        }
     }
-    else {
-        m_err_handler(WrongMessage(m));
+    catch(...) {
+        m_err_handler();
     }
 }
 
@@ -83,7 +87,7 @@ void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
         });
     }
     else {
-        m_err_handler(PeerNotFoundError(message.pubkey));
+        throw PeerNotFoundError(message.pubkey);
     }
 }
 
@@ -102,7 +106,7 @@ void SignerApi::AcceptKeyShareCommitment(const FrostMessage &m)
         }
     }
     else {
-        m_err_handler(PeerNotFoundError(message.pubkey));
+        throw PeerNotFoundError(message.pubkey);
     }
 }
 
@@ -112,25 +116,26 @@ void SignerApi::AcceptKeyShare(const FrostMessage &m)
 
     auto peer_it = m_peers_data.find(message.pubkey);
     if (peer_it == m_peers_data.end()) {
-        m_err_handler(PeerNotFoundError(message.pubkey));
+        throw PeerNotFoundError(message.pubkey);
     }
     else if (!peer_it->second.keyshare_commitment.empty()) {
 
         if (peer_it->second.keyshare.has_value()) {
             if (memcmp(peer_it->second.keyshare->data, message.share.data, sizeof(secp256k1_frost_share)) != 0) {
-                m_err_handler(WrongMessageData(message));
+                throw WrongMessageData(message);
             }
         }
         else {
             peer_it->second.keyshare = message.share;
 
             if (++m_keyshare_count >= m_peers_data.size()) {
+                //std::clog << "KeyShare api received" << std::endl;
                 (*m_key_handler)();
             }
         }
     }
     else {
-        m_err_handler(OutOfOrderMessageError(message));
+        throw OutOfOrderMessageError(message);
     }
 }
 
@@ -140,7 +145,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
 
     auto peer_it = m_peers_data.find(message.pubkey);
     if (peer_it == m_peers_data.end()) {
-        m_err_handler(PeerNotFoundError(message.pubkey));
+        throw PeerNotFoundError(message.pubkey);
     }
     else if ((mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) // Means aggregated pub key is assigned
             && (peer_it->second.ephemeral_pubkeys.find(message.operation_id) != peer_it->second.ephemeral_pubkeys.end()))
@@ -179,7 +184,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
         }
     }
     else {
-        m_err_handler(OutOfOrderMessageError(message));
+        throw OutOfOrderMessageError(message);
     }
 }
 
@@ -189,7 +194,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
 
     auto peer_it = m_peers_data.find(message.pubkey);
     if (peer_it == m_peers_data.end()) {
-        m_err_handler(PeerNotFoundError(message.pubkey));
+        throw PeerNotFoundError(message.pubkey);
     }
     else if (mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) // Means aggregated pub key is assigned
     {
@@ -199,7 +204,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
 
             sigops_cache::iterator op_it = m_sigops_cache.find(message.operation_id);
             if (op_it == m_sigops_cache.end()) {
-                m_err_handler(SignatureError((std::stringstream() << "Signature operation is not found: " << message.ToString()).str()));
+                throw SignatureError((std::stringstream() << "Signature operation is not found: " << message.ToString()).str());
             }
             else {
                 op = &*op_it;
@@ -219,10 +224,9 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
                     shares_lock.unlock();
                     //-----------------//
 
-                    std::stringstream errbuf;
+                    std::ostringstream errbuf;
                     errbuf << "Peer is already provided different sig share: " << message.operation_id << '/' << HexStr(message.pubkey);
-                    m_err_handler(SignatureError(errbuf.str()));
-                    return;
+                    throw SignatureError(errbuf.str());
                 }
             }
         }
@@ -230,10 +234,9 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
             shares_lock.unlock();
             //-----------------//
 
-            std::stringstream errbuf;
+            std::ostringstream errbuf;
             errbuf << '[' << hex(mKeypair.GetPubKey()).substr(0, 8) << "] "<< "Peer is not registered to participate in signature: " << message.operation_id << '/' << HexStr(message.pubkey);
-            m_err_handler(SignatureError(errbuf.str()));
-            return;
+            throw SignatureError(errbuf.str());
         }
 
         if (SigOpSigShareCount(*op) == m_threshold_size && SigOpSigSharesReceived(*op)) {
@@ -244,7 +247,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
         }
     }
     else {
-        m_err_handler(OutOfOrderMessageError(message));
+        throw OutOfOrderMessageError(message);
     }
 }
 

@@ -106,7 +106,6 @@ MovingBinder<Callable, Args...> make_moving_callable(Callable f, Args&&... args)
 { return MovingBinder<Callable, Args...>(move(f), std::forward<Args>(args)...); }
 
 
-typedef std::function<void(Error&&)> error_handler;
 typedef std::function<void()> general_handler;
 typedef std::function<void(operation_id)> sigop_handler;
 
@@ -174,7 +173,7 @@ private:
 
     sigops_cache m_sigops_cache;
 
-    error_handler m_err_handler;
+    general_handler m_err_handler;
 
     std::atomic_uint16_t m_operation_seqnum;
 
@@ -226,7 +225,7 @@ public:
               size_t cluster_size,
               size_t threshold_size);
 
-    void SetErrorHandler(error_handler f)
+    void SetErrorHandler(general_handler f)
     { m_err_handler = f; }
 
     const xonly_pubkey& GetLocalPubKey() const
@@ -326,6 +325,42 @@ public:
     }
 
     void PreprocessSignature(const uint256 &datahash, operation_id opid);
+
+
+    template<typename Callable, typename... Args>
+    void DistributeSigShares(operation_id opid, Callable&& sig_shares_received_handler, Args&&... args)
+    {
+        {
+            std::unique_lock write_lock(m_sig_share_mutex);
+
+            auto opit = m_sigops_cache.find(opid);
+            if (opit != m_sigops_cache.end()) {
+                SigOpSigSharesReceived(*opit) = std::make_unique<MovingBinder<Callable, Args...>>(std::forward<Callable>(sig_shares_received_handler), std::forward<Args>(args)...);
+            }
+            else {
+                throw WrongOperationId(opid);
+            }
+        }
+        DistributeSigShares(opid);
+    }
+
+    template<typename Callable>
+    void DistributeSigShares(operation_id opid, Callable&& sig_shares_received_handler)
+    {
+        {
+            std::unique_lock write_lock(m_sig_share_mutex);
+
+            auto opit = m_sigops_cache.find(opid);
+            if (opit != m_sigops_cache.end()) {
+                SigOpSigSharesReceived(*opit) = std::make_unique<MovingBinder<Callable>>(std::forward<Callable>(sig_shares_received_handler));
+            }
+            else {
+                throw WrongOperationId(opid);
+            }
+        }
+        DistributeSigShares(opid);
+    }
+
     void DistributeSigShares(operation_id opid);
 
     void Verify(const uint256& message, const signature& signature) const;

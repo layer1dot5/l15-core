@@ -232,11 +232,11 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                     peer_state peer = peer_it->second;
                     lock.unlock();
 
-                    std::clog << (std::ostringstream() << "vvv " << msg->ToString()).str() << std::endl;
-                        mTaskService->Serve([m = move(msg), h]() {
-                            std::clog << (std::ostringstream() << "<<< " << m->ToString()).str() << std::endl;
-                            h(m);
-                        });
+                    //std::clog << (std::ostringstream() << "vvv " << msg->ToString()).str() << std::endl;
+                    mTaskService->Serve([m = move(msg), h]() {
+                        std::clog << (std::ostringstream() << "<<< " << m->ToString()).str() << std::endl;
+                        h(m);
+                    });
                 }
                 catch(...) {
                     buffer.clear();
@@ -253,9 +253,9 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
 
             if (!res) {
 
-                std::clog << "No message" << std::endl;
-
-                CheckPeers();
+//                std::clog << "No message" << std::endl;
+//
+//                CheckPeers();
 
                 auto cycle_end = std::chrono::steady_clock::now();
                 auto elapsed = cycle_end - cycle_start;

@@ -10,4 +10,4 @@ AM_CPPFLAGS = \
 
 
 noinst_LTLIBRARIES = libl15-frost.la
-libl15_frost_la_SOURCES = frost_signer.cpp
+libl15_frost_la_SOURCES = frost_signer.cpp frost_steps.cpp

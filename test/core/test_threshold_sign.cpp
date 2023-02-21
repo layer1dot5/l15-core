@@ -47,7 +47,11 @@ TEST_CASE("2-of-3 local")
     const auto key_hdl = []() {  };
     const sigop_handler new_sigop_hdl = [](operation_id) { };
     const sigop_handler sig_hdl = [](operation_id) { };
-    const error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
+    const auto error_hdl = []() {
+        std::ostringstream s;
+        print_error(s);
+        FAIL(s.str());
+    };
 
     SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K);
     SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K);
@@ -174,11 +178,23 @@ TEST_CASE("Try sign without pubnonce")
     const general_handler key_hdl = []() {  };
     const sigop_handler new_sigop_hdl = [](operation_id) { };
     const sigop_handler sig_hdl = [](operation_id) { };
-    const error_handler error_hdl = [](Error&& e) {
-        if (std::string("OutOfOrderMessageError") == e.what() || std::string(e.details()).starts_with("SignatureCommitment")) {
+    const auto error_hdl = []() {
+        try {
+            std::rethrow_exception(std::current_exception());
         }
-        else {
-            FAIL(std::string(e.what()) + ": " + e.details());
+        catch(Error& e) {
+            if (std::string("OutOfOrderMessageError") == e.what() || std::string(e.details()).starts_with("SignatureCommitment")) {
+            }
+            else {
+                std::ostringstream s;
+                print_error(s);
+                FAIL(s.str());
+            }
+        }
+        catch(...) {
+            std::ostringstream s;
+            print_error(s);
+            FAIL(s.str());
         }
     };
 
@@ -294,8 +310,10 @@ TEST_CASE("500 of 1K local")
     const general_handler key_hdl = []() { };
     const sigop_handler new_sigop_hdl = [](operation_id) { };
     const sigop_handler sig_hdl = [](operation_id) { };
-    const error_handler error_hdl = [&](Error&& e) {
-        FAIL(std::string(e.what()) + ": " + e.details());
+    const auto error_hdl = []() {
+        std::ostringstream s;
+        print_error(s);
+        FAIL(s.str());
     };
 
     std::ranges::transform(
