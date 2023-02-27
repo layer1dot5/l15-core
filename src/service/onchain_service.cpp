@@ -90,7 +90,7 @@ void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unneces
             buffer.clear();
 
             m_block_handler(block.GetBlockHeader());
-            for (const CTransactionRef tx: block.vtx) {
+            for (const auto& tx: block.vtx) {
                 m_tx_handler(*tx);
             }
 ;        }

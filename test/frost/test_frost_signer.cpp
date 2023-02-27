@@ -153,12 +153,12 @@ TEST_CASE_METHOD(ThreeSignersTestWrapper, "2-of-3 local")
     CHECK_NOTHROW(nonce_res1.wait());
     CHECK_NOTHROW(nonce_res2.wait());
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
     bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
     REQUIRE(message_data32.size() == 32);
 
-    uint256 m(message_data32);
+    scalar m(message_data32);
 
     std::promise<signature> sig_promise0;
     std::promise<signature> sig_promise1;
@@ -168,11 +168,11 @@ TEST_CASE_METHOD(ThreeSignersTestWrapper, "2-of-3 local")
     auto sig_res1 = sig_promise1.get_future();
     auto sig_res2 = sig_promise2.get_future();
 
-    signer0->Sign(m, 1, cex::make_async_result<signature>(
+    signer0->Sign(m, m, cex::make_async_result<signature>(
             [](signature sig, std::promise<signature>&& p){p.set_value(sig);},
             [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
             move(sig_promise0)));
-    signer1->Sign(m, 1, cex::make_async_result<signature>(
+    signer1->Sign(m, m, cex::make_async_result<signature>(
             [](signature sig, std::promise<signature>&& p){p.set_value(sig);},
             [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
             move(sig_promise1)));

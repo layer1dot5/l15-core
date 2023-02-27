@@ -10,7 +10,6 @@
 
 #include "common.hpp"
 #include "common_error.hpp"
-#include "uint256.h"
 #include "channel_keys.hpp"
 #include "signer_api.hpp"
 #include "signer_service.hpp"
@@ -120,7 +119,7 @@ private:
 
     std::shared_ptr<FrostOperationBase> NewKeyAgg();
     std::shared_ptr<FrostOperationBase> GetCommitNonces();
-    std::shared_ptr<FrostOperationBase> NewSign(uint256 message, core::operation_id opid);
+    std::shared_ptr<FrostOperationBase> NewSign(const scalar& message, const core::operation_id& opid);
 
 public:
 
@@ -132,7 +131,7 @@ public:
             , mOperations(), m_op_mutex()
     {}
 
-    ~FrostSigner() override;
+    ~FrostSigner() override = default;
 
     void SetErrorHandler(std::function<void()> h)
     { m_error_handler = h; }
@@ -148,10 +147,10 @@ public:
     { GetCommitNonces()->Start<NonceCommit>(std::forward<RES>(handler), count); }
 
     template <std::derived_from<cex::async_result_base<signature>> RES>
-    void Sign(uint256 message, core::operation_id opid, RES&& handler)
+    void Sign(const scalar& message, const core::operation_id& opid, RES&& handler)
     { NewSign(message, opid)->Start<SigCommit, signature>(std::forward<RES>(handler)); }
 
-    void Verify(uint256 message, signature sig) const;
+    void Verify(const scalar& message, const signature& sig) const;
 };
 
 }

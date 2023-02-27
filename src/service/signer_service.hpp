@@ -109,7 +109,7 @@ public:
     }
 
     template <std::derived_from<cex::async_result_base<void>> RES>
-    void ProcessSignatureCommitments(std::shared_ptr<core::SignerApi> ps, const uint256 &message, core::operation_id opid, bool participate, RES&& handler)
+    void ProcessSignatureCommitments(std::shared_ptr<core::SignerApi> ps, const scalar& message, const core::operation_id& opid, bool participate, RES&& handler)
     {
         mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), message, opid, participate, handler = handler.forward()]() mutable {
             if (auto ps = ws.lock()) {

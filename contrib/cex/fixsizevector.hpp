@@ -23,6 +23,8 @@ public:
     typedef typename base::difference_type difference_type;
     typedef typename base::allocator_type  allocator_type;
 
+    friend bool operator<(const fixsize_vector& x, const fixsize_vector& y)
+    { return static_cast<const fixsize_vector::base&>(x) < static_cast<const fixsize_vector::base&>(y); }
 private:
     template <typename T>
     const T& check_size(const T& b) {
@@ -81,7 +83,8 @@ public:
 
     void swap(base& x) { base::swap(check_size(x)); }
 
-    operator std::vector<value_type, allocator_type>&(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
+    explicit operator base&(){ return reinterpret_cast<base&>(*this); }
+    explicit operator const base&() const { return reinterpret_cast<const base&>(*this); }
 
     using base::begin;
     using base::cbegin;

@@ -366,23 +366,24 @@ private:
 class SignatureCommitment : public FrostMessage
 {
 public:
-    uint32_t operation_id;
-    SignatureCommitment(uint16_t sequence, xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid) {}
-    SignatureCommitment(SignatureCommitment&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id) {}
+    scalar operation_id;
+    scalar nonce_id;
+    SignatureCommitment(uint16_t sequence, xonly_pubkey&& pk, const scalar& opid, const scalar& nonceid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_COMMITMENT, move(pk)), operation_id(opid), nonce_id(nonceid) {}
+    SignatureCommitment(SignatureCommitment&& r) noexcept = default;
     SignatureCommitment(const SignatureCommitment& ) = default;
 
     template <typename STREAM>
     void Serialize(const secp256k1_context* , STREAM& stream) const
     {
         FrostMessage::Serialize(stream);
-        stream << operation_id;
+        stream << operation_id << nonce_id;
     }
 
     template <typename STREAM>
     void Unserialize(const secp256k1_context* , STREAM& stream)
     {
         FrostMessage::Unserialize(stream);
-        stream >> operation_id;
+        stream >> operation_id >> nonce_id;
     }
 
     frost_message_ptr Copy() override
@@ -391,12 +392,12 @@ public:
     std::string ToString() const override
     {
         std::stringstream buf;
-        buf << "SignatureCommitment {pk: " << hex(pubkey).substr(0, 8) << "...}";
+        buf << "SignatureCommitment {pk: " << hex(pubkey).substr(0, 8) << "..., op: " << hex(operation_id).substr(0, 8) << "... " << hex(nonce_id).substr(0, 8) << "...}";
         return move(buf.str());
     }
 
 private:
-    SignatureCommitment() : FrostMessage(), operation_id(0) {}
+    SignatureCommitment() : FrostMessage(), operation_id(0U), nonce_id(0U) {}
 
     template<typename STREAM>
     friend frost_message_ptr Unserialize(const secp256k1_context* ctx, STREAM& stream);
@@ -405,10 +406,10 @@ private:
 class SignatureShare : public FrostMessage
 {
 public:
-    uint32_t operation_id;
+    scalar operation_id;
     frost_sigshare share;
 
-    SignatureShare(uint16_t sequence, xonly_pubkey&& pk, uint32_t opid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
+    SignatureShare(uint16_t sequence, xonly_pubkey&& pk, const scalar& opid) noexcept : FrostMessage(sequence, FROST_MESSAGE::SIGNATURE_SHARE, move(pk)), operation_id(opid), share{} {}
     SignatureShare(SignatureShare&& r) noexcept : FrostMessage(move(r)), operation_id(r.operation_id), share(move(r.share)) {}
     SignatureShare(const SignatureShare& ) = default;
 
@@ -439,7 +440,7 @@ public:
     std::string ToString() const override
     {
         std::stringstream buf;
-        buf << "SignatureShare {pk: " << hex(pubkey).substr(0, 8) << "... " << hex(share) << '}';
+        buf << "SignatureShare {pk: " << hex(pubkey).substr(0, 8) << "..., op: "  << hex(operation_id).substr(0, 8) << "... "<< hex(share) << '}';
         return move(buf.str());
     }
 

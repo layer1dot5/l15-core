@@ -48,7 +48,7 @@ public:
     std::string mListenAddress;
     std::shared_ptr<l15::service::GenericService> mTaskService;
     WalletApi mWallet;
-    boost::container::flat_map<xonly_pubkey, std::string, l15::less<xonly_pubkey>> m_peers;
+    boost::container::flat_map<xonly_pubkey, std::string> m_peers;
     std::string mInput;
 
     TestSigner();
@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
                 peerService->GetMessageHandler()(move(m));
             }
 
-            uint256 message;
+            scalar message;
             CSHA256().Write((unsigned char *) config.mInput.data(), config.mInput.length()).Finalize(message.data());
 
             if (config.mVerbose) std::clog << "Signing =================================================================" << std::endl;
@@ -259,7 +259,7 @@ int main(int argc, char* argv[])
 
             auto sig_res = sig_promise.get_future();
 
-            signer->Sign(message, 1, cex::make_async_result<signature>(
+            signer->Sign(message, message, cex::make_async_result<signature>(
                     [](signature sig, std::promise<signature>&& p){p.set_value(sig);},
                     [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
                     move(sig_promise)));

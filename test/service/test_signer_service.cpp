@@ -163,7 +163,7 @@ TEST_CASE("2-of-3 local")
     bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
     REQUIRE(message_data32.size() == 32);
 
-    uint256 m(message_data32);
+    scalar m(message_data32);
 
     auto signonce_promise0 = std::promise<void>();
     auto signonce_promise1 = std::promise<void>();
@@ -173,11 +173,11 @@ TEST_CASE("2-of-3 local")
     auto signonce_res1 = signonce_promise1.get_future();
     auto signonce_res2 = signonce_promise2.get_future();
 
-    signerService.ProcessSignatureCommitments(signer0, m, 1, true,  cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
+    signerService.ProcessSignatureCommitments(signer0, m, m, true,  cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
                                                                                                  move(signonce_promise0)));
-    signerService.ProcessSignatureCommitments(signer1, m, 1, false, cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
+    signerService.ProcessSignatureCommitments(signer1, m, m, false, cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
                                                                                                  move(signonce_promise1)));
-    signerService.ProcessSignatureCommitments(signer2, m, 1, true,  cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
+    signerService.ProcessSignatureCommitments(signer2, m, m, true,  cex::make_async_result<void>([](std::promise<void>&& p){p.set_value();}, [](std::promise<void>&& p){p.set_exception(std::current_exception());},
                                                                                                  move(signonce_promise2)));
 
     CHECK_NOTHROW(signonce_res0.wait());
@@ -190,10 +190,10 @@ TEST_CASE("2-of-3 local")
     auto sign_res0 = sig_promise0.get_future();
     auto sign_res2 = sig_promise2.get_future();
 
-    signerService.Sign(signer0, 1, cex::make_async_result<signature>([](signature sig, std::promise<signature>&& p) { p.set_value(sig); },
+    signerService.Sign(signer0, m, cex::make_async_result<signature>([](signature sig, std::promise<signature>&& p) { p.set_value(sig); },
                                                                                [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
                                                                                move(sig_promise0)));
-    signerService.Sign(signer2, 1, cex::make_async_result<signature>([](signature sig, std::promise<signature>&& p) { p.set_value(sig); },
+    signerService.Sign(signer2, m, cex::make_async_result<signature>([](signature sig, std::promise<signature>&& p) { p.set_value(sig); },
                                                                      [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
                                                                      move(sig_promise2)));
 

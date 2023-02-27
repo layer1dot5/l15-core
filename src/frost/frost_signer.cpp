@@ -207,13 +207,13 @@ void FrostSigner::Start()
         }
     });
 
-    details::OperationMapId opid {0, details::OperationType::nonce};
+    details::OperationMapId opid {core::operation_id(0), details::OperationType::nonce};
     mOperations.emplace(opid, std::make_shared<FrostOperation>(std::make_shared<NonceCommit>(shared_from_this(), opid)));
 }
 
 std::shared_ptr<FrostOperationBase> FrostSigner::NewKeyAgg()
 {
-    details::OperationMapId opid {0, details::OperationType::key};
+    details::OperationMapId opid {core::operation_id(0), details::OperationType::key};
     auto op = std::make_shared<FrostOperation>(std::make_shared<KeyCommit>(this->shared_from_this(), opid));
 
     std::unique_lock oplock(m_op_mutex);
@@ -232,12 +232,12 @@ std::shared_ptr<FrostOperationBase> FrostSigner::NewKeyAgg()
 
 std::shared_ptr<FrostOperationBase> FrostSigner::GetCommitNonces()
 {
-    details::OperationMapId opid {0, details::OperationType::nonce};
+    details::OperationMapId opid {core::operation_id(0), details::OperationType::nonce};
     std::unique_lock oplock(m_op_mutex);
     return mOperations[opid];
 }
 
-std::shared_ptr<FrostOperationBase> FrostSigner::NewSign(uint256 message, core::operation_id opid)
+std::shared_ptr<FrostOperationBase> FrostSigner::NewSign(const scalar& message, const core::operation_id& opid)
 {
     details::OperationMapId opmapid {opid, details::OperationType::sign};
 
@@ -253,10 +253,8 @@ std::shared_ptr<FrostOperationBase> FrostSigner::NewSign(uint256 message, core::
     return op;
 }
 
-void FrostSigner::Verify(uint256 message, signature sig) const
+void FrostSigner::Verify(const scalar& message, const signature& sig) const
 { mSignerApi->Verify(message, sig); }
-
-FrostSigner::~FrostSigner() = default;
 
 namespace details {
 
@@ -275,7 +273,7 @@ std::string OperationMapId::describe() const
     case OperationType::key:
         return "keyagg";
     case OperationType::sign:
-        return (std::ostringstream() << "sign/" << opid).str();
+        return (std::ostringstream() << "sign/" << hex(opid)).str();
     }
 }
 

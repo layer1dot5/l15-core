@@ -31,7 +31,8 @@ typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;
 
 
-typedef cex::fixsize_vector<uint8_t, 32> seckey;
+typedef cex::fixsize_vector<uint8_t, 32> scalar;
+typedef scalar seckey;
 typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
 
 class xonly_pubkey : public cex::fixsize_vector<uint8_t, 32>
@@ -128,16 +129,6 @@ struct equal_to<T*>
 {
     constexpr bool operator()(const T* x, const T* y) const
     { return *x == *y; }
-};
-
-template <typename T>
-struct less : std::less<T> {};
-
-template <>
-struct less<xonly_pubkey>
-{
-    bool operator()(const xonly_pubkey& x, const xonly_pubkey& y) const
-    { return x.get_vector() < y.get_vector(); }
 };
 
 

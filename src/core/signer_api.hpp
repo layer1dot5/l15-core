@@ -11,6 +11,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
+#include <map>
 #include <functional>
 #include <type_traits>
 
@@ -30,14 +31,14 @@
 
 namespace l15::core {
 
-typedef size_t operation_id;
+typedef scalar operation_id;
 
 class PeerNotFoundError : public Error {
 public:
     explicit PeerNotFoundError(const xonly_pubkey& pk) : Error(hex(pk)) {}
 
     const char* what() const noexcept override
-    { return "PeerNotFoundError"; }
+    { return "P                                                                                                                                                                                                                                                     eerNotFoundError"; }
 };
 
 class OutOfOrderMessageError : public Error {
@@ -65,15 +66,24 @@ public:
     { return "KeyAggregationError"; }
 
 };
-class WrongOperationId : public Error {
+class OperationIdCollision : public Error {
 public:
-    explicit WrongOperationId(operation_id id) : opid(id) {}
-    ~WrongOperationId() override = default;
+    explicit OperationIdCollision(operation_id id) : opid(id) {}
+    ~OperationIdCollision() override = default;
 
     const char* what() const noexcept override
-    { return "WrongOperationId"; }
+    { return "OperationIdCollision"; }
 
     operation_id opid;
+};
+
+class SigNonceNotAwailable : public Error {
+public:
+    ~SigNonceNotAwailable() override = default;
+
+    const char* what() const noexcept override
+    { return "SigNonceNotAwailable"; }
+
 };
 
 class SignerApi;
@@ -114,8 +124,23 @@ typedef std::function<void(const xonly_pubkey& peer_pk, p2p::frost_message_ptr)>
 
 struct RemoteSignerData
 {
+    explicit RemoteSignerData(frost_peer_link_handler&& l)
+        : link(move(l))
+        , ephemeral_pubkeys()
+        , ephemeral_pubkeys_mutex(std::make_unique<std::shared_mutex>())
+        , keyshare_commitment()
+        , keyshare() {}
+
+    RemoteSignerData(RemoteSignerData&& r)
+        : link(move(r.link))
+        , ephemeral_pubkeys(move(r.ephemeral_pubkeys))
+        , ephemeral_pubkeys_mutex(move(r.ephemeral_pubkeys_mutex))
+        , keyshare_commitment(move(r.keyshare_commitment))
+        , keyshare(move(r.keyshare)) {}
+
     mutable frost_peer_link_handler link;
-    boost::container::flat_map<operation_id, secp256k1_frost_pubnonce> ephemeral_pubkeys;
+    std::map<operation_id, std::tuple<secp256k1_frost_pubnonce, std::optional<operation_id>>> ephemeral_pubkeys;
+    std::unique_ptr<std::shared_mutex> ephemeral_pubkeys_mutex;
 
     std::vector<secp256k1_pubkey> keyshare_commitment; // k
     std::optional<secp256k1_frost_share> keyshare;
@@ -141,13 +166,13 @@ private:
 
     std::atomic<size_t> m_keycommit_count;
     std::atomic<size_t> m_keyshare_count;
-    uint256 m_vss_hash;
+    scalar m_vss_hash;
 
     std::unique_ptr<MovingBinderBase> m_key_commits_handler;
     std::unique_ptr<MovingBinderBase> m_key_handler;
 
-    // TODO: refactor into flat_map<opid, secp256k1_frost_secnonce> and remove secnonce elements when used
-    std::list<secp256k1_frost_secnonce> m_secnonces;
+    std::map<operation_id, std::tuple<secp256k1_frost_secnonce, std::optional<operation_id>>> m_secnonces;
+    std::shared_mutex m_secnonces_mutex;
 
     std::array<void(SignerApi::*)(const p2p::FrostMessage& m), (size_t)p2p::FROST_MESSAGE::MESSAGE_ID_COUNT> mHandlers;
 
@@ -169,7 +194,7 @@ private:
                 std::unique_ptr<MovingBinderBase>  // all_signature_shares_received_handler
             > sigop_cache;
 
-    typedef boost::container::flat_map<operation_id, sigop_cache> sigops_cache;
+    typedef std::map<operation_id, sigop_cache> sigops_cache;
 
     sigops_cache m_sigops_cache;
 
@@ -218,7 +243,10 @@ private:
 
     void CommitKeySharesImpl();
     void DistributeKeySharesImpl();
-    void InitSignatureImpl(operation_id opid);
+    void InitSignatureImpl(const operation_id& opid);
+
+    operation_id SelectNonceId(const operation_id& opid);
+    operation_id GetCorrespondingNonceId(const operation_id& opid, const xonly_pubkey& peer_pk) const;
 
 public:
     SignerApi(ChannelKeys &&keypair,
@@ -237,6 +265,7 @@ public:
     size_t GetNonceCount() const noexcept
     { return m_nonce_count; }
 
+    bool CheckReadyToSign(const operation_id& opid) const;
 
     void SetPublisher(frost_publish_handler h)
     { m_publisher = move(h); }
@@ -246,9 +275,6 @@ public:
 
     const seckey& GetSecKey() const
     { return mKeypair.GetLocalPrivKey(); }
-
-    const std::list<secp256k1_frost_secnonce>& GetSecNonceList() const
-    { return m_secnonces; }
 
     // -----------------------------------------------
 
@@ -324,11 +350,11 @@ public:
         }
     }
 
-    void PreprocessSignature(const uint256 &datahash, operation_id opid);
+    void PreprocessSignature(const scalar &datahash, const operation_id& opid);
 
 
     template<typename Callable, typename... Args>
-    void DistributeSigShares(operation_id opid, Callable&& sig_shares_received_handler, Args&&... args)
+    void DistributeSigShares(const operation_id& opid, Callable&& sig_shares_received_handler, Args&&... args)
     {
         {
             std::unique_lock write_lock(m_sig_share_mutex);
@@ -338,14 +364,14 @@ public:
                 SigOpSigSharesReceived(*opit) = std::make_unique<MovingBinder<Callable, Args...>>(std::forward<Callable>(sig_shares_received_handler), std::forward<Args>(args)...);
             }
             else {
-                throw WrongOperationId(opid);
+                throw OperationIdCollision(opid);
             }
         }
         DistributeSigShares(opid);
     }
 
     template<typename Callable>
-    void DistributeSigShares(operation_id opid, Callable&& sig_shares_received_handler)
+    void DistributeSigShares(const operation_id& opid, Callable&& sig_shares_received_handler)
     {
         {
             std::unique_lock write_lock(m_sig_share_mutex);
@@ -355,20 +381,20 @@ public:
                 SigOpSigSharesReceived(*opit) = std::make_unique<MovingBinder<Callable>>(std::forward<Callable>(sig_shares_received_handler));
             }
             else {
-                throw WrongOperationId(opid);
+                throw OperationIdCollision(opid);
             }
         }
         DistributeSigShares(opid);
     }
 
-    void DistributeSigShares(operation_id opid);
+    void DistributeSigShares(const operation_id& opid);
 
-    void Verify(const uint256& message, const signature& signature) const;
+    void Verify(const scalar& message, const signature& signature) const;
 
     void AggregateKey();
-    signature AggregateSignature(operation_id opid);
+    signature AggregateSignature(const operation_id& opid);
 
-    void ClearSignatureCache(operation_id opid);
+    void ClearSignatureCache(const operation_id& opid);
 private:
 
     void AcceptNonceCommitments(const p2p::FrostMessage& m);

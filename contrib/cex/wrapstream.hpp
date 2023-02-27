@@ -22,7 +22,7 @@ private:
 
 private:
     container_type m_container;
-    iterator m_read_it;
+    const_iterator m_read_it;
 public:
     stream() : m_container(), m_read_it(m_container.begin()) {}
     explicit stream(container_type&& container) : m_container(std::move(container)), m_read_it(m_container.cbegin()) {}
@@ -44,12 +44,21 @@ public:
         return *this;
     }
 
-
-    template<typename V>
+    template<std::assignable_from<value_type> V>
     stream& write(const V& elements)
     {
         auto pos = position();
         m_container.insert(m_container.end(), elements.begin(), elements.end());
+        m_read_it = m_container.begin();
+        std::advance(m_read_it, pos);
+        return *this;
+    }
+
+    template<template <class> class SPAN, typename V>
+    stream& write(const SPAN<V>& elements)
+    {
+        auto pos = position();
+        std::transform(elements.begin(), elements.end(), cex::smartinserter(m_container, m_container.end()), [](const V& v){ return static_cast<value_type>(v); });
         m_read_it = m_container.begin();
         std::advance(m_read_it, pos);
         return *this;
@@ -62,19 +71,53 @@ public:
     {
         if (m_container.end() - m_read_it < count) throw std::range_error("Not enough data to read");
 
-        iterator end_it = m_read_it + count;
+        const_iterator end_it = m_read_it + count;
         std::transform(m_read_it, end_it, p, [&](const auto& v){ return v; });
         m_read_it = end_it;
         return *this;
     }
 
-    template <typename V>
-    stream& read(const V& elements)
+    template <std::constructible_from<value_type> V>
+    stream& read(V& elements)
     {
         if (m_container.end() - m_read_it < elements.size()) throw std::range_error("Not enough data to read");
 
-        iterator end_it = m_read_it + elements.size();
+        const_iterator end_it = m_read_it + elements.size();
+        std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return V(v); });
+        m_read_it = end_it;
+        return *this;
+    }
+
+    template <std::assignable_from<value_type> V>
+    stream& read(V& elements)
+    {
+        if (m_container.end() - m_read_it < elements.size()) throw std::range_error("Not enough data to read");
+
+        const_iterator end_it = m_read_it + elements.size();
         std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return v; });
+        m_read_it = end_it;
+        return *this;
+    }
+
+    template <typename V>
+    stream& read(V& elements)
+    {
+        if (m_container.end() - m_read_it < elements.size()) throw std::range_error("Not enough data to read");
+
+        const_iterator end_it = m_read_it + elements.size();
+        std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return static_cast<V>(v); });
+        m_read_it = end_it;
+        return *this;
+    }
+
+
+    template <template <class> class SPAN, typename V>
+    stream& read(const SPAN<V>& span)
+    {
+        if (m_container.end() - m_read_it < span.size()) throw std::range_error("Not enough data to read");
+
+        const_iterator end_it = m_read_it + span.size();
+        std::transform(m_read_it, end_it, span.begin(), [&](const auto& v){ return static_cast<V>(v); });
         m_read_it = end_it;
         return *this;
     }

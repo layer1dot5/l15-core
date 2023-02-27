@@ -170,7 +170,7 @@ struct FrostStep
 struct NonceCommit : public FrostStep
 {
     explicit NonceCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid) : FrostStep(move(s), opid) {
-        assert(opid.optype == details::OperationType::nonce && !opid.opid);
+        assert(opid.optype == details::OperationType::nonce && IsZeroArray(opid.opid));
     }
 
     const char *Name() const noexcept override
@@ -199,9 +199,6 @@ struct NonceCommit : public FrostStep
                 MessageReceive(*signer, peer_cache);
             }
         }
-//        else {
-//            throw std::runtime_error("Signer is destroyed");
-//        }
     }
 
     std::shared_ptr<FrostStep> GetNextStep() override
@@ -268,7 +265,7 @@ struct KeyCommit : public FrostStep
     explicit KeyCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid)
             : FrostStep(move(s), opid), commitments_received(0), next_step(MakeNextStep())
     {
-        assert(opid.optype == details::OperationType::key && !opid.opid);
+        assert(opid.optype == details::OperationType::key && IsZeroArray(opid.opid));
     }
 
     const char *Name() const noexcept override
@@ -364,15 +361,15 @@ struct SigCommit : public FrostStep
 {
     std::atomic_size_t commitments_received;
     std::shared_ptr<SigAgg> next_step;
-    uint256 message;
+    scalar message;
 
     std::shared_ptr<SigAgg> MakeNextStep()
     { return std::make_shared<SigAgg>(mSigner, mOpId); }
 
-    explicit SigCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid, uint256 m)
-            : FrostStep(move(s), opid), commitments_received(0), next_step(MakeNextStep()), message(m)
+    explicit SigCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid, const scalar& m)
+            : FrostStep(move(s), move(opid)), commitments_received(0), next_step(MakeNextStep()), message(m)
     {
-        assert(opid.optype == details::OperationType::sign && opid.opid > 0);
+        assert(opid.optype == details::OperationType::sign && !IsZeroArray(opid.opid));
     }
 
     const char *Name() const noexcept override

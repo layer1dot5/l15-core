@@ -139,22 +139,22 @@ TEST_CASE("2-of-3 local")
     bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
     REQUIRE(message_data32.size() == 32);
 
-    uint256 m(message_data32);
+    scalar m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0), false));
-    CHECK_NOTHROW(signer1.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
-    CHECK_NOTHROW(signer2.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer0.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m), false));
+    CHECK_NOTHROW(signer1.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m)));
+    CHECK_NOTHROW(signer2.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m)));
 
-    CHECK_NOTHROW(signer0.PreprocessSignature(m, 0));
-    CHECK_NOTHROW(signer1.PreprocessSignature(m, 0));
-    CHECK_NOTHROW(signer2.PreprocessSignature(m, 0));
+    CHECK_NOTHROW(signer0.PreprocessSignature(m, m));
+    CHECK_NOTHROW(signer1.PreprocessSignature(m, m));
+    CHECK_NOTHROW(signer2.PreprocessSignature(m, m));
 
-    CHECK_NOTHROW(signer2.DistributeSigShares(0));
-    CHECK_NOTHROW(signer1.DistributeSigShares(0));
+    CHECK_NOTHROW(signer2.DistributeSigShares(m));
+    CHECK_NOTHROW(signer1.DistributeSigShares(m));
 
-    CHECK_NOTHROW(sig1 = signer1.AggregateSignature(0));
-    CHECK_NOTHROW(sig2 = signer2.AggregateSignature(0));
-    CHECK_NOTHROW(sig0 = signer0.AggregateSignature(0));
+    CHECK_NOTHROW(sig1 = signer1.AggregateSignature(m));
+    CHECK_NOTHROW(sig2 = signer2.AggregateSignature(m));
+    CHECK_NOTHROW(sig0 = signer0.AggregateSignature(m));
 
 
     REQUIRE_FALSE(IsZeroArray(sig1));
@@ -179,23 +179,9 @@ TEST_CASE("Try sign without pubnonce")
     const sigop_handler new_sigop_hdl = [](operation_id) { };
     const sigop_handler sig_hdl = [](operation_id) { };
     const auto error_hdl = []() {
-        try {
-            std::rethrow_exception(std::current_exception());
-        }
-        catch(Error& e) {
-            if (std::string("OutOfOrderMessageError") == e.what() || std::string(e.details()).starts_with("SignatureCommitment")) {
-            }
-            else {
-                std::ostringstream s;
-                print_error(s);
-                FAIL(s.str());
-            }
-        }
-        catch(...) {
-            std::ostringstream s;
-            print_error(s);
-            FAIL(s.str());
-        }
+        std::ostringstream s;
+        print_error(s);
+        FAIL(s.str());
     };
 
     SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K);
@@ -285,15 +271,15 @@ TEST_CASE("Try sign without pubnonce")
     bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
     REQUIRE(message_data32.size() == 32);
 
-    uint256 m(message_data32);
+    scalar m(message_data32);
 
-    CHECK_NOTHROW(signer0.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0), false));
-    CHECK_NOTHROW(signer1.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
-    CHECK_NOTHROW(signer2.InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0)));
+    CHECK_NOTHROW(signer0.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m), false));
+    CHECK_NOTHROW(signer1.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m)));
+    CHECK_THROWS_AS(signer2.InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m)), SigNonceNotAwailable);
 
-    REQUIRE_THROWS(signer0.PreprocessSignature(m, 0));
-    REQUIRE_THROWS(signer1.PreprocessSignature(m, 0));
-    REQUIRE_THROWS(signer2.PreprocessSignature(m, 0));
+    REQUIRE_THROWS(signer0.PreprocessSignature(m, m));
+    REQUIRE_THROWS(signer1.PreprocessSignature(m, m));
+    REQUIRE_THROWS(signer2.PreprocessSignature(m, m));
 
 }
 
@@ -417,7 +403,7 @@ TEST_CASE("500 of 1K local")
 
     bytevector message_data32 {'T','h','i','s',' ','i','s',' ','t','e','s','t',' ','d','a','t','a',' ','t','o',' ','b','e',' ','s','i','g','n','e','d','!','!'};
     REQUIRE(message_data32.size() == 32);
-    uint256 m(message_data32);
+    scalar m(message_data32);
 
     std::set<size_t> actual_signers;
 
@@ -433,7 +419,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure initsig_measure("Init signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             initsig_measure.Measure([&]() {
-                signers[i]->InitSignature(0, make_moving_callable(new_sigop_hdl, 0), make_moving_callable(sig_hdl, 0));
+                signers[i]->InitSignature(m, make_moving_callable(new_sigop_hdl, m), make_moving_callable(sig_hdl, m));
                 return 0;
             });
         });
@@ -444,7 +430,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure preprocsig_measure("Preprocess signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             preprocsig_measure.Measure([&]() {
-                signers[i]->PreprocessSignature(m, 0);
+                signers[i]->PreprocessSignature(m, m);
                 return 0;
             });
         });
@@ -455,7 +441,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure distribsig_measure("Distribute sig shares");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             distribsig_measure.Measure([&]() {
-                signers[i]->DistributeSigShares(0);
+                signers[i]->DistributeSigShares(m);
                 return 0;
             });
         });
@@ -468,7 +454,7 @@ TEST_CASE("500 of 1K local")
         TimeMeasure aggsig_measure("Aggregate signature");
         std::for_each(std::execution::par_unseq, actual_signers.begin(), actual_signers.end(), [&](auto &i) {
             aggsig_measure.Measure([&]() {
-                signature sig = signers[i]->AggregateSignature(0);
+                signature sig = signers[i]->AggregateSignature(m);
                 {
                     [[maybe_unused]] const std::lock_guard<std::mutex> lock(sig_mutex);
                     final_sigs.emplace_back(std::move(sig));

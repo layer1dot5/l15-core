@@ -4,11 +4,13 @@
 #include <sstream>
 #include <type_traits>
 #include <future>
+#include <ranges>
 
 #include "smartinserter.hpp"
 #include "algorithm.hpp"
 
 #include "util/strencodings.h"
+#include "crypto/sha256.h"
 
 #include "secp256k1_schnorrsig.h"
 
@@ -33,6 +35,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     , m_vss_hash()
     , m_key_handler()
     , m_secnonces()
+    , m_secnonces_mutex()
     , mHandlers()
     , m_err_handler([](){})
     , m_operation_seqnum(1)
@@ -44,6 +47,24 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerApi::AcceptSignatureShare;
 
     AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), [this](const xonly_pubkey& pk, p2p::frost_message_ptr&& m){ Accept(*m); });
+}
+
+bool SignerApi::CheckReadyToSign(const operation_id& opid) const
+{
+    bool res = mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey();
+
+    if (res) {
+        try {
+            for (const auto &peer_data: m_peers_data) {
+                GetCorrespondingNonceId(opid, peer_data.first);
+            }
+            res = true;
+        }
+        catch (...) {
+            res = false;
+        }
+    }
+    return res;
 }
 
 void SignerApi::Accept(const FrostMessage& m)
@@ -73,18 +94,17 @@ void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
     const auto& message = reinterpret_cast<const NonceCommitments&>(m);
 
     if (m_peers_data.contains(message.pubkey)) {
-        auto& ephemeral_pubkeys = m_peers_data[message.pubkey].ephemeral_pubkeys;
-        std::for_each(message.nonce_commitments.begin(), message.nonce_commitments.end(), [&ephemeral_pubkeys](const secp256k1_frost_pubnonce& pubnonce)
+        auto& peer_data = m_peers_data.at(message.pubkey);
+        auto& ephemeral_pubkeys = peer_data.ephemeral_pubkeys;
+
+        std::unique_lock lock(*peer_data.ephemeral_pubkeys_mutex);
+
+        for (const auto& pubnonce: message.nonce_commitments)
         {
-            // TODO: Need implement a check for uniquness
-            if (!ephemeral_pubkeys.empty()) {
-                operation_id lastopid = ephemeral_pubkeys.nth(ephemeral_pubkeys.size() - 1)->first;
-                ephemeral_pubkeys[lastopid+1] = pubnonce;
-            }
-            else {
-                ephemeral_pubkeys[0] = pubnonce;
-            }
-        });
+            scalar nonceid;
+            CSHA256().Write(pubnonce.data, sizeof(pubnonce.data)).Finalize(nonceid.data());
+            std::get<0>(ephemeral_pubkeys[nonceid]) = pubnonce;
+        }
     }
     else {
         throw PeerNotFoundError(message.pubkey);
@@ -147,9 +167,24 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
     if (peer_it == m_peers_data.end()) {
         throw PeerNotFoundError(message.pubkey);
     }
-    else if ((mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) // Means aggregated pub key is assigned
-            && (peer_it->second.ephemeral_pubkeys.find(message.operation_id) != peer_it->second.ephemeral_pubkeys.end()))
-    {
+    else if (mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) { // Means aggregated pub key is assigned
+
+        std::shared_lock lock(*peer_it->second.ephemeral_pubkeys_mutex);
+        auto& pubnonce_data = peer_it->second.ephemeral_pubkeys[message.nonce_id];
+
+        if (!get<1>(pubnonce_data).has_value()) {
+            get<1>(pubnonce_data) = std::make_optional(message.operation_id);
+        }
+        else if (*get<1>(pubnonce_data) != message.operation_id) {
+            throw OperationIdCollision(message.operation_id);
+        }
+        lock.unlock();
+
+        if (std::get<1>(pubnonce_data).has_value() && *std::get<1>(pubnonce_data) != message.operation_id) {
+            throw OperationIdCollision(message.operation_id);
+        }
+        std::get<1>(pubnonce_data).emplace(message.operation_id);
+
         secp256k1_xonly_pubkey peer_pk = message.pubkey.get(m_ctx);
 
         [[maybe_unused]] std::unique_lock read_lock(m_sig_share_mutex);
@@ -225,7 +260,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
                     //-----------------//
 
                     std::ostringstream errbuf;
-                    errbuf << "Peer is already provided different sig share: " << message.operation_id << '/' << HexStr(message.pubkey);
+                    errbuf << "Peer is already provided different sig share: " << hex(message.operation_id) << '/' << hex(message.pubkey);
                     throw SignatureError(errbuf.str());
                 }
             }
@@ -235,7 +270,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
             //-----------------//
 
             std::ostringstream errbuf;
-            errbuf << '[' << hex(mKeypair.GetPubKey()).substr(0, 8) << "] "<< "Peer is not registered to participate in signature: " << message.operation_id << '/' << HexStr(message.pubkey);
+            errbuf << '[' << hex(mKeypair.GetPubKey()).substr(0, 8) << "] "<< "Peer is not registered to participate in signature: " << hex(message.operation_id) << '/' << HexStr(message.pubkey);
             throw SignatureError(errbuf.str());
         }
 
@@ -257,6 +292,9 @@ void SignerApi::CommitNonces(size_t count)
     std::unique_ptr<NonceCommitments> message = std::make_unique<NonceCommitments>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetPubKey()));
     message->nonce_commitments.reserve(count);
 
+    std::vector<std::pair<operation_id, std::tuple<secp256k1_frost_secnonce, std::optional<operation_id>>>> secnonces;
+    secnonces.reserve(count);
+
     for (size_t i = 0; i < count; ++i) {
         seckey session_key = mKeypair.GetStrongRandomKey();
         secp256k1_frost_secnonce secnonce;
@@ -266,12 +304,17 @@ void SignerApi::CommitNonces(size_t count)
             throw SignatureError("Pubnonce generation error");
         }
 
-        m_secnonces.emplace_back(secnonce);
+        scalar nonceid;
+        CSHA256().Write(pubnonce.data, sizeof(pubnonce.data)).Finalize(nonceid.data());
+
+        secnonces.emplace_back(move(nonceid), std::make_tuple(secnonce, std::optional<operation_id>()));
         message->nonce_commitments.emplace_back(pubnonce);
     }
 
     Publish(move(message));
 
+    std::unique_lock lock(m_secnonces_mutex);
+    m_secnonces.insert(std::make_move_iterator(secnonces.begin()), std::make_move_iterator(secnonces.end()));
     m_nonce_count += count;
 }
 
@@ -372,7 +415,7 @@ void SignerApi::AggregateKey()
     mKeyShare.SetAggregatePubKey(std::move(agg_pubkey));
 }
 
-signature SignerApi::AggregateSignature(operation_id opid)
+signature SignerApi::AggregateSignature(const operation_id& opid)
 {
     signature sig_agg;
     std::vector<secp256k1_frost_partial_sig> sigshares_data(m_threshold_size);
@@ -384,7 +427,7 @@ signature SignerApi::AggregateSignature(operation_id opid)
 
         auto op_it = m_sigops_cache.find(opid);
         if (op_it == m_sigops_cache.end()) {
-            throw SignatureError((std::stringstream() << "Signature operation is not found: " << opid).str());
+            throw SignatureError((std::stringstream() << "Signature operation is not found: " << hex(opid).substr(0, 8) << "...").str());
         }
         op = &*op_it;
     }
@@ -408,12 +451,12 @@ signature SignerApi::AggregateSignature(operation_id opid)
     }
 }
 
-void SignerApi::InitSignatureImpl(operation_id opid)
+void SignerApi::InitSignatureImpl(const operation_id& opid)
 {
-    Publish(std::make_unique<SignatureCommitment>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetLocalPubKey()), opid));
+    Publish(std::make_unique<SignatureCommitment>(m_operation_seqnum++, xonly_pubkey(mKeypair.GetLocalPubKey()), opid, SelectNonceId(opid)));
 }
 
-void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
+void SignerApi::PreprocessSignature(const scalar &datahash, const operation_id& opid)
 {
     sigops_cache::value_type* op;
     {
@@ -421,7 +464,7 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
 
         auto op_it = m_sigops_cache.find(opid);
         if (op_it == m_sigops_cache.end()) {
-            throw SignatureError((stringstream() << "Signature operation is not found: " << opid).str());
+            throw SignatureError((stringstream() << "Signature operation is not found: " << hex(opid).substr(0,8) << "...").str());
         }
         op = &*op_it;
     }
@@ -441,17 +484,20 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
     cex::for_each(std::execution::par, sigshares.begin(), sigshares.end(), [&](const auto& ss)
     {
         xonly_pubkey peer_pk(m_ctx, ss.first);
-        const RemoteSignerData& peer = m_peers_data[peer_pk];
+        const RemoteSignerData& peer = m_peers_data.at(peer_pk);
 
-        auto pubnonce_it = peer.ephemeral_pubkeys.find(opid);
+        std::shared_lock peer_lock(*peer.ephemeral_pubkeys_mutex);
+        auto pubnonce_it = peer.ephemeral_pubkeys.find(GetCorrespondingNonceId(opid, peer_pk));
+
         if (pubnonce_it == peer.ephemeral_pubkeys.end()) {
             throw SignatureError((stringstream() << "No pubnonce from: " << hex(peer_pk)).str());
         }
+        peer_lock.unlock(); // Unlock as search has been completed.
 
         {
             [[maybe_unused]] std::lock_guard lock(m);
 
-            pubnonces.emplace_back(&(pubnonce_it->second));
+            pubnonces.emplace_back(&(get<0>(pubnonce_it->second)));
             pubkeys.emplace_back(&(ss.first));
         }
     });
@@ -467,7 +513,7 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
 
 }
 
-void SignerApi::DistributeSigShares(operation_id opid)
+void SignerApi::DistributeSigShares(const operation_id& opid)
 {
     secp256k1_frost_session* session;
     {
@@ -475,20 +521,21 @@ void SignerApi::DistributeSigShares(operation_id opid)
 
         auto op_it = m_sigops_cache.find(opid);
         if (op_it == m_sigops_cache.end() || !SigOpSession(*op_it).has_value()) {
-            throw SignatureError((std::stringstream() << "Signature operation is not found: " << opid).str());
+            throw SignatureError((std::stringstream() << "Signature operation is not found: " << hex(opid).substr(0, 8) << "...").str());
         }
 
         session = &(SigOpSession(*op_it).value());
     }
 
-    auto secnonce_it = m_secnonces.begin();
-    std::advance(secnonce_it, opid);
+    std::shared_lock secnonces_lock(m_secnonces_mutex);
+    auto& secnonce = get<0>(m_secnonces.at(GetCorrespondingNonceId(opid, mKeypair.GetLocalPubKey())));
+    secnonces_lock.unlock();
 
     secp256k1_frost_share keyshare;
     std::copy(mKeyShare.GetLocalPrivKey().begin(), mKeyShare.GetLocalPrivKey().end(), keyshare.data);
 
     secp256k1_frost_partial_sig sigshare;
-    if (!secp256k1_frost_partial_sign(m_ctx, &sigshare, &*secnonce_it, &keyshare, session, nullptr)) {
+    if (!secp256k1_frost_partial_sign(m_ctx, &sigshare, &secnonce, &keyshare, session, nullptr)) {
         throw SignatureError("Signing error");
     }
 
@@ -498,7 +545,7 @@ void SignerApi::DistributeSigShares(operation_id opid)
     Publish(move(message));
 }
 
-void SignerApi::Verify(const uint256 &message, const signature &signature) const
+void SignerApi::Verify(const scalar &message, const signature &signature) const
 {
     secp256k1_xonly_pubkey pubkey = mKeyShare.GetPubKey().get(m_ctx);
 
@@ -508,10 +555,44 @@ void SignerApi::Verify(const uint256 &message, const signature &signature) const
 
 }
 
-void SignerApi::ClearSignatureCache(operation_id opid)
+void SignerApi::ClearSignatureCache(const operation_id& opid)
 {
     [[maybe_unused]] std::unique_lock write_lock(m_sig_share_mutex);
     m_sigops_cache.erase(opid);
+}
+
+operation_id SignerApi::SelectNonceId(const operation_id &opid)
+{
+    std::unique_lock lock(m_secnonces_mutex);
+    for (auto& secnonce: m_secnonces) {
+        if (!std::get<1>(secnonce.second).has_value()) {
+            std::get<1>(secnonce.second) = std::make_optional<operation_id>(opid);
+            return secnonce.first;
+        }
+    }
+    throw SigNonceNotAwailable();
+}
+
+
+operation_id SignerApi::GetCorrespondingNonceId(const operation_id &opid, const xonly_pubkey& peer_pk) const
+{
+    auto peer_it = m_peers_data.find(peer_pk);
+    if (peer_it != m_peers_data.end()) {
+
+        auto nonce_it = std::find_if(peer_it->second.ephemeral_pubkeys.begin(),
+                                     peer_it->second.ephemeral_pubkeys.end(),
+                                     [&opid](const auto& e){ return get<1>(e.second).has_value() && (*get<1>(e.second) == opid); });
+
+        if (nonce_it != peer_it->second.ephemeral_pubkeys.end()) {
+            return nonce_it->first;
+        }
+        else {
+            throw SigNonceNotAwailable();
+        }
+    }
+    else {
+        throw UnknownPeer(hex(peer_pk));
+    }
 }
 
 } // l15

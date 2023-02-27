@@ -2,7 +2,6 @@
 
 #include "common.hpp"
 #include "common_error.hpp"
-#include "uint256.h"
 #include "channel_keys.hpp"
 #include "signer_api.hpp"
 #include "signer_service.hpp"
