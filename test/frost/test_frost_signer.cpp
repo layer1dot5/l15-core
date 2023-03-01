@@ -44,7 +44,7 @@ struct ThreeSignersTestWrapper {
         : keypair0(wallet.Secp256k1Context())
         , keypair1(wallet.Secp256k1Context())
         , keypair2(wallet.Secp256k1Context())
-        , service(std::make_shared<service::GenericService>(2))
+        , service(std::make_shared<service::GenericService>(1))
         , signerService(std::make_shared<SignerService>(service))
         , peer0(std::make_shared<ZmqService>(wallet.Secp256k1Context(), service))
         , peer1(std::make_shared<ZmqService>(wallet.Secp256k1Context(), service))
@@ -53,20 +53,23 @@ struct ThreeSignersTestWrapper {
         , signer1(make_shared<FrostSigner>(keypair1, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer1))
         , signer2(make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2))
     {
-        signer0->SetErrorHandler([](){
+        signer0->SetErrorHandler([this](){
             std::ostringstream stream;
+            stream << "[" << hex(keypair0.GetLocalPubKey()).substr(0,8) << "] ";
             print_error(stream);
             FAIL(stream.str());
         });
 
-        signer1->SetErrorHandler([](){
+        signer1->SetErrorHandler([this](){
             std::ostringstream stream;
+            stream << "[" << hex(keypair1.GetLocalPubKey()).substr(0,8) << "] ";
             print_error(stream);
             FAIL(stream.str());
         });
 
-        signer2->SetErrorHandler([](){
+        signer2->SetErrorHandler([this](){
             std::ostringstream stream;
+            stream << "[" << hex(keypair2.GetLocalPubKey()).substr(0,8) << "] ";
             print_error(stream);
             FAIL(stream.str());
         });
@@ -162,12 +165,12 @@ TEST_CASE_METHOD(ThreeSignersTestWrapper, "2-of-3 local")
 
     std::promise<signature> sig_promise0;
     std::promise<signature> sig_promise1;
-    std::promise<signature> sig_promise2;
-
+//    std::promise<signature> sig_promise2;
+//
     auto sig_res0 = sig_promise0.get_future();
     auto sig_res1 = sig_promise1.get_future();
-    auto sig_res2 = sig_promise2.get_future();
-
+//    auto sig_res2 = sig_promise2.get_future();
+//
     signer0->Sign(m, m, cex::make_async_result<signature>(
             [](signature sig, std::promise<signature>&& p){p.set_value(sig);},
             [](std::promise<signature>&& p){p.set_exception(std::current_exception());},
@@ -189,5 +192,5 @@ TEST_CASE_METHOD(ThreeSignersTestWrapper, "2-of-3 local")
     CHECK_NOTHROW(signer0->Verify(m, sig0));
 
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 }

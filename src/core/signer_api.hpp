@@ -6,7 +6,6 @@
 #include <array>
 #include <cmath>
 #include <execution>
-#include <boost/container/flat_map.hpp>
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
@@ -66,6 +65,17 @@ public:
     { return "KeyAggregationError"; }
 
 };
+
+class SigNonceIdCollision : public Error {
+public:
+    explicit SigNonceIdCollision(const operation_id& id) : Error(hex(id)) {}
+    ~SigNonceIdCollision() override = default;
+
+    const char* what() const noexcept override
+    { return "OperationIdCollision"; }
+};
+
+
 class OperationIdCollision : public Error {
 public:
     explicit OperationIdCollision(operation_id id) : opid(id) {}
@@ -79,6 +89,7 @@ public:
 
 class SigNonceNotAwailable : public Error {
 public:
+    explicit SigNonceNotAwailable(std::string&& details) noexcept : Error(move(details)) {}
     ~SigNonceNotAwailable() override = default;
 
     const char* what() const noexcept override
@@ -318,7 +329,7 @@ public:
     void CommitNonces(size_t count);
 
     template<typename Callable1, typename Callable2>
-    void InitSignature(operation_id opid,
+    void InitSignature(const operation_id& opid,
                        Callable1&& all_sig_commitments_received_handler,
                        Callable2&& all_sig_shares_received_handler,
                        bool participate = true)

@@ -95,7 +95,6 @@ void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
 
     if (m_peers_data.contains(message.pubkey)) {
         auto& peer_data = m_peers_data.at(message.pubkey);
-        auto& ephemeral_pubkeys = peer_data.ephemeral_pubkeys;
 
         std::unique_lock lock(*peer_data.ephemeral_pubkeys_mutex);
 
@@ -103,7 +102,16 @@ void SignerApi::AcceptNonceCommitments(const FrostMessage &m)
         {
             scalar nonceid;
             CSHA256().Write(pubnonce.data, sizeof(pubnonce.data)).Finalize(nonceid.data());
-            std::get<0>(ephemeral_pubkeys[nonceid]) = pubnonce;
+
+            auto pubnonce_data_it = peer_data.ephemeral_pubkeys.find(nonceid);
+            if (pubnonce_data_it == peer_data.ephemeral_pubkeys.end()) {
+                peer_data.ephemeral_pubkeys.emplace(nonceid, std::make_tuple(pubnonce, std::optional<operation_id>()));
+            }
+            else {
+                if (memcmp(std::get<0>(pubnonce_data_it->second).data, pubnonce.data, sizeof(pubnonce.data)) != 0) {
+                    throw SigNonceIdCollision(nonceid);
+                }
+            }
         }
     }
     else {
@@ -170,14 +178,20 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
     else if (mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) { // Means aggregated pub key is assigned
 
         std::shared_lock lock(*peer_it->second.ephemeral_pubkeys_mutex);
-        auto& pubnonce_data = peer_it->second.ephemeral_pubkeys[message.nonce_id];
 
+        auto pubnonce_it = peer_it->second.ephemeral_pubkeys.find(message.nonce_id);
+        if (pubnonce_it == peer_it->second.ephemeral_pubkeys.end()) {
+            throw SigNonceNotAwailable((std::ostringstream() << "nonceid: " << hex(message.nonce_id)).str());
+        }
+
+        auto& pubnonce_data = pubnonce_it->second;
         if (!get<1>(pubnonce_data).has_value()) {
             get<1>(pubnonce_data) = std::make_optional(message.operation_id);
         }
         else if (*get<1>(pubnonce_data) != message.operation_id) {
             throw OperationIdCollision(message.operation_id);
         }
+
         lock.unlock();
 
         if (std::get<1>(pubnonce_data).has_value() && *std::get<1>(pubnonce_data) != message.operation_id) {
@@ -187,7 +201,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
 
         secp256k1_xonly_pubkey peer_pk = message.pubkey.get(m_ctx);
 
-        [[maybe_unused]] std::unique_lock read_lock(m_sig_share_mutex);
+        std::unique_lock read_lock(m_sig_share_mutex);
 
         auto opit = m_sigops_cache.find(message.operation_id);
         if (opit == m_sigops_cache.end()) {
@@ -570,7 +584,7 @@ operation_id SignerApi::SelectNonceId(const operation_id &opid)
             return secnonce.first;
         }
     }
-    throw SigNonceNotAwailable();
+    throw SigNonceNotAwailable((std::ostringstream() << "new opid: " << hex(opid)).str());
 }
 
 
@@ -587,7 +601,7 @@ operation_id SignerApi::GetCorrespondingNonceId(const operation_id &opid, const 
             return nonce_it->first;
         }
         else {
-            throw SigNonceNotAwailable();
+            throw SigNonceNotAwailable((std::ostringstream() << "opid: " << hex(opid)).str());
         }
     }
     else {
