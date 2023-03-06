@@ -82,16 +82,29 @@ struct TestConfigFactory
     }
 };
 
+struct TestcaseClient
+{
+    TestConfigFactory m_confFactory;
+    WalletApi m_wallet;
+
+    explicit TestcaseClient() :
+            m_confFactory(configpath)
+    {
+
+    }
+};
+
 struct TestcaseWrapper
 {
     TestConfigFactory mConfFactory;
-    WalletApi wallet;
+    WalletApi serviceWallet;
 
+    TestcaseClient m_client;
 
     explicit TestcaseWrapper() :
             mConfFactory(configpath),
-            wallet()
-            //node(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
+            serviceWallet()
+    //node(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli")
     {
         try {
             StartNode();
@@ -100,7 +113,7 @@ struct TestcaseWrapper
             CleanUpNode();
             StartNode();
         }
-     }
+    }
 
     ~TestcaseWrapper()
     {
@@ -129,19 +142,19 @@ struct ChainTracer {
     void operator()(const D& data)
     {
         ++counter;
-        std::clog << data.ToString() << std::endl;
+        std::clog << "Chain trace: " << data.ToString() << std::endl;
     }
 };
-/*
-TEST_CASE_METHOD(TestcaseWrapper, "Start/stop on-chain service")
+
+TEST_CASE_METHOD(TestcaseWrapper, "Simple writing to on-chain service")
 {
-    auto chain = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
+    auto serviceChainApi = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
     size_t block_cnt = 0;
     size_t tx_cnt = 0;
 
-    chain->CreateWallet("test");
+    serviceChainApi->CreateWallet("test");
 
-    onchain_service::OnChainService service(std::move(chain));
+    onchain_service::OnChainService service(std::move(serviceChainApi));
 
     service.SetNewBlockHandler(ChainTracer<CBlockHeader>{block_cnt});
     service.SetNewTxHandler(ChainTracer<CTransaction>{tx_cnt});
@@ -150,48 +163,52 @@ TEST_CASE_METHOD(TestcaseWrapper, "Start/stop on-chain service")
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    service.ChainAPI().GenerateToAddress(service.ChainAPI().GetNewAddress(), "2");
+// Service has started
+    auto clientChainApi = std::make_shared<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
+    ChannelKeys outkey(m_client.m_wallet.Secp256k1Context());
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    ChannelKeys key(m_client.m_wallet.Secp256k1Context());
+    std::string address = clientChainApi->Bech32Encode(key.GetPubKey());
+
+    UniValue blocks;
+    blocks.read(clientChainApi->GenerateToAddress(address, "1"));
+
+    UniValue block;
+    block.read(clientChainApi->GetBlock(blocks[0].getValStr(), "1"));
+
+    COutPoint out_point;
+    CTxOut tx_out;
+
+    std::tie(out_point, tx_out) = clientChainApi->CheckOutput(block["tx"][0].getValStr(), address);
+
+    CHECK(tx_out.nValue == ParseAmount("4096"));
+
+    CMutableTransaction op_return_tx;
+    op_return_tx.vin.emplace_back(CTxIn(out_point));
+
+    CScript outpubkeyscript;
+    outpubkeyscript << 1;
+    outpubkeyscript << outkey.GetPubKey();
+
+    CScript outopreturnscript;
+    outopreturnscript << OP_RETURN;
+    outopreturnscript << ParseHex("abcdef1234567890");
+
+    op_return_tx.vout.emplace_back(CTxOut(ParseAmount("4095.99"), outpubkeyscript));
+    op_return_tx.vout.emplace_back(CTxOut(0, outopreturnscript));
+
+    bytevector sig = m_client.m_wallet.SignTaprootTx(key.GetLocalPrivKey(), op_return_tx, 0, {tx_out}, {});
+    op_return_tx.vin.front().scriptWitness.stack.emplace_back(sig);
+
+    clientChainApi->GenerateToAddress(address, "100"); // Make coinbase tx mature
+
+    CHECK_NOTHROW(clientChainApi->SpendTx(CTransaction(op_return_tx)));
+// End of inserted code
 
     CHECK_NOTHROW(service.Stop());
 
     std::clog << "On-Chain service is stopped" << std::endl;
 
-    REQUIRE(block_cnt == 2);
-    REQUIRE(tx_cnt == 2);
+    REQUIRE(block_cnt == 101);
+    REQUIRE(tx_cnt == 101);
 }
-*/
-TEST_CASE_METHOD(TestcaseWrapper, "Test on-chain transaction")
-{
-    auto chain = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
-    size_t block_cnt = 0;
-    size_t tx_cnt = 0;
-
-    chain->CreateWallet("test");
-
-    onchain_service::OnChainService service(std::move(chain));
-
-    service.SetNewBlockHandler(ChainTracer<CBlockHeader>{block_cnt});
-    service.SetNewTxHandler(ChainTracer<CTransaction>{tx_cnt});
-
-    service.Start();
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    //CMutableTransaction mtx;
-    //CTransaction tx(mtx);
-
-    //service.ChainAPI().SendToAddress()
-    service.ChainAPI().GenerateToAddress(service.ChainAPI().GetNewAddress(), "2");
-
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    CHECK_NOTHROW(service.Stop());
-
-    std::clog << "On-Chain service is stopped" << std::endl;
-
-    REQUIRE(block_cnt == 2);
-    REQUIRE(tx_cnt == 2);
-}
-

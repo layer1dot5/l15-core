@@ -12,3 +12,6 @@ AM_CPPFLAGS = \
 
 noinst_LTLIBRARIES = libl15-test.la
 libl15_test_la_SOURCES = zmq_service.cpp
+
+noinst_LTLIBRARIES += libl15-onchain-test.la
+libl15_onchain_test_la_SOURCES = onchain_net_service.cpp
