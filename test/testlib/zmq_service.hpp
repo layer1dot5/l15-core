@@ -23,6 +23,7 @@ typedef std::function<void(p2p::frost_message_ptr)> frost_link_handler;
 class ZmqService : public p2p::P2PInterface<xonly_pubkey, p2p::FrostMessage>
 {
 public:
+    typedef std::shared_ptr<ZmqService> Ptr;
     typedef std::tuple<std::string, zmq::socket_t> peer;
     typedef std::shared_ptr<peer> peer_state;
     typedef std::unordered_map<xonly_pubkey, peer_state, l15::hash<xonly_pubkey>> peers_map;
