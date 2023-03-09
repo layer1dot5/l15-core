@@ -129,9 +129,8 @@ bool NonceCommit::MessageSend(FrostSignerBase& signer, const std::optional<const
     for (auto &peer: signer.PeersCache()) {
         uint16_t confirm_seq = 0;
         {   std::shared_lock recv_lock(recv_mutex(peer.second));
-            if (!recv_queue(peer.second).empty()) {
+            if (!recv_queue(peer.second).empty())
                 confirm_seq = rgs::max(recv_queue(peer.second) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
-            }
         }
 
         std::unique_lock send_lock(send_mutex(peer.second));
@@ -172,11 +171,9 @@ bool KeyShare::MessageSend(FrostSignerBase& signer, const std::optional<const xo
     auto &peer = signer.PeersCache().at(*peer_pk);
 
     uint16_t confirm_seq = 0;
-    {
-        std::shared_lock recv_lock(recv_mutex(peer));
-        if (!recv_queue(peer).empty()) {
+    {   std::shared_lock recv_lock(recv_mutex(peer));
+        if (!recv_queue(peer).empty())
             confirm_seq = rgs::max(recv_queue(peer) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
-        }
     }
 
     std::unique_lock send_lock(send_mutex(peer));
@@ -266,30 +263,29 @@ bool SigAgg::MessageSend(FrostSignerBase& signer, const std::optional<const xonl
     if ((!(status & FrostStatus::InProgress)) || (status & FrostStatus::Completed))
         return false;
 
-    if (!peer_pk) throw std::runtime_error("SigAgg: send without peer pubkey");
+    if (peer_pk) throw std::runtime_error("SigAgg: send with peer pubkey");
 
-    auto &peer = signer.PeersCache().at(*peer_pk);
+    //auto &peer = signer.PeersCache().at(*peer_pk);
+    for (auto &peer: signer.PeersCache()) {
 
-    uint16_t confirm_seq;
-    {
-        std::shared_lock recv_lock(recv_mutex(peer));
-        confirm_seq = rgs::max(recv_queue(peer) | vs::transform([](auto &s) { return s.message->confirmed_sequence; }));
-    }
+        uint16_t confirm_seq = 0;
+        {   std::shared_lock recv_lock(recv_mutex(peer.second));
+            if (!recv_queue(peer.second).empty())
+                confirm_seq = rgs::max(recv_queue(peer.second)|vs::transform([](auto& s){ return s.message->confirmed_sequence; }));
+        }
 
-    std::unique_lock send_lock(send_mutex(peer));
+        std::unique_lock send_lock(send_mutex(peer.second));
 
-    auto send_it = rgs::find_if(send_queue(peer), [](const auto &s) {
-        return s.message->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE && s.status == FrostStatus::Ready;
-    });
-    if (send_it != send_queue(peer).end()) {
-        DefaultSend(signer, *peer_pk, *send_it, confirm_seq);
-
-        if (++sigshares_sent >= (signer.K - 1)) {
-            SendStatus(FrostStatus::Completed);
-            return true;
+        auto send_it = rgs::find_if(send_queue(peer.second), [](const auto &s) {
+            return s.message->id == p2p::FROST_MESSAGE::SIGNATURE_SHARE && s.status == FrostStatus::Ready;
+        });
+        if (send_it != send_queue(peer.second).end()) {
+            DefaultSend(signer, peer.first, *send_it, confirm_seq);
         }
     }
-    return false;
+
+    SendStatus(FrostStatus::Completed);
+    return true;
 }
 
 bool SigAgg::MessageReceive(FrostSignerBase& signer, details::peer_messages &peer_cache)
@@ -315,9 +311,10 @@ bool SigCommit::MessageSend(FrostSignerBase& signer, const std::optional<const x
     if (peer_pk) throw std::runtime_error("SigCommit: send with peer pubkey");
 
     for (auto &peer: signer.PeersCache()) {
-        uint16_t confirm_seq;
+        uint16_t confirm_seq = 0;
         {   std::shared_lock recv_lock(recv_mutex(peer.second));
-            confirm_seq = rgs::max(recv_queue(peer.second)|vs::transform([](auto& s){ return s.message->confirmed_sequence; }));
+            if (!recv_queue(peer.second).empty())
+                confirm_seq = rgs::max(recv_queue(peer.second)|vs::transform([](auto& s){ return s.message->confirmed_sequence; }));
         }
 
         std::unique_lock send_lock(send_mutex(peer.second));

@@ -133,7 +133,7 @@ void ZmqService::Send(const xonly_pubkey &pk, p2p::frost_message_ptr m,
 
 void ZmqService::SendInternal(const ZmqService::peers_map::value_type& peer, p2p::frost_message_ptr msg)
 {
-    std::clog << (std::ostringstream() << ">>> " << msg->ToString()).str() << std::endl;
+    std::clog << (std::ostringstream() << ">>> " << msg->ToString() << "\n").str() << std::flush;
 
     cex::stream<std::deque<uint8_t>> data;
     if (msg) {
@@ -233,9 +233,10 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                     lock.unlock();
 
                     //std::clog << (std::ostringstream() << "vvv " << msg->ToString()).str() << std::endl;
-                    mTaskService->Serve([m = move(msg), h]() {
-                        std::clog << (std::ostringstream() << "<<< " << m->ToString()).str() << std::endl;
+                    mTaskService->Serve([this, m = move(msg), h]() {
+                        std::clog << (std::ostringstream() << "[" << hex(m_self_address).substr(0,8) << "] <<< " << m->ToString() << "\n").str() << std::flush;
                         h(m);
+                        std::clog << (std::ostringstream() << "[" << hex(m_self_address).substr(0,8) << "] ||| " << m->ToString() << "\n").str() << std::flush;
                     });
                 }
                 catch(...) {
@@ -267,7 +268,7 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
                 break;
             }
             else {
-                std::clog << (std::ostringstream() << "P2P message size: " << m.size() << ", next_block: " << next_block).str() << std::endl;
+                //std::clog << (std::ostringstream() << "P2P message size: " << m.size() << ", next_block: " << next_block).str() << std::endl;
 
                 buffer.append(m.data<uint8_t>(), m.data<uint8_t>() + m.size());
             }

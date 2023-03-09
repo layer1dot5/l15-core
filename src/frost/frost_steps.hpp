@@ -169,8 +169,9 @@ struct FrostStep
 
 struct NonceCommit : public FrostStep
 {
-    explicit NonceCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid) : FrostStep(move(s), opid) {
-        assert(opid.optype == details::OperationType::nonce && IsZeroArray(opid.opid));
+    explicit NonceCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid) : FrostStep(move(s), move(opid)) {
+        assert(mOpId.optype == details::OperationType::nonce && IsZeroArray(mOpId.opid));
+        SendStatus(FrostStatus::InProgress);
     }
 
     const char *Name() const noexcept override
@@ -211,7 +212,7 @@ struct KeyShare : public FrostStep
     std::atomic_size_t keyshares_sent;
     std::atomic_size_t keyshares_received;
 
-    explicit KeyShare(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid) : FrostStep(move(s), opid), keyshares_sent(0), keyshares_received(0) {}
+    explicit KeyShare(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid) : FrostStep(move(s), move(opid)), keyshares_sent(0), keyshares_received(0) {}
 
     const char *Name() const noexcept override
     { return "KeyShare"; }
@@ -263,9 +264,9 @@ struct KeyCommit : public FrostStep
     std::shared_ptr<KeyShare> next_step;
 
     explicit KeyCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid)
-            : FrostStep(move(s), opid), commitments_received(0), next_step(MakeNextStep())
+            : FrostStep(move(s), move(opid)), commitments_received(0), next_step(MakeNextStep())
     {
-        assert(opid.optype == details::OperationType::key && IsZeroArray(opid.opid));
+        assert(mOpId.optype == details::OperationType::key && IsZeroArray(mOpId.opid));
     }
 
     const char *Name() const noexcept override
@@ -288,14 +289,18 @@ struct KeyCommit : public FrostStep
     void Start(RES&& op_handler)
     {
         if (auto signer = mSigner.lock()) {
+
+            auto shared_handler = cex::shared_async_result<const xonly_pubkey&>(op_handler.forward());
+
             SendStatus(FrostStatus::InProgress);
             signer->SignerService().ProcessKeyShareCommitment(signer->SignerApi(),
-                cex::make_async_result<void>([next_step = next_step, signerapi = signer->SignerApi()](RES&& op_handler) mutable {
+                cex::make_async_result<void>([next_step = next_step, signerapi = signer->SignerApi(), shared_handler]() mutable {
                     std::clog << (std::ostringstream() << "KeyCommit completed: " << hex(signerapi->GetLocalPubKey()).substr(0, 8)).str() << std::endl;
-                    next_step->Start(std::forward<RES>(op_handler));
-                }, [](RES&& op_handler) mutable {
-                    op_handler.on_error();
-                }, std::forward<RES>(op_handler)));
+                    next_step->Start(move(shared_handler));
+                }, [shared_handler]() mutable {
+                    shared_handler.on_error();
+                }));
+
             for (auto &peer_cache: signer->PeersCache() | std::views::values) {
                 MessageReceive(*signer, peer_cache);
             }
@@ -317,7 +322,7 @@ struct SigAgg : public FrostStep, std::enable_shared_from_this<SigAgg>
     std::atomic_size_t sigshares_received;
 
     explicit SigAgg(std::weak_ptr<FrostSignerBase> s, details::OperationMapId opid)
-            : FrostStep(move(s), opid)
+            : FrostStep(move(s), move(opid))
             , sigshares_sent(0)
             , sigshares_received(0)
     {}
@@ -366,10 +371,10 @@ struct SigCommit : public FrostStep
     std::shared_ptr<SigAgg> MakeNextStep()
     { return std::make_shared<SigAgg>(mSigner, mOpId); }
 
-    explicit SigCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid, const scalar& m)
-            : FrostStep(move(s), move(opid)), commitments_received(0), next_step(MakeNextStep()), message(m)
+    explicit SigCommit(std::weak_ptr<FrostSignerBase>&& s, details::OperationMapId opid, scalar m)
+            : FrostStep(move(s), move(opid)), commitments_received(0), next_step(MakeNextStep()), message(move(m))
     {
-        assert(opid.optype == details::OperationType::sign && !IsZeroArray(opid.opid));
+        assert(mOpId.optype == details::OperationType::sign && !IsZeroArray(mOpId.opid));
     }
 
     const char *Name() const noexcept override
@@ -391,15 +396,18 @@ struct SigCommit : public FrostStep
     template<std::derived_from<cex::async_result_base<signature>> RES>
     void Start(RES&& op_handler) {
         if (auto signer = mSigner.lock()) {
+
+            auto shared_handler = cex::shared_async_result<signature>(op_handler.forward());
+
             SendStatus(FrostStatus::InProgress);
 
             signer->SignerService().ProcessSignatureCommitments(signer->SignerApi(), message, OperatonId().opid, true,
-                cex::make_async_result<void>([next_step=next_step, signerapi=signer->SignerApi()](RES&& op_handler) mutable {
+                cex::make_async_result<void>([next_step=next_step, signerapi=signer->SignerApi(), shared_handler]() mutable {
                     std::clog << (std::ostringstream() << "SigCommit completed: " << hex(signerapi->GetLocalPubKey()).substr(0, 8)).str() << std::endl;
-                    next_step->Start(std::forward<RES>(op_handler));
-                }, [](RES&& op_handler){
-                    op_handler.on_error();
-                }, std::forward<RES>(op_handler)));
+                    next_step->Start(move(shared_handler));
+                }, [shared_handler]() mutable {
+                    shared_handler.on_error();
+                }));
 
             for (auto &peer_cache: signer->PeersCache() | std::views::values) {
                 MessageReceive(*signer, peer_cache);

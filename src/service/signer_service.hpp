@@ -111,31 +111,37 @@ public:
     template <std::derived_from<cex::async_result_base<void>> RES>
     void ProcessSignatureCommitments(std::shared_ptr<core::SignerApi> ps, const scalar& message, const core::operation_id& opid, bool participate, RES&& handler)
     {
-        mBgService->Serve([ws = std::weak_ptr<core::SignerApi>(ps), message, opid, participate, handler = handler.forward()]() mutable {
+        auto ws = std::weak_ptr<core::SignerApi>(ps);
+        mBgService->Serve([=, bgService = mBgService, handler = handler.forward()]() mutable {
             if (auto ps = ws.lock()) {
-                ps->InitSignature(opid, core::make_moving_callable([ws, message, opid, handler = handler.forward()]() mutable {
-                    try {
-                        if (auto ps = ws.lock()) {
-                            ps->PreprocessSignature(message, opid);
-                            handler();
+                ps->InitSignature(opid, core::make_moving_callable([=, handler = handler.forward()]() mutable {
+                    bgService->Serve([=, handler = handler.forward()]() mutable {
+                        try {
+                            if (auto ps = ws.lock()) {
+                                clog << "[" << hex(ps->GetLocalPubKey()).substr(0,8) << "] do PreprocessSignature" << std::endl;
+                                ps->PreprocessSignature(message, opid);
+                                handler();
+                            }
                         }
-                    }
-                    catch (...) {
-                        handler.on_error();
-                    }
+                        catch (...) {
+                            handler.on_error();
+                        }
+                    });
                 }), [](){}, participate);
             }
         });
     }
 
     template <std::derived_from<cex::async_result_base<signature>> RES>
-    void Sign(std::shared_ptr<core::SignerApi> ps, core::operation_id opid, RES&& handler)
+    void Sign(std::shared_ptr<core::SignerApi> ps, const core::operation_id& opid, RES&& handler)
     {
-        mBgService->Serve([bgService = mBgService, ws = std::weak_ptr<core::SignerApi>(ps), opid, shared_handler=cex::shared_async_result<signature>(handler.forward())]() mutable {
+        auto ws = std::weak_ptr<core::SignerApi>(ps);
+        auto shared_handler = cex::shared_async_result<signature>(handler.forward());
+        mBgService->Serve([=, bgService = mBgService]() mutable {
             if (auto ps = ws.lock()) {
                 try {
-                    ps->DistributeSigShares(opid, [bgService, ws, opid, shared_handler]() mutable {
-                        bgService->Serve([ws, opid, shared_handler]() mutable {
+                    ps->DistributeSigShares(opid, [=]() mutable {
+                        bgService->Serve([=, shared_handler = move(shared_handler)]() mutable {
                             if (auto ps = ws.lock()) {
                                 try {
                                     shared_handler(ps->AggregateSignature(opid));

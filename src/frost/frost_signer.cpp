@@ -275,6 +275,7 @@ std::string OperationMapId::describe() const
     case OperationType::sign:
         return (std::ostringstream() << "sign/" << hex(opid)).str();
     }
+    throw std::runtime_error((std::ostringstream() << "Wrong optype: " << static_cast<uint16_t>(optype)).str());
 }
 
 } // namespace details

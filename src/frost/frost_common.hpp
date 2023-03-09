@@ -54,6 +54,7 @@ inline std::string translate(FrostStatus s)
     case FrostStatus::Error:
         return "Error";
     }
+    throw std::runtime_error((std::ostringstream() << "Wrong FrostStatus: " << static_cast<uint16_t>(s)).str());
 }
 
 

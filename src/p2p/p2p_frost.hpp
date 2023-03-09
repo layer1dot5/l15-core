@@ -5,6 +5,8 @@
 
 #include "smartinserter.hpp"
 
+#include "crypto/sha256.h"
+
 #include "p2p_protocol.hpp"
 #include "p2p_link.hpp"
 #include "common_frost.hpp"
@@ -226,8 +228,17 @@ public:
     std::string ToString() const override
     {
         std::stringstream buf;
-        buf << "NonceCommitments {pk: " << hex(pubkey).substr(0, 8) << "...}";
-        return move(buf.str());
+        buf << "NonceCommitments {pk: " << hex(pubkey).substr(0, 8) << "...";
+
+        for(const auto& pubnonce: nonce_commitments) {
+            scalar nonceid;
+            CSHA256().Write(pubnonce.data, sizeof(pubnonce.data)).Finalize(nonceid.data());
+
+            buf << " " << hex(nonceid).substr(0, 9) << "...";
+        }
+        buf << "}";
+
+        return buf.str();
     }
 
 private:

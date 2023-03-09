@@ -254,6 +254,9 @@ public:
 
     void on_error() override
     { m_handler->on_error(); }
+
+    shared_async_result& forward()
+    { return *this; }
 };
 
 template <typename RES>
@@ -288,6 +291,9 @@ public:
 
     void on_error() override
     { m_handler->on_error(); }
+
+    shared_async_result& forward()
+    { return *this; }
 };
 
 template <>
@@ -322,6 +328,9 @@ public:
 
     void on_error() override
     { m_handler->on_error(); }
+
+    shared_async_result& forward()
+    { return *this; }
 };
 
 template <typename RES, typename SUCCESS_HANDLER, typename ERROR_HANDLER, typename ...ARGS>
