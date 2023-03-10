@@ -38,6 +38,9 @@ class WalletApi
 //    bytevector SignTxHash(const uint256 &sighash, unsigned char sighashtype, const bytevector &keystr) const;
 
 public:
+    typedef std::shared_ptr<WalletApi> Ptr;
+    typedef std::weak_ptr<WalletApi> Ref;
+
     WalletApi();
     ~WalletApi();
 

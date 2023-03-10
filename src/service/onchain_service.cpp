@@ -63,7 +63,7 @@ cex::stream<std::deque<std::byte>>& operator>> (cex::stream<std::deque<std::byte
     return stream;
 }
 
-class SerializeSream : public cex::stream<std::deque<std::byte>>
+class SerializeStream : public cex::stream<std::deque<std::byte>>
 {
 public:
     int GetVersion() const
@@ -80,7 +80,7 @@ void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unneces
 
     bool next_block = false;
     //cex::stream<std::deque<std::byte>> buffer;
-    SerializeSream buffer;
+    SerializeStream buffer;
 
     for (;;) {
 

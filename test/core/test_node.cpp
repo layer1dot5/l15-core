@@ -149,5 +149,6 @@ TEST_CASE_METHOD(TestcaseWrapper, "Test transactions")
     node.GenerateToAddress(address, "100"); // Make coinbase tx mature
 
     CHECK_NOTHROW(node.SpendTx(CTransaction(op_return_tx)));
+    //CHECK_NOTHROW(node.SpendTx(CTransaction(op_return_tx)));
 
 }

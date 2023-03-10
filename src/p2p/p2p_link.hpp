@@ -34,6 +34,7 @@ public:
 template <class ADDR, class MESSAGE>
 class P2PInterface {
 public:
+
     virtual void Publish(std::shared_ptr<MESSAGE>,
                          std::function<void(const ADDR&, std::shared_ptr<MESSAGE>)> on_send,
                          std::function<void(const ADDR&, std::shared_ptr<MESSAGE>)> on_error) = 0;

@@ -11,9 +11,7 @@
 #include "chain_api.hpp"
 #include "zmq_context.hpp"
 
-
 namespace l15::onchain_service {
-
 
 class OnChainService : protected service::ZmqContextSingleton
 {

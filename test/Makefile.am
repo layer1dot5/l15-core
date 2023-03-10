@@ -27,7 +27,6 @@ $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \
 $(top_builddir)/test/testlib/libl15-test.la \
-$(top_builddir)/test/testlib/libl15-onchain-test.la \
 -lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \

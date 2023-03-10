@@ -164,7 +164,7 @@ TEST_CASE_METHOD(TestcaseWrapper, "Simple writing to on-chain service")
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 // Service has started
-    auto clientChainApi = std::make_shared<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
+    auto clientChainApi = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
     ChannelKeys outkey(m_client.m_wallet.Secp256k1Context());
 
     ChannelKeys key(m_client.m_wallet.Secp256k1Context());

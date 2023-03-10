@@ -99,7 +99,13 @@ typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;
 
 template<typename T>
 static bool IsZeroArray(const T& a)
-{ bool res = false; std::for_each(a.begin(), a.end(), [&](const uint8_t& el){ res |= el; }); return !res;}
+{
+    bool res = false;
+    std::for_each(a.begin(), a.end(), [&](const uint8_t& el){
+        res |= el;
+    });
+    return !res;
+}
 
 template<typename T>
 static bool IsZeroArray(const T* a, size_t len)

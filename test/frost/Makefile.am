@@ -34,9 +34,12 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_frost_signer
+bin_PROGRAMS = test_frost_signer test_frost_onchain_signer
 
 test_frost_signer_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
 test_frost_signer_SOURCES = test_frost_signer.cpp
 test_frost_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
 
+test_frost_onchain_signer_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
+test_frost_onchain_signer_SOURCES = test_frost_onchain_signer.cpp
+test_frost_onchain_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)

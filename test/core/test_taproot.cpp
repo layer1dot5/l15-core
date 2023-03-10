@@ -177,8 +177,8 @@ TEST_CASE("Taproot transaction test cases")
         CMutableTransaction tx;
 
         CScript outpubkeyscript;
-        outpubkeyscript << 1;
-        outpubkeyscript << backpk;
+        outpubkeyscript << 1; // SigWit version
+        outpubkeyscript << backpk; // Key itself
 
         CTxOut out(ParseAmount("1"), outpubkeyscript);
         tx.vout.emplace_back(out);
