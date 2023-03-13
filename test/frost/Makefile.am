@@ -19,7 +19,6 @@ AM_CPPFLAGS = \
 AM_LDFLAGS=-L$(top_builddir)/node/src
 
 L15_LIBS = \
-$(top_builddir)/test/testlib/libl15-test.la \
 $(top_builddir)/src/frost/libl15-frost.la \
 $(top_builddir)/src/service/libl15-srv.la \
 $(top_builddir)/src/core/libl15-core.la \
@@ -34,12 +33,20 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
+L15_LIBS_ZMQ = \
+$(top_builddir)/test/testlib/libl15-test.la \
+$(L15_LIBS)
+
+L15_LIBS_ONCHAIN = \
+$(top_builddir)/test/testlib/libl15-test-onchain.la \
+$(L15_LIBS)
+
 bin_PROGRAMS = test_frost_signer test_frost_onchain_signer
 
 test_frost_signer_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
 test_frost_signer_SOURCES = test_frost_signer.cpp
-test_frost_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
+test_frost_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS_ZMQ) $(ZMQ_LIBS)
 
 test_frost_onchain_signer_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
 test_frost_onchain_signer_SOURCES = test_frost_onchain_signer.cpp
-test_frost_onchain_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
+test_frost_onchain_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS_ONCHAIN) $(ZMQ_LIBS)

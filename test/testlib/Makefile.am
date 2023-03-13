@@ -25,8 +25,9 @@ AM_CPPFLAGS = \
 #$(top_builddir)/node/src/libunivalue.la \
 #$(BOOST_FILESYSTEM_LIB)
 
-noinst_LTLIBRARIES = libl15-test.la
-libl15_test_la_SOURCES = zmq_service.cpp \
-                         onchain_net_service.cpp
+noinst_LTLIBRARIES = libl15-test.la libl15-test-onchain.la
 
-#libl15_test_la_LIBADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
+libl15_test_la_SOURCES = zmq_service.cpp
+libl15_test_onchain_la_SOURCES = onchain_net_service.cpp
+
+libl15_test_onchain_la_LIBADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)

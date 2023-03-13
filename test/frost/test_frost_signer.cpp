@@ -1,11 +1,9 @@
-
 #include <memory>
 #include <future>
 #include <algorithm>
 #include <ranges>
 
 #include "smartinserter.hpp"
-
 
 #define CATCH_CONFIG_MAIN
 #include "catch/catch.hpp"
