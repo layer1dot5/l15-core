@@ -287,6 +287,7 @@ void ZmqService::ListenCycle(const std::string server_addr, frost_link_handler h
 void ZmqService::WaitForConfirmations()
 {
 //    std::lock_guard lock(m_protocol_confirmation_mutex);
+//    std::clog << "ZMQ service: Wait for confirmations" << std::endl;
 }
 
-}
+} //namespace l15

@@ -13,7 +13,6 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/src/service
 
-
 AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
 L15_LIBS = \
@@ -30,11 +29,8 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_p2p_frost test_p2p_onchain_frost
-
+bin_PROGRAMS = test_p2p_frost
 
 test_p2p_frost_SOURCES = test_p2p_frost.cpp
 test_p2p_frost_LDADD = $(L15_LIBS)
 
-test_p2p_onchain_frost_SOURCES = test_p2p_onchain_frost.cpp
-test_p2p_onchain_frost_LDADD = $(L15_LIBS)

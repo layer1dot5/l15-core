@@ -1,7 +1,7 @@
 #include "onchain_net_service.hpp"
 
 #include "logging.h"
-#include "univalue/include/univalue.h"
+#include "univalue.h"
 #include "channel_keys.hpp"
 
 namespace l15::p2p {

@@ -38,7 +38,7 @@ $(top_builddir)/test/testlib/libl15-test.la \
 $(L15_LIBS)
 
 L15_LIBS_ONCHAIN = \
-$(top_builddir)/test/testlib/libl15-test-onchain.la \
+$(top_builddir)/test/testlib-onchain/libl15-test-onchain.la \
 $(L15_LIBS)
 
 bin_PROGRAMS = test_frost_signer test_frost_onchain_signer

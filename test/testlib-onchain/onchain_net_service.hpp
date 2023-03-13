@@ -14,7 +14,7 @@
 #include "wallet_api.hpp"
 #include "zmq_context.hpp"
 #include "zmq_service.hpp"
-#include "../../src/tools/config.hpp"
+#include "config.hpp"
 
 namespace l15::p2p {
 
@@ -60,7 +60,7 @@ namespace l15::p2p {
         explicit OnChainService(const secp256k1_context_struct *ctx,
                                 std::shared_ptr<service::GenericService> srv,
                                 std::function<bool(p2p::frost_message_ptr)> msg_filter = [](p2p::frost_message_ptr){ return true;});
-        ~OnChainService() override {};
+        //~OnChainService() override {};
 
         void AddPeer(xonly_pubkey&& pk, string&& addr);
 
