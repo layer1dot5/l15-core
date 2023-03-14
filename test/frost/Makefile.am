@@ -21,6 +21,7 @@ AM_LDFLAGS=-L$(top_builddir)/node/src
 
 L15_LIBS = \
 $(top_builddir)/test/testlib/libl15-test.la \
+$(top_builddir)/test/testlib-onchain/libl15-test-onchain.la \
 $(top_builddir)/src/frost/libl15-frost.la \
 $(top_builddir)/src/service/libl15-srv.la \
 $(top_builddir)/src/core/libl15-core.la \
@@ -46,5 +47,5 @@ test_frost_signer_SOURCES = test_frost_signer.cpp
 test_frost_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
 
 test_frost_onchain_signer_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
-test_frost_onchain_signer_SOURCES = onchain_net_service.cpp test_frost_onchain_signer.cpp
+test_frost_onchain_signer_SOURCES = test_frost_onchain_signer.cpp
 test_frost_onchain_signer_LDADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
