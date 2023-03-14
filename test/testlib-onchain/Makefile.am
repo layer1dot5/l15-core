@@ -12,7 +12,8 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/service \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/p2p \
- -I$(top_srcdir)/node/src/univalue/include
+ -I$(top_srcdir)/node/src/univalue/include \
+ -I$(top_srcdir)/test/testlib
 
 AM_LDFLAGS=-L$(top_builddir)/node/src
 
@@ -21,6 +22,7 @@ $(top_builddir)/src/service/libl15-srv.la \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \
+$(top_builddir)/test/testlib/libl15-test.la \
 -lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
@@ -31,8 +33,8 @@ $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
 
-noinst_LTLIBRARIES = libl15-test-onchain.la
+#noinst_LTLIBRARIES = libl15-test-onchain.la
 
-libl15_test_onchain_la_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
-libl15_test_onchain_la_SOURCES = zmq_service.cpp onchain_net_service.cpp
-libl15_test_onchain_la_LIBADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)
+#libl15_test_onchain_la_CPPFLAGS = $(AM_CPPFLAGS) $(ZMQ_CPPFLAGS)
+#libl15_test_onchain_la_SOURCES = onchain_net_service.cpp
+#libl15_test_onchain_la_LIBADD = $(ZMQ_LDFLAGS) $(L15_LIBS) $(ZMQ_LIBS)

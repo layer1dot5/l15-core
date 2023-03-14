@@ -32,6 +32,8 @@ using namespace l15::frost;
 
 std::string configpath;
 
+const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
+
 int main(int argc, char* argv[])
 {
     Catch::Session session;
@@ -71,7 +73,7 @@ struct ThreeSignersTestWrapper {
     ChannelKeys keypair0, keypair1, keypair2;
     std::shared_ptr<service::GenericService> service;
     std::shared_ptr<SignerService> signerService;
-    std::shared_ptr<OnChainService> peer0, peer1, peer2;
+    std::shared_ptr<l15::p2p::OnChainService> peer0, peer1, peer2;
     std::shared_ptr<FrostSigner> signer0, signer1, signer2;
 
     ThreeSignersTestWrapper()
@@ -80,9 +82,9 @@ struct ThreeSignersTestWrapper {
             , keypair2(wallet.Secp256k1Context())
             , service(std::make_shared<service::GenericService>(2))
             , signerService(std::make_shared<SignerService>(service))
-            , peer0(std::make_shared<OnChainService>(wallet.Secp256k1Context(), service))
-            , peer1(std::make_shared<OnChainService>(wallet.Secp256k1Context(), service))
-            , peer2(std::make_shared<OnChainService>(wallet.Secp256k1Context(), service))
+            , peer0(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
+            , peer1(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
+            , peer2(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
             , signer0(make_shared<FrostSigner>(keypair0, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer0))
             , signer1(make_shared<FrostSigner>(keypair1, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer1))
             , signer2(make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2))

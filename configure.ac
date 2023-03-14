@@ -108,6 +108,7 @@ AC_CONFIG_FILES([Makefile
                  test/service/Makefile
                  test/frost/Makefile
                  test/testlib/Makefile
+                 test/testlib-onchain/Makefile
                  contrib/Makefile])
 
 
