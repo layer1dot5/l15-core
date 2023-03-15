@@ -2,54 +2,97 @@
 
 #include "logging.h"
 #include "univalue.h"
-#include "channel_keys.hpp"
 
 namespace l15::p2p {
 
-    OnChainWriterV1::OnChainWriterV1(const Config &config) : m_wallet(),
-        m_chainApi(make_unique<core::ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(config.ChainValues(config::L15NODE)), "l15node-cli")) {
+    OnChainWriterV1::OnChainWriterV1(const l15::Config &config, const std::string &walletName) : m_wallet(),
+        m_onChainService(make_unique<core::ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(config.ChainValues(config::L15NODE)), "l15node-cli")),
+        m_outKey(m_wallet.Secp256k1Context()),
+        m_key(m_wallet.Secp256k1Context()),
+        m_walletName(walletName){
+
+        std::string movableWalletName = walletName;
+
+        m_onChainService.ChainAPI().CreateWallet(std::move(movableWalletName));
+
+        m_onChainService.SetNewBlockHandler(ChainTracer<CBlockHeader>{m_blockCnt});
+        m_onChainService.SetNewTxHandler(ChainTracer<CTransaction>{m_txCnt});
+
+        m_onChainService.Start();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        m_address = m_onChainService.ChainAPI().Bech32Encode(m_key.GetPubKey());
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
     void OnChainWriterV1::Write(const std::string &payload) {
-// Service has started
-        l15::core::ChannelKeys outkey(m_wallet.Secp256k1Context());
-        l15::core::ChannelKeys key(m_wallet.Secp256k1Context());
-        std::string address = m_chainApi->Bech32Encode(key.GetPubKey());
-
-        UniValue blocks;
-        blocks.read(m_chainApi->GenerateToAddress(address, "1"));
-
-        UniValue block;
-        block.read(m_chainApi->GetBlock(blocks[0].getValStr(), "1"));
+        auto optionalUtxo = findGoodUtxo(100000);
+        if (!optionalUtxo) {
+            throw std::logic_error("No good UTXO for writing a transaction");
+        }
 
         COutPoint out_point;
         CTxOut tx_out;
 
-        std::tie(out_point, tx_out) = m_chainApi->CheckOutput(block["tx"][0].getValStr(), address);
+        std::tie(out_point, tx_out) = m_onChainService.ChainAPI().CheckOutput(optionalUtxo->txid, m_address);
 
         CMutableTransaction op_return_tx;
         op_return_tx.vin.emplace_back(CTxIn(out_point));
 
-        CScript outpubkeyscript;
-        outpubkeyscript << 1;
-        outpubkeyscript << outkey.GetPubKey();
+        CScript outPubKeyScript;
+        outPubKeyScript << 1;
+        outPubKeyScript << m_outKey.GetPubKey();
 
-        CScript outopreturnscript;
-        outopreturnscript << OP_RETURN;
-        outopreturnscript << ParseHex(payload);
+        CScript outOpReturnScript;
+        outOpReturnScript << OP_RETURN;
+        outOpReturnScript << ParseHex(payload);
 
-        op_return_tx.vout.emplace_back(CTxOut(ParseAmount("4095.99"), outpubkeyscript));
-        op_return_tx.vout.emplace_back(CTxOut(0, outopreturnscript));
+        op_return_tx.vout.emplace_back(CTxOut(100000, outPubKeyScript));
+        op_return_tx.vout.emplace_back(CTxOut(0, outOpReturnScript));
 
-        bytevector sig = m_wallet.SignTaprootTx(key.GetLocalPrivKey(), op_return_tx, 0, {tx_out}, {});
+        bytevector sig = m_wallet.SignTaprootTx(m_key.GetLocalPrivKey(), op_return_tx, 0, {tx_out}, {});
         op_return_tx.vin.front().scriptWitness.stack.emplace_back(sig);
 
-        m_chainApi->GenerateToAddress(address, "100"); // Make coinbase tx mature
+        m_onChainService.ChainAPI().SpendTx(CTransaction(op_return_tx));
     }
 
-    OnChainWriterV1 &OnChainWriterV1::operator<<(const string &payload) {
+    OnChainWriterV1 &OnChainWriterV1::operator<<(const std::string &payload) {
         Write(payload);
         return (*this);
+    }
+
+    size_t OnChainWriterV1::getBlockCnt() const {
+        return m_blockCnt;
+    }
+
+    size_t OnChainWriterV1::getTxCnt() const {
+        return m_txCnt;
+    }
+
+    const string &OnChainWriterV1::getAddress() const {
+        return m_address;
+    }
+
+    /*
+     * As for now it returns only the first spendable UTXO with some minimal amount of Satoshi
+     * TODO: Add minimal and maximal satoshis filter to ListUnspent
+     */
+    std::optional<l15::core::Utxo> OnChainWriterV1::findGoodUtxo(CAmount minSatoshi) {
+        auto utxos = m_onChainService.ChainAPI().ListUnspent(m_address, m_walletName);
+        for(const auto &utxo: utxos) {
+            if (!utxo.spendable) {
+                continue;
+            }
+            if (ParseAmount(utxo.amount) >= minSatoshi) {
+                return utxo;
+            }
+        }
+
+        return {};
+    }
+
+    void OnChainWriterV1::generateBlocks(const std::string &amount) {
+        m_onChainService.ChainAPI().GenerateToAddress(m_address, amount);
     }
 
     void OnChainService::WaitForConfirmations() {
@@ -63,13 +106,15 @@ namespace l15::p2p {
 
     void OnChainService::Send(const xonly_pubkey &pk, frost_message_ptr m,
                                         std::function<void()> on_error) {
-        m_zmq->Send(pk, m, on_error);
+        //m_zmq->Send(pk, m, on_error);
+        m_writer->Write(m->ToString());
     }
 
     void OnChainService::Publish(frost_message_ptr m,
                                            std::function<void(const xonly_pubkey &, frost_message_ptr)> on_send,
                                            std::function<void(const xonly_pubkey &, frost_message_ptr)> on_error) {
-        m_zmq->Publish(m, on_send, on_error);
+        //m_zmq->Publish(m, on_send, on_error);
+        m_writer->Write(m->ToString());
     }
 
     void OnChainService::AddPeer(xonly_pubkey &&pk, string &&addr) {
@@ -84,10 +129,11 @@ namespace l15::p2p {
         return m_zmq->GetMessageHandler();
     }
 
-    OnChainService::OnChainService(const secp256k1_context_struct *ctx,
-                                        std::shared_ptr<service::GenericService> srv,
-                                        std::function<bool(frost_message_ptr)> msg_filter)
-            : m_zmq(std::make_shared<ZmqService>(ctx, srv, msg_filter)) {
+    OnChainService::OnChainService( const AbstractOnChainWriter::Ptr &writer,
+                                    const secp256k1_context_struct *ctx,
+                                    std::shared_ptr<service::GenericService> srv,
+                                    std::function<bool(frost_message_ptr)> msg_filter)
+            : m_writer(writer), m_zmq(std::make_shared<ZmqService>(ctx, srv, msg_filter)) {
     }
 
     ZmqService::Ptr OnChainService::getZmq() const {

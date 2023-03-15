@@ -13,7 +13,9 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/node/src/univalue/include \
- -I$(top_srcdir)/test/testlib
+ -I$(top_srcdir)/test/testlib \
+ -I$(top_srcdir)/testlib-onchain
+
 
 AM_LDFLAGS=-L$(top_builddir)/node/src
 

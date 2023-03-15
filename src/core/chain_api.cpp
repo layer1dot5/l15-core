@@ -35,6 +35,8 @@ namespace {
     const char* const CREATEWALLET = "createwallet";
     const char* const GETBLOCK = "getblock";
     const char* const GETZMQNOTIFICATIONS = "getzmqnotifications";
+
+    const char* const LISTUNSPENT = "listunspent";
 }
 
 std::regex ChainApi::sNewlineRegExp("\n+");
@@ -481,6 +483,51 @@ std::string ChainApi::GetZMQNotifications() const
     btc_exec.Arguments().emplace_back(GETZMQNOTIFICATIONS);
 
     return btc_exec.Run();
+}
+
+UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &walletName) const {
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back("--rpcwallet=" + walletName);
+    btc_exec.Arguments().emplace_back("-regtest");
+    btc_exec.Arguments().emplace_back(LISTUNSPENT);
+    btc_exec.Arguments().emplace_back("1");
+    btc_exec.Arguments().emplace_back("9999999");
+    //btc_exec.Arguments().emplace_back("\"[\\\"" + address + "\\\", \\\"" + address + "\\\"]\"");
+    btc_exec.Arguments().emplace_back("[\"" + address + "\"]");
+    auto jsonResponse = btc_exec.Run();
+
+    std::clog << jsonResponse << std::endl;
+
+    UniValue utxoJson(UniValue::VARR);
+    if (!utxoJson.read(jsonResponse)) {
+        throw std::domain_error("Response from `listunspent` is not a JSON");
+    };
+
+    if(!utxoJson.isArray()) {
+        throw std::domain_error("Response from `listunspent` is not an array");
+    }
+
+    auto utxos = utxoJson.getValues();
+
+    UtxoVector result;
+    result.reserve(utxos.size());
+
+    for(const auto &utxo: utxos) {
+        auto txid = utxo["txid"].get_str();
+        auto addr = utxo["address"].get_str();
+        auto amount = utxo["amount"].get_str();
+        auto spendable = utxo["spendable"].getBool();
+        auto vout = utxo["amount"].get_int();
+
+        result.push_back(Utxo{.txid = txid, .address = addr, .amount = amount, .spendable = spendable, .vout = vout});
+    }
+
+    return result;
 }
 
 }

@@ -15,8 +15,21 @@
 #include "zmq_context.hpp"
 #include "zmq_service.hpp"
 #include "config.hpp"
+#include "channel_keys.hpp"
+#include "onchain_service.hpp"
 
 namespace l15::p2p {
+
+    template <class D>
+    struct ChainTracer {
+        size_t& counter;
+
+        void operator()(const D& data)
+        {
+            ++counter;
+            std::clog << "Chain trace: " << data.ToString() << std::endl;
+        }
+    };
 
     class AbstractOnChainProtocol {
     public:
@@ -31,20 +44,46 @@ namespace l15::p2p {
 
     class AbstractOnChainWriter {
     public:
+        typedef std::shared_ptr<AbstractOnChainWriter> Ptr;
+    public:
         AbstractOnChainWriter() = default;
         virtual ~AbstractOnChainWriter() = default;
 
         virtual void Write(const std::string &payload) = 0;
+        virtual const string &getAddress() const = 0;
     };
 
     class OnChainWriterV1: public AbstractOnChainWriter {
     public:
-        OnChainWriterV1(const l15::Config &config);
-        void Write(const std::string &payload) override;
+        OnChainWriterV1(const l15::Config &config, const std::string &walletName);
         OnChainWriterV1& operator<<(const std::string &payload);
+
+        void generateBlocks(const std::string &amount); // TODO Needed only for tests. Remove?
+
+        size_t getBlockCnt() const;
+        size_t getTxCnt() const;
+
+        // AbstractOnChainWriter interface
+        void Write(const std::string &payload) override;
+        const string &getAddress() const override;
+
+    protected:
+        std::optional<l15::core::Utxo> findGoodUtxo(CAmount minSatoshi);
+
     private:
+
         core::WalletApi m_wallet;
-        std::unique_ptr<core::ChainApi> m_chainApi;
+        l15::core::ChannelKeys m_outKey;
+
+        l15::core::ChannelKeys m_key;
+
+        onchain_service::OnChainService m_onChainService;
+        size_t m_blockCnt = 0;
+        size_t m_txCnt = 0;
+        std::string m_address;
+        std::string m_walletName;
+    public:
+
     };
 
     class AbstractOnChainReader {
@@ -57,7 +96,8 @@ namespace l15::p2p {
 
     class OnChainService: public P2PInterface<xonly_pubkey, p2p::FrostMessage>  {
     public:
-        explicit OnChainService(const secp256k1_context_struct *ctx,
+        explicit OnChainService(const AbstractOnChainWriter::Ptr &writer,
+                                const secp256k1_context_struct *ctx,
                                 std::shared_ptr<service::GenericService> srv,
                                 std::function<bool(p2p::frost_message_ptr)> msg_filter = [](p2p::frost_message_ptr){ return true;});
         //~OnChainService() override {};
@@ -83,7 +123,9 @@ namespace l15::p2p {
     private:
         ZmqService::Ptr m_zmq;
         l15::core::WalletApi m_wallet;
+        AbstractOnChainWriter::Ptr m_writer;
+
+
     };
 
 } // namespace l15::p2p
-

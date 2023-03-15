@@ -15,6 +15,8 @@
 
 #include "common.hpp"
 #include "config.hpp"
+#include "nodehelper.hpp"
+#include "exechelper.hpp"
 
 #include "frost_signer.hpp"
 
@@ -68,27 +70,66 @@ int main(int argc, char* argv[])
     return session.run();
 }
 
+struct TestConfigFactory
+{
+    Config conf;
+    explicit TestConfigFactory(const std::string& confpath)
+    {
+        std::clog << "Config: " << confpath << std::endl;
+        conf.ProcessConfig({"--conf=" + confpath});
+        std::clog << "Config has been processed" << std::endl;
+    }
+    std::string GetDataDir() const
+    {
+        auto datadir_opt = conf.Subcommand(config::L15NODE).get_option(config::option::DATADIR);
+        if(!datadir_opt->empty())
+            return datadir_opt->as<std::string>();
+        else
+            return std::string();
+    }
+};
+
 struct ThreeSignersTestWrapper {
+    TestConfigFactory mConfFactory;
     WalletApi wallet;
     ChannelKeys keypair0, keypair1, keypair2;
     std::shared_ptr<service::GenericService> service;
     std::shared_ptr<SignerService> signerService;
+    std::shared_ptr<l15::p2p::OnChainWriterV1> writer0, writer1, writer2; // TODO Revert to abstract writer
     std::shared_ptr<l15::p2p::OnChainService> peer0, peer1, peer2;
     std::shared_ptr<FrostSigner> signer0, signer1, signer2;
 
+
     ThreeSignersTestWrapper()
-            : keypair0(wallet.Secp256k1Context())
+            : mConfFactory(configpath)
+            , keypair0(wallet.Secp256k1Context())
             , keypair1(wallet.Secp256k1Context())
             , keypair2(wallet.Secp256k1Context())
             , service(std::make_shared<service::GenericService>(2))
             , signerService(std::make_shared<SignerService>(service))
-            , peer0(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
-            , peer1(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
-            , peer2(std::make_shared<l15::p2p::OnChainService>(wallet.Secp256k1Context(), service))
-            , signer0(make_shared<FrostSigner>(keypair0, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer0))
-            , signer1(make_shared<FrostSigner>(keypair1, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer1))
-            , signer2(make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2))
     {
+        try {
+            StartNode();
+        }
+        catch (...) {
+            CleanUpNode();
+            StartNode();
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        writer0 = std::make_shared<l15::p2p::OnChainWriterV1>(mConfFactory.conf, "test_1");
+        writer1 = std::make_shared<l15::p2p::OnChainWriterV1>(mConfFactory.conf, "test_2");
+        writer2 = std::make_shared<l15::p2p::OnChainWriterV1>(mConfFactory.conf, "test_3");
+        peer0 = std::make_shared<l15::p2p::OnChainService>(writer0, wallet.Secp256k1Context(), service);
+        peer1 = std::make_shared<l15::p2p::OnChainService>(writer1, wallet.Secp256k1Context(), service);
+        peer2 = std::make_shared<l15::p2p::OnChainService>(writer2, wallet.Secp256k1Context(), service);
+        signer0 = make_shared<FrostSigner>(keypair0, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer0);
+        signer1 = make_shared<FrostSigner>(keypair1, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer1);
+        signer2 = make_shared<FrostSigner>(keypair2, std::vector<xonly_pubkey>{keypair0.GetLocalPubKey(), keypair1.GetLocalPubKey(), keypair2.GetLocalPubKey()}, signerService, peer2);
+
+
+
         signer0->SetErrorHandler([](){
             std::ostringstream stream;
             print_error(stream);
@@ -107,6 +148,8 @@ struct ThreeSignersTestWrapper {
             FAIL(stream.str());
         });
 
+
+
         peer0->AddPeer(xonly_pubkey(keypair0.GetLocalPubKey()), "tcp://localhost:12000");
         peer0->AddPeer(xonly_pubkey(keypair1.GetLocalPubKey()), "tcp://localhost:12001");
         peer0->AddPeer(xonly_pubkey(keypair2.GetLocalPubKey()), "tcp://localhost:12002");
@@ -118,7 +161,31 @@ struct ThreeSignersTestWrapper {
         peer2->AddPeer(xonly_pubkey(keypair0.GetLocalPubKey()), "tcp://localhost:12000");
         peer2->AddPeer(xonly_pubkey(keypair1.GetLocalPubKey()), "tcp://localhost:12001");
         peer2->AddPeer(xonly_pubkey(keypair2.GetLocalPubKey()), "tcp://localhost:12002");
+
+        writer0->generateBlocks("1");
+        writer1->generateBlocks("1");
+        writer2->generateBlocks("1");
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
+
+    ~ThreeSignersTestWrapper()
+    {
+        CleanUpNode();
+    }
+
+    void CleanUpNode() {
+        ExecHelper cli("l15node-cli", false);
+        StopNode(ChainMode::MODE_REGTEST, cli, conf().Subcommand(config::L15CLIENT));
+        std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
+    }
+
+    void StartNode() {
+        ExecHelper node("l15noded", false);
+        l15::StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
+    }
+
+    Config& conf() { return mConfFactory.conf; }
 };
 
 TEST_CASE_METHOD(ThreeSignersTestWrapper, "2-of-3 local")

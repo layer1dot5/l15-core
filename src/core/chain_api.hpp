@@ -12,6 +12,14 @@
 
 namespace l15::core {
 
+struct Utxo {
+    std::string txid;
+    std::string address;
+    std::string amount;
+    bool spendable;
+    int vout;
+};
+typedef std::vector<Utxo> UtxoVector;
 
 class ChainApi {
 public:
@@ -48,6 +56,9 @@ public:
     uint32_t GetChainHeight() const;
     std::string GetNewAddress(const std::string& label = "", const std::string& address_type = "bech32m") const;
     std::string GenerateToAddress(const std::string& address, const std::string &nblocks) const;
+
+    // Taken from [here](https://developer.bitcoin.org/reference/rpc/listunspent.html?highlight=listunspent)
+    UtxoVector ListUnspent(const std::string& address, const std::string &walletName) const;
 
     // locktime < 500 000 000 - means lock time in block height
     // locktime >= 500 000 000 - means UNIX timestamp

@@ -14,7 +14,7 @@ extern const char* const BITCOIND;
 
 namespace command {
 
-}
+} // namespace l15::config::command
 
 namespace option {
 
@@ -25,9 +25,9 @@ extern const char* const RPCUSER;
 extern const char* const RPCPASS;
 extern const char* const DATADIR;
 
-}
+} // namespace l15::config::option
 
-}
+} // namespace l15::config
 
 class Config {
 private:
@@ -83,4 +83,4 @@ public:
 
 };
 
-}
+} // namespace l15
