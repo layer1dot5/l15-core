@@ -20,6 +20,9 @@ void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
     if(mode == ChainMode::MODE_REGTEST) node_exec.Arguments().emplace_back("-regtest");
     else if(mode == ChainMode::MODE_TESTNET) node_exec.Arguments().emplace_back("-testnet");
 
+    node_exec.Arguments().emplace_back("-txindex=1");
+    node_exec.Arguments().emplace_back("-blockfilterindex=1");
+
     node_exec.Run();
 
     std::this_thread::sleep_for(std::chrono::seconds(5));

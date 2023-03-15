@@ -286,7 +286,7 @@ std::string ChainApi::SpendSegwitTx(CMutableTransaction &tx, const std::vector<b
  * address_type - The address type to use. Options are “legacy”, “p2sh-segwit”, and “bech32”.
  * 
 */
-std::string ChainApi::GetNewAddress(const std::string& label, const std::string& address_type) const
+std::string ChainApi::GetNewAddress(const std::string& label, const std::string& address_type, const std::string& wallet_name) const
 {
     ExecHelper btc_exec(m_cli_path, false);
 
@@ -294,6 +294,10 @@ std::string ChainApi::GetNewAddress(const std::string& label, const std::string&
     {
         btc_exec.Arguments().emplace_back(v);
     });
+
+    if(wallet_name != "") {
+        btc_exec.Arguments().emplace_back("--rpcwallet=" + wallet_name);
+    }
 
     btc_exec.Arguments().emplace_back(GETNEWADDRESS);
     btc_exec.Arguments().emplace_back(label);
@@ -493,7 +497,7 @@ UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &
     });
 
     btc_exec.Arguments().emplace_back("--rpcwallet=" + walletName);
-    btc_exec.Arguments().emplace_back("-regtest");
+    //btc_exec.Arguments().emplace_back("-regtest");
     btc_exec.Arguments().emplace_back(LISTUNSPENT);
     btc_exec.Arguments().emplace_back("1");
     btc_exec.Arguments().emplace_back("9999999");
@@ -501,7 +505,7 @@ UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &
     btc_exec.Arguments().emplace_back("[\"" + address + "\"]");
     auto jsonResponse = btc_exec.Run();
 
-    std::clog << jsonResponse << std::endl;
+    //std::clog << jsonResponse << std::endl;
 
     UniValue utxoJson(UniValue::VARR);
     if (!utxoJson.read(jsonResponse)) {

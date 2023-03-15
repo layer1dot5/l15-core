@@ -22,6 +22,8 @@ namespace l15::p2p {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         m_address = m_onChainService.ChainAPI().Bech32Encode(m_key.GetPubKey());
+
+        m_walletAddress = m_onChainService.ChainAPI().GetNewAddress("","bech32m", m_walletName);
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
@@ -78,7 +80,7 @@ namespace l15::p2p {
      * TODO: Add minimal and maximal satoshis filter to ListUnspent
      */
     std::optional<l15::core::Utxo> OnChainWriterV1::findGoodUtxo(CAmount minSatoshi) {
-        auto utxos = m_onChainService.ChainAPI().ListUnspent(m_address, m_walletName);
+        auto utxos = m_onChainService.ChainAPI().ListUnspent(m_walletAddress, m_walletName);
         for(const auto &utxo: utxos) {
             if (!utxo.spendable) {
                 continue;
@@ -92,7 +94,7 @@ namespace l15::p2p {
     }
 
     void OnChainWriterV1::generateBlocks(const std::string &amount) {
-        m_onChainService.ChainAPI().GenerateToAddress(m_address, amount);
+        m_onChainService.ChainAPI().GenerateToAddress(m_walletAddress, amount);
     }
 
     void OnChainService::WaitForConfirmations() {

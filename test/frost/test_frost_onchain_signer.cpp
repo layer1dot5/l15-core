@@ -162,9 +162,10 @@ struct ThreeSignersTestWrapper {
         peer2->AddPeer(xonly_pubkey(keypair1.GetLocalPubKey()), "tcp://localhost:12001");
         peer2->AddPeer(xonly_pubkey(keypair2.GetLocalPubKey()), "tcp://localhost:12002");
 
-        writer0->generateBlocks("1");
-        writer1->generateBlocks("1");
-        writer2->generateBlocks("1");
+        writer0->generateBlocks("100");
+        writer1->generateBlocks("100");
+        writer2->generateBlocks("100");
+        writer0->generateBlocks("100");
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }

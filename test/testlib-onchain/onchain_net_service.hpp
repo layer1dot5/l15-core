@@ -27,7 +27,7 @@ namespace l15::p2p {
         void operator()(const D& data)
         {
             ++counter;
-            std::clog << "Chain trace: " << data.ToString() << std::endl;
+            //std::clog << "Chain trace: " << data.ToString() << std::endl;
         }
     };
 
@@ -82,6 +82,7 @@ namespace l15::p2p {
         size_t m_txCnt = 0;
         std::string m_address;
         std::string m_walletName;
+        std::string m_walletAddress;
     public:
 
     };
