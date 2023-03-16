@@ -51,6 +51,11 @@ void ExecHelper::RunInternal() {
             if(nline++) outstream << std::endl;
             outstream << line;
         }
+        while(std::getline(is, line) && !line.empty())
+        {
+            if(nline++) outstream << std::endl;
+            outstream << line;
+        }
         m_out = outstream.str();
 
         check.wait();

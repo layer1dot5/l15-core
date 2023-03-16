@@ -496,6 +496,7 @@ UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &
         btc_exec.Arguments().emplace_back(v);
     });
 
+    // Add parameters for maximal amount of outputs
     btc_exec.Arguments().emplace_back("--rpcwallet=" + walletName);
     //btc_exec.Arguments().emplace_back("-regtest");
     btc_exec.Arguments().emplace_back(LISTUNSPENT);
@@ -507,7 +508,7 @@ UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &
 
     //std::clog << jsonResponse << std::endl;
 
-    UniValue utxoJson(UniValue::VARR);
+    UniValue utxoJson(UniValue::VOBJ);
     if (!utxoJson.read(jsonResponse)) {
         throw std::domain_error("Response from `listunspent` is not a JSON");
     };
@@ -524,9 +525,9 @@ UtxoVector ChainApi::ListUnspent(const std::string &address, const std::string &
     for(const auto &utxo: utxos) {
         auto txid = utxo["txid"].get_str();
         auto addr = utxo["address"].get_str();
-        auto amount = utxo["amount"].get_str();
+        auto amount = utxo["amount"].getValStr();
         auto spendable = utxo["spendable"].getBool();
-        auto vout = utxo["amount"].get_int();
+        auto vout = utxo["vout"].get_int();
 
         result.push_back(Utxo{.txid = txid, .address = addr, .amount = amount, .spendable = spendable, .vout = vout});
     }

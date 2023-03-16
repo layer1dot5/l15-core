@@ -49,7 +49,7 @@ namespace l15::p2p {
         outOpReturnScript << OP_RETURN;
         outOpReturnScript << ParseHex(payload);
 
-        op_return_tx.vout.emplace_back(CTxOut(100000, outPubKeyScript));
+        op_return_tx.vout.emplace_back(CTxOut(10000, outPubKeyScript));
         op_return_tx.vout.emplace_back(CTxOut(0, outOpReturnScript));
 
         bytevector sig = m_wallet.SignTaprootTx(m_key.GetLocalPrivKey(), op_return_tx, 0, {tx_out}, {});
