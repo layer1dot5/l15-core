@@ -5,7 +5,7 @@ AC_CONFIG_SRCDIR([src/core/chain_api.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
-LT_INIT([static])
+LT_INIT([pic-only])
 
 AM_INIT_AUTOMAKE([1.16 foreign subdir-objects])
 
@@ -35,6 +35,38 @@ AC_PROG_CPP
 AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
+
+dnl Eneble PyBind11 integrations
+AC_ARG_WITH([pybind11],
+            [AS_HELP_STRING([--with-pybind],[with python integration module])],
+            [with_pybind=yes],
+            [with_pybind=no])
+
+if test "$with_pybind" = "yes"; then
+    AC_CHECK_PROGS(PYTHON, [python3 python], [])
+    if test "x$PYTHON" = "x"; then
+        AC_MSG_ERROR([python is required to build with python bindings])
+    fi
+
+    AC_MSG_NOTICE([python is $PYTHON])
+
+    PYBIND_CPPFLAGS=`$PYTHON -m pybind11 --includes`
+
+    AC_MSG_NOTICE([PYBIND_CPPFLAGS = $PYBIND_CPPFLAGS])
+
+    ax_check_pybind_cppflags=$CPPFLAGS
+
+    AC_LANG_SAVE
+    AC_LANG([C++])
+
+    CPPFLAGS="$CPPFLAGS $PYBIND_CPPFLAGS"
+    AC_CHECK_HEADER([pybind11/pybind11.h], [], [AC_MSG_ERROR([PyBind11 C++ header are required but not found])])
+    CPPFLAGS=$ax_check_pybind_cppflags
+
+    AC_LANG_RESTORE
+
+    AC_SUBST(PYBIND_CPPFLAGS)
+fi
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
@@ -102,7 +134,8 @@ AC_CONFIG_FILES([Makefile
                  test/core/Makefile
                  test/p2p/Makefile
                  test/service/Makefile
-                 contrib/Makefile])
+                 contrib/Makefile
+                 pybind/Makefile])
 
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
@@ -137,7 +170,7 @@ dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh',
 AX_SUBDIRS_CONFIGURE(
     [node],
     [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
-    [[--disable-tests], [--disable-bench], [--with-zmq]],
+    [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
     [],
     [])
 
@@ -145,7 +178,7 @@ AX_SUBDIRS_CONFIGURE(
 AX_SUBDIRS_CONFIGURE(
     [contrib/secp256k1],
     [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-musig], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
-    [[--disable-tests], [--disable-benchmark], [--enable-examples]],
+    [[--disable-tests], [--disable-benchmark], [--enable-examples], [--with-pic]],
     [],
     [[--disable-bench]])
 
@@ -162,7 +195,7 @@ echo
 echo "  target os       = $host_os"
 echo "  build os        = $build_os"
 echo
-echo "  CPPFLAGS        = $CPPFLAGS $ZMQ_CPPFLAGS"
+echo "  CPPFLAGS        = $CPPFLAGS $ZMQ_CPPFLAGS $PYBIND_CPPFLAGS"
 echo "  CXX             = $CXX"
 echo "  CXXFLAGS        = $CXXFLAGS"
 echo "  LDFLAGS         = $LDFLAGS $ZMQ_LDFLAGS"

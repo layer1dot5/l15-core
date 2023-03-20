@@ -1,7 +1,6 @@
 #pragma once
 
 #include "serialize.h"
-#include "span.h"
 #include "crypto/sha256.h"
 
 namespace l15 {
