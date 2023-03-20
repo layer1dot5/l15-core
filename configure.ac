@@ -53,9 +53,11 @@ if test "$with_pybind" = "yes"; then
     AC_PROG_CXX
     PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
     AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
+    AX_SWIG_ENABLE_CXX
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
     AM_PATH_PYTHON([3])
+    LT_INIT([disable-static])
 
     AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
     if test -n "$PYTHON3_CONFIG"; then

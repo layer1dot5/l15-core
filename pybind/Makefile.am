@@ -12,8 +12,8 @@ AM_CPPFLAGS = \
  $(PYBIND_CPPFLAGS)
 
 SWIG_SOURCES = l15-core-pybind.i
-SWIG_PYTHON_MODULE = libl15-core-pybind_wrap.cxx
-CLEANFILES = $(SWIG_PYTHON_MODULE) libl15-core-pybind.py
+SWIG_PYTHON_MODULE = libl15-core-pybind-wrap.cxx
+CLEANFILES = $(SWIG_PYTHON_MODULE) l15Core.py
 
 BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
 EXTRA_DIST = $(SWIG_SOURCES)
@@ -26,21 +26,23 @@ $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
 AM_LDFLAGS = -L$(top_builddir)/node/src \
              -L$(top_builddir)/node/src/crypto
 
-noinst_LTLIBRARIES = _libl15-core-pybind.la
+pkglib_LTLIBRARIES = libl15-core-pybind.la
 #lib_LTLIBRARIES = libl15-core-pybind.so
+#noinst_LTLIBRARIES = libl15-core-pybind.la
 
-_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
-_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
+libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
+libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
+libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
 
-_libl15_core_pybind_la_LIBADD = \
+# $(top_builddir)/node/src/libbitcoin_util.a
+# $(top_builddir)/node/src/libbitcoin_common.a
+# $(top_builddir)/node/src/libbitcoin_consensus.a
+
+libl15_core_pybind_la_LIBADD = \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \
-$(top_builddir)/node/src/libbitcoin_common.a \
-$(top_builddir)/node/src/libbitcoin_util.a \
-$(top_builddir)/node/src/libbitcoin_consensus.a \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
