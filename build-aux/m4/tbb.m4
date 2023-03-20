@@ -91,7 +91,7 @@ AC_DEFUN([AX_TBB], [
     # Check for Intel TBB library.
     AC_CHECK_LIB([tbb], [TBB_runtime_interface_version], [LIBS="-ltbb $LIBS"],
                    [ax_with_tbb=no
-                    AC_MSG_NOTICE(["Unable to link with Intel TBB])])
+                    AC_MSG_NOTICE([Unable to link with Intel TBB])])
     AC_LANG_RESTORE
   fi
 ])
