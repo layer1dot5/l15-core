@@ -75,6 +75,13 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+#dnl Enable wasm plugin builing
+#AC_ARG_ENABLE([wasm],
+#    [AS_HELP_STRING([--enable-wasm],
+#                    [build wasm plugin for Ord (default is no)])],
+#    [enable_wasm=$enableval],
+#    [enable_wasm=no])
+
 if test "$enable_debug" = "yes"; then
   dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
   dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
@@ -181,6 +188,20 @@ AX_SUBDIRS_CONFIGURE(
     [[--disable-tests], [--disable-benchmark], [--enable-examples], [--with-pic]],
     [],
     [[--disable-bench]])
+
+#if test "$enable_wasm" = "yes"; then
+#Check the following variables
+#EMSDK = /home/raistlin/work/repos/layer1dot5/emscripten/emsdk
+#EMSDK_NODE = /home/raistlin/work/repos/layer1dot5/emscripten/emsdk/node/14.18.2_64bit/bin/node
+#    orig_config_shell="$CONFIG_SHELL"
+#    CONFIG_SHELL="${abs_top_srcdir}/emconfigure-wrapper.sh"
+#    AX_SUBDIRS_CONFIGURE([src/wasm])
+#    CONFIG_SHELL="$orig_config_shell"
+#else
+#    AC_MSG_WARN([Emscripten compiler (em++) is not required.])
+#    AC_PROG_CXX
+#fi
+
 
 AC_OUTPUT
 
