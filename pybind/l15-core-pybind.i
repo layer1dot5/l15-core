@@ -1,4 +1,4 @@
-%module l15Core
+%module libl15_core_pybind
 
 %include "std_shared_ptr.i"
 %include "std_string.i"
