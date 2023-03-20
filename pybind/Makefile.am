@@ -11,28 +11,46 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/cex\
  $(PYBIND_CPPFLAGS)
 
+SWIG_SOURCES = l15-core-pybind.i
+SWIG_PYTHON_MODULE = libl15-core-pybind_wrap.cxx
+CLEANFILES = $(SWIG_PYTHON_MODULE) libl15-core-pybind.py
+
+BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
+EXTRA_DIST = $(SWIG_SOURCES)
+
+$(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
+	$(SWIG) -c++ -python -o $@ $<
+
 # $(python3 -m pybind11 --includes)
 
-AM_LDFLAGS=-L$(top_builddir)/node/src
+AM_LDFLAGS = -L$(top_builddir)/node/src \
+             -L$(top_builddir)/node/src/crypto
 
-#-L$(top_builddir)/node/src/crypto
+noinst_LTLIBRARIES = _libl15-core-pybind.la
+#lib_LTLIBRARIES = libl15-core-pybind.so
 
-lib_LTLIBRARIES = libl15-core-pybind.la
+_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
+_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
+_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
+#libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
 
-libl15_core_pybind_la_SOURCES = l15-core-pybind.cpp
-libl15_core_pybind_la_LIBADD = $(top_builddir)/src/core/libl15-core.la \
+_libl15_core_pybind_la_LIBADD = \
+$(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \
--lbitcoin_common -lbitcoin_util -lbitcoin_consensus \
+$(top_builddir)/node/src/libbitcoin_common.a \
+$(top_builddir)/node/src/libbitcoin_util.a \
+$(top_builddir)/node/src/libbitcoin_consensus.a \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
 $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
+$(PYTHON_LIBS) \
 $(BOOST_FILESYSTEM_LIB)
 
-$(builddir)/l15-core-pybind.cpp: src/example.i
-	$(SWIG) $(AX_SWIG_PYTHON_OPT) -o $@ $<
+#all-local: l15Core.py
 
-# l15_core$(python3-config --extension-suffix)
+#libl15-core-pybind.py: libl15-core-pybind.la
+#	cp $(srcdir)/pybind/libl15-core-pybind.py .
