@@ -62,9 +62,19 @@ public:
     ~fixsize_vector() noexcept = default;
 
     fixsize_vector& operator=(const fixsize_vector& x) { base::operator=(x); return *this; }
+
+    template<typename AllocX>
+    fixsize_vector& operator=(const fixsize_vector<value_type, SIZE, AllocX>& x)
+    { assign(x.cbegin(), x.cend()); return *this; }
+
     fixsize_vector& operator=(fixsize_vector&& x) noexcept { base::operator=(std::move(x)); return *this; }
 
     fixsize_vector& operator=(const base& x) { base::operator=(check_size(x)); return *this; }
+
+    template<typename AllocX>
+    fixsize_vector& operator=(const std::vector<value_type, AllocX>& x)
+    { assign(x.cbegin(), x.cend()); return *this; }
+
     fixsize_vector& operator=(base&& x) noexcept { base::operator=(check_resize(std::move(x))); return *this; }
 
     fixsize_vector& operator=(std::initializer_list<value_type> l) { base::operator=(check_size(l)); return *this; }

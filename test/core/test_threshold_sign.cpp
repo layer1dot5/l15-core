@@ -20,7 +20,6 @@
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
 #include "channel_keys.hpp"
-#include "generic_service.hpp"
 
 
 #include "time_measure.hpp"

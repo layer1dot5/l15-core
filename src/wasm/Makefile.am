@@ -1,6 +1,6 @@
 # Emscripten build flags
-AM_CXXFLAGS = -O2 -s WASM=1
-AM_LDFLAGS = -O2 -s WASM=1
+AM_CXXFLAGS = -s WASM=1
+AM_LDFLAGS = -s WASM=1
 
 # If you want to use a specific Emscripten configuration file, uncomment and set EM_CONFIG_FILE
 # to the path to your .emscripten file.
@@ -15,12 +15,11 @@ AM_LDFLAGS = -O2 -s WASM=1
 #my_project_CXXFLAGS = $(AM_CXXFLAGS)
 #my_project_LDFLAGS = $(AM_LDFLAGS) -s EXPORTED_FUNCTIONS=['_main','getTimestamp'] --preload-file assets
 
-L15_LIBS = \
- -lembind
+L15_LIBS = -lembind
 
-bin_PROGRAMS = wasm-plugin
+bin_PROGRAMS = l15-core
 wasm_plugin_CXXFLAGS = $(AM_CXXFLAGS)
-wasm_plugin_LDFLAGS = $(AM_LDFLAGS) -o wasm_plugin.html
+wasm_plugin_LDFLAGS = $(AM_LDFLAGS) -o l15-core-plugin.html
 #wasm_plugin_CXXFLAGS = -s WASM=1
 #wasm_plugin_LDFLAGS = -s WASM=1
 wasm_plugin_SOURCES = ord_plugin.cpp

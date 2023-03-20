@@ -1,18 +1,23 @@
-SUBDIRS = contrib node src test src/wasm
+ACLOCAL_AMFLAGS = -I build-aux/m4
+
+SUBDIRS = contrib node src test
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/src/api \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/contrib/cli11 \
  -I$(top_srcdir)/contrib/cex \
- -I$(top_srcdir)/node/src
+ -I$(top_srcdir)/node/src \
+ -I$(top_srcdir)/node/src/support
 
 
 AM_LDFLAGS=-L$(top_builddir)/node/src
 
 L15_LIBS = \
+$(top_builddir)/src/api/libl15-api.la  \
 $(top_builddir)/src/core/libl15-core.la  \
 $(top_builddir)/src/tools/libl15-tools.la \
 $(top_builddir)/src/common/libl15-common.la \

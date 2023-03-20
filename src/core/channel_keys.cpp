@@ -1,9 +1,38 @@
+#include "allocators/secure.h"
+#include "secp256k1.h"
 
 #include "common.hpp"
 #include "channel_keys.hpp"
 #include "hash_helper.hpp"
 
+#include <mutex>
+#include <atomic>
+
 namespace l15::core {
+
+namespace {
+
+std::atomic<volatile secp256k1_context*> ctx = nullptr;
+std::mutex ctx_mutex;
+
+}
+
+secp256k1_context *ChannelKeys::GetStaticSecp256k1Context()
+{
+    secp256k1_context* res = const_cast<secp256k1_context *>(ctx.load());
+    if (!res) {
+        std::lock_guard lock(ctx_mutex);
+        if (!ctx) {
+            res = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+            std::vector<unsigned char, secure_allocator<unsigned char>> vseed(32);
+            GetRandBytes(vseed);
+            int ret = secp256k1_context_randomize(res, vseed.data());
+            assert(ret);
+            ctx = res;
+        }
+    }
+    return res;
+}
 
 const CSHA256 TAPTWEAK_HASH = PrecalculatedTaggedHash("TapTweak");
 

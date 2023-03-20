@@ -11,6 +11,7 @@
 #include "fixsizevector.hpp"
 
 #include "primitives/transaction.h"
+#include "allocators/secure.h"
 
 #include "secp256k1_extrakeys.h"
 
@@ -31,7 +32,7 @@ typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;
 
 
-typedef cex::fixsize_vector<uint8_t, 32> seckey;
+typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<unsigned char>> seckey;
 typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
 
 class xonly_pubkey : public cex::fixsize_vector<uint8_t, 32>

@@ -8,13 +8,13 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \
+ -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex
 
 
-noinst_LTLIBRARIES = libl15-core.la
-libl15_core_la_SOURCES = \
-	script_merkle_tree.cpp \
-	channel_keys.cpp
-
-#	channel_contract.cpp
-#	channel.cpp
+noinst_LTLIBRARIES = libl15-api.la
+libl15_api_la_SOURCES = \
+	chain_api.cpp \
+	wallet_api.cpp \
+	exechelper.cpp \
+	signer_api.cpp

@@ -1,7 +1,7 @@
 AC_PREREQ([2.69])
 
 AC_INIT([L15 Core], [m4_esyscmd_s([./version.sh])], [l2xl@protonmail.com])
-AC_CONFIG_SRCDIR([src/core/chain_api.cpp])
+AC_CONFIG_SRCDIR([src/core/channel_keys.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
@@ -135,14 +135,14 @@ AC_CONFIG_FILES([Makefile
                  src/common/Makefile
                  src/tools/Makefile
                  src/core/Makefile
+                 src/api/Makefile
                  src/service/Makefile
                  src/app/Makefile
                  test/Makefile
                  test/core/Makefile
                  test/p2p/Makefile
                  test/service/Makefile
-                 contrib/Makefile
-                 pybind/Makefile])
+                 contrib/Makefile])
 
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
@@ -173,6 +173,10 @@ dnl AC_CONFIG_SUBDIRS does not support custom arguments per subproject
 dnl so that is the reason to use more flexible AX_SUBDIRS_CONFIGURE.
 dnl Unfortunately AX_SUBDIRS_CONFIGURE does not allow 'autoreconf' be called recursively for all subprojects (just does it for 'configure' script only)
 dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh', placed at the source tree root.
+
+
+# emconfigure ./configure --without-sqlite --without-bdb --without-miniupnpc --without-natpmp --without-qrencode --without-libmultiprocess --without-mpgen --without-zmq --without-utils --with-libs --without-experimental-kernel-lib --without-daemon --without-gui --disable-wallet --disable-usdt --disable-upnp-default --disable-natpmp-default --disable-tests --disable-gui-tests --disable-bench --disable-extended-functional-tests --disable-fuzz --disable-fuzz-binary --disable-asm --disable-multiprocess --disable-external-signer --disable-shared --disable-experimental-util-chainstate
+
 
 AX_SUBDIRS_CONFIGURE(
     [node],
