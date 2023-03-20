@@ -1,4 +1,4 @@
-SUBDIRS = contrib node src test
+SUBDIRS = contrib node src test src/wasm
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
