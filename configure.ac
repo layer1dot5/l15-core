@@ -36,36 +36,40 @@ AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
-dnl Eneble PyBind11 integrations
+dnl Enable PyBind11 integrations
 AC_ARG_WITH([pybind11],
             [AS_HELP_STRING([--with-pybind],[with python integration module])],
             [with_pybind=yes],
             [with_pybind=no])
 
 if test "$with_pybind" = "yes"; then
-    AC_CHECK_PROGS(PYTHON, [python3 python], [])
-    if test "x$PYTHON" = "x"; then
-        AC_MSG_ERROR([python is required to build with python bindings])
-    fi
+#    AC_CHECK_PROGS(PYTHON, [python3 python], [])
+#    if test "x$PYTHON" = "x"; then
+#        AC_MSG_ERROR([python is required to build with python bindings])
+#    fi
 
-    AC_MSG_NOTICE([python is $PYTHON])
+#    AC_MSG_NOTICE([python is $PYTHON])
+    AX_PYTHON_DEVEL
+    AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
+    AX_SWIG_PYTHON
+    LT_INIT
+    AC_PROG_CXX
+#    PYBIND_CPPFLAGS=`$PYTHON -m pybind11 --includes`
 
-    PYBIND_CPPFLAGS=`$PYTHON -m pybind11 --includes`
+#    AC_MSG_NOTICE([PYBIND_CPPFLAGS = $PYBIND_CPPFLAGS])
 
-    AC_MSG_NOTICE([PYBIND_CPPFLAGS = $PYBIND_CPPFLAGS])
-
-    ax_check_pybind_cppflags=$CPPFLAGS
+#    ax_check_pybind_cppflags=$CPPFLAGS
 
     AC_LANG_SAVE
     AC_LANG([C++])
 
-    CPPFLAGS="$CPPFLAGS $PYBIND_CPPFLAGS"
-    AC_CHECK_HEADER([pybind11/pybind11.h], [], [AC_MSG_ERROR([PyBind11 C++ header are required but not found])])
-    CPPFLAGS=$ax_check_pybind_cppflags
+#    CPPFLAGS="$CPPFLAGS $PYBIND_CPPFLAGS"
+#    AC_CHECK_HEADER([pybind11/pybind11.h], [], [AC_MSG_ERROR([PyBind11 C++ header are required but not found])])
+#    CPPFLAGS=$ax_check_pybind_cppflags
 
     AC_LANG_RESTORE
 
-    AC_SUBST(PYBIND_CPPFLAGS)
+#    AC_SUBST(PYBIND_CPPFLAGS)
 fi
 
 dnl Enable debug

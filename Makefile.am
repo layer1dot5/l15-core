@@ -1,5 +1,7 @@
 SUBDIRS = contrib node src test
 
+ACLOCAL_AMFLAGS = -I build-aux/m4
+
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/core \

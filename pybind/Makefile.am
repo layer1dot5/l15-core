@@ -32,4 +32,7 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
+$(builddir)/l15-core-pybind.cpp: src/example.i
+	$(SWIG) $(AX_SWIG_PYTHON_OPT) -o $@ $<
+
 # l15_core$(python3-config --extension-suffix)
