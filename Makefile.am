@@ -1,4 +1,4 @@
-SUBDIRS = contrib node src test
+SUBDIRS = contrib node src test pybind
 
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
