@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/cex\
  $(PYBIND_CPPFLAGS)
 
+SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i
 SWIG_PYTHON_MODULE = libl15-core-pybind-wrap.cxx
 CLEANFILES = $(SWIG_PYTHON_MODULE) libl15-core-pybind.py
@@ -30,7 +31,8 @@ pkglib_LTLIBRARIES = _libl15-core-pybind.la
 #lib_LTLIBRARIES = libl15-core-pybind.so
 #noinst_LTLIBRARIES = libl15-core-pybind.la
 
-_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
+_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE)
+#_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
 _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
@@ -40,17 +42,21 @@ _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(
 # $(top_builddir)/node/src/libbitcoin_consensus.a
 
 _libl15_core_pybind_la_LIBADD = \
-$(top_builddir)/src/core/libl15-core.la \
-$(top_builddir)/src/tools/libl15-tools.la \
-$(top_builddir)/src/common/libl15-common.la \
-$(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
-$(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
-$(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
-$(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
-$(top_builddir)/contrib/secp256k1/libsecp256k1.la \
-$(top_builddir)/node/src/libunivalue.la \
 $(PYTHON_LIBS) \
 $(BOOST_FILESYSTEM_LIB)
+
+#_libl15_core_pybind_la_LIBADD = \
+#$(top_builddir)/src/core/libl15-core.la \
+#$(top_builddir)/src/tools/libl15-tools.la \
+#$(top_builddir)/src/common/libl15-common.la \
+#$(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
+#$(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
+#$(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
+#$(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
+#$(top_builddir)/contrib/secp256k1/libsecp256k1.la \
+#$(top_builddir)/node/src/libunivalue.la \
+#$(PYTHON_LIBS) \
+#$(BOOST_FILESYSTEM_LIB)
 
 #all-local: l15Core.py
 
