@@ -34,17 +34,17 @@ pkglib_LTLIBRARIES = _libl15-core-pybind.la
 #lib_LTLIBRARIES = libl15-core-pybind.so
 #noinst_LTLIBRARIES = libl15-core-pybind.la
 
-_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-#_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
-_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
+#_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
+_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
+_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
+_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS)
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
 
+#$(top_builddir)/src/core/libl15-core.a \
+#$(top_builddir)/src/tools/libl15-tools.a \
+#$(top_builddir)/src/common/libl15-common.a
 
 _libl15_core_pybind_la_LIBADD = \
-$(top_builddir)/src/core/libl15-core.a \
-$(top_builddir)/src/tools/libl15-tools.a \
-$(top_builddir)/src/common/libl15-common.a \
 $(top_builddir)/node/src/libbitcoin_common.a \
 $(top_builddir)/node/src/libbitcoin_util.a \
 $(top_builddir)/node/src/libbitcoin_consensus.a \
@@ -61,4 +61,4 @@ install-completed-library:
 	cp $(srcdir)/__init__.py $(top_builddir)/pybind/
 	cp $(top_builddir)/pybind/.libs/_libl15-core-pybind.so $(top_builddir)/pybind/_libl15_core_pybind.so
 
-all-local: install-completed-library
+#all-local: install-completed-library
