@@ -2,6 +2,8 @@ ACLOCAL_AMFLAGS = -I build-aux/m4
 
 SUBDIRS = contrib node src test
 
+if BUILD_TOOLS
+
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/core \
@@ -36,3 +38,4 @@ bin_PROGRAMS = l15-cli
 l15_cli_SOURCES = src/cli.cpp
 l15_cli_LDADD = $(L15_LIBS)
 
+endif

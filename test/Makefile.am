@@ -1,4 +1,14 @@
-SUBDIRS = core service p2p
+SUBDIRS =
+
+if BUILD_APIS
+SUBDIRS += core p2p
+endif
+
+if BUILD_SERVICES
+SUBDIRS += service
+endif
+
+if BUILD_TOOLS
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/test \
@@ -40,5 +50,5 @@ bin_PROGRAMS = signer
 signer_SOURCES = zmq_service.cpp signer.cpp
 signer_LDADD = $(L15_LIBS) $(ZMQ_LIBS)
 
-
+endif
 

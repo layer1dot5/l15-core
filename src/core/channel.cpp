@@ -6,7 +6,6 @@
 #include "channel.hpp"
 
 #include "utils.hpp"
-#include "wallet_api.hpp"
 
 
 namespace l15::core {

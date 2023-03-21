@@ -1,2 +1,17 @@
-SUBDIRS = common core api service tools
+SUBDIRS = common core
 
+if BUILD_APIS
+SUBDIRS += api
+endif
+
+if BUILD_SERVICES
+SUBDIRS += service
+endif
+
+if BUILD_TOOLS
+SUBDIRS += tools
+endif
+
+if BUILD_INSCRIBEIT
+SUBDIRS += inscribeit
+endif
