@@ -40,7 +40,11 @@ _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
 
+
 _libl15_core_pybind_la_LIBADD = \
+$(top_builddir)/src/core/libl15-core.a \
+$(top_builddir)/src/tools/libl15-tools.a \
+$(top_builddir)/src/common/libl15-common.a \
 $(top_builddir)/node/src/libbitcoin_common.a \
 $(top_builddir)/node/src/libbitcoin_util.a \
 $(top_builddir)/node/src/libbitcoin_consensus.a \
@@ -53,17 +57,8 @@ $(top_builddir)/node/src/libunivalue.la \
 $(PYTHON_LIBS) \
 $(BOOST_FILESYSTEM_LIB)
 
-#$(top_builddir)/src/core/libl15-core.la \
-#$(top_builddir)/src/tools/libl15-tools.la \
-#$(top_builddir)/src/common/libl15-common.la \
-#
-
-#_libl15_core_pybind_la_LIBADD = \
-#$(PYTHON_LIBS) \
-#$(BOOST_FILESYSTEM_LIB)
-
-#all-local: l15Core.py
-
 install-completed-library:
 	cp $(srcdir)/__init__.py $(top_builddir)/pybind/
 	cp $(top_builddir)/pybind/.libs/_libl15-core-pybind.so $(top_builddir)/pybind/_libl15_core_pybind.so
+
+all-local: install-completed-library

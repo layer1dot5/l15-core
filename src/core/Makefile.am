@@ -22,3 +22,8 @@ libl15_core_la_SOURCES = \
 	wallet_api.cpp \
 	exechelper.cpp \
 	signer_api.cpp
+
+libl15-core.a: libl15-core.la
+	cp .libs/libl15-core.a .
+
+all-local: libl15-core.a
