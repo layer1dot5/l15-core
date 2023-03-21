@@ -40,11 +40,10 @@ _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS) -fPIC
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
 
-# $(top_builddir)/node/src/libbitcoin_util.a
-# $(top_builddir)/node/src/libbitcoin_common.a
-# $(top_builddir)/node/src/libbitcoin_consensus.a
-
 _libl15_core_pybind_la_LIBADD = \
+$(top_builddir)/node/src/libbitcoin_common.a \
+$(top_builddir)/node/src/libbitcoin_util.a \
+$(top_builddir)/node/src/libbitcoin_consensus.a \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
