@@ -5,6 +5,8 @@
 %include "std_vector.i"
 %include "std_map.i"
 
+%include "../../node/src/support/cleanse.h"
+
 /*
 %include "l15-core-pybind.hpp"
 
@@ -19,6 +21,8 @@ class ChannelKeysImpl;
 */
 
 %{
+    #include "../../node/src/support/cleanse.h"
+
     const std::string build_time = __DATE__ " " __TIME__;
 
     const std::string Version() {
