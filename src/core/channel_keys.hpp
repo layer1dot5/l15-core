@@ -10,6 +10,8 @@
 
 #include <optional>
 
+#include "../../node/src/script/interpreter.h"
+
 namespace l15::core {
 
 
