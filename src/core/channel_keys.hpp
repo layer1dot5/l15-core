@@ -4,6 +4,7 @@
 #include "secp256k1_extrakeys.h"
 
 #include "random.h"
+#include "interpreter.h"
 
 #include "common.hpp"
 #include "common_error.hpp"
@@ -59,7 +60,10 @@ public:
     const xonly_pubkey& GetPubKey() const
     { return m_pubkey_agg; }
 
+    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, std::optional<uint256>&& merkle_root);
+
     std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
+    std::pair<ChannelKeys , uint8_t> NewKeyAddTapTweak(std::optional<uint256> merkle_root) const;
 
     seckey GetStrongRandomKey() const;
 
