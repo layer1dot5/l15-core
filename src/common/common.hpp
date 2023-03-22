@@ -7,6 +7,7 @@
 #include <functional>
 #include <iostream>
 #include <tuple>
+#include <charconv>
 
 #include "fixsizevector.hpp"
 
@@ -155,7 +156,7 @@ struct secp256k1_xonly_pubkey_equal
     { return memcmp(p1.data, p2.data, sizeof(p1.data)) == 0; }
 };
 
-extern std::array<std::array<char, 2>, 256> byte_to_hex;
+extern const std::array<std::array<char, 2>, 256> byte_to_hex;
 
 template<unsigned N>
 std::string hex(const unsigned char (&s)[N])
@@ -191,5 +192,23 @@ std::string hex(const SPAN& s)
     return res;
 }
 
+template<typename R>
+R unhex(std::string_view str) {
+    if (str.length()%2) {
+        throw std::out_of_range("Wrong hex string length");
+    }
+
+    R res;
+    res.resize(str.length() / 2);
+
+    auto ins = res.begin();
+    for (auto i = str.begin(); i != str.end(); i+=2) {
+        auto conv_res = std::from_chars(i, i+2, *ins++, 16);
+        if (conv_res.ec == std::errc::invalid_argument) {
+            throw std::invalid_argument("Wrong hex string");
+        }
+    }
+    return res;
+}
 
 }

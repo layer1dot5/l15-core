@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "HidingNonVirtualFunction"
+
 #include <vector>
 #include <stdexcept>
 
@@ -33,7 +36,7 @@ private:
     template <typename T>
     T&& check_resize(T&& b) noexcept {
         if (b.size() != SIZE) b.resize(SIZE);
-        return std::move(b);
+        return std::forward<T>(b);
     }
 
 public:
@@ -53,7 +56,7 @@ public:
     fixsize_vector(const fixsize_vector& v, const allocator_type& a) : base(v, a) {}
     fixsize_vector(fixsize_vector&& v, const allocator_type& a) : base(std::move(v), a) {}
 
-    fixsize_vector(std::initializer_list<value_type> l, const allocator_type& a = allocator_type()) : base(check_size(l)) {}
+    fixsize_vector(std::initializer_list<value_type> l, const allocator_type& a = allocator_type()) : base(check_size(l), a) {}
 
     template<typename I, typename = std::_RequireInputIter<I>>
     fixsize_vector(I f, I l, const allocator_type& a = allocator_type()) : base(SIZE, a)
@@ -91,7 +94,14 @@ public:
 
     void swap(base& x) { base::swap(check_size(x)); }
 
-    operator std::vector<value_type, allocator_type>&(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
+    operator std::vector<value_type, allocator_type>(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
+    operator std::vector<value_type, allocator_type>&&(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
+
+    void
+    reserve(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
+
+    void
+    resize(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
 
     using base::begin;
     using base::cbegin;
@@ -138,3 +148,5 @@ STREAM& operator >> (STREAM& s, fixsize_vector<T, SIZE, Alloc>& x)
 { return s.read(x.data(), SIZE); }
 
 }
+
+#pragma clang diagnostic pop

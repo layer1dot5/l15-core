@@ -27,9 +27,9 @@ public:
     static secp256k1_context* GetStaticSecp256k1Context();
 
     explicit ChannelKeys(): m_ctx(GetStaticSecp256k1Context()), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
-    explicit ChannelKeys(seckey&& local_sk): m_ctx(GetStaticSecp256k1Context()), m_local_sk(std::move(local_sk)) { CachePubkey(); }
+    explicit ChannelKeys(seckey local_sk): m_ctx(GetStaticSecp256k1Context()), m_local_sk(std::move(local_sk)) { CachePubkey(); }
     explicit ChannelKeys(const secp256k1_context* secp256k1_ctx): m_ctx(secp256k1_ctx), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
-    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx, seckey&& local_sk): m_ctx(secp256k1_ctx), m_local_sk(std::move(local_sk)) { CachePubkey(); }
+    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx, seckey local_sk): m_ctx(secp256k1_ctx), m_local_sk(std::move(local_sk)) { CachePubkey(); }
 
     ChannelKeys(const ChannelKeys&) = default;
     ChannelKeys(ChannelKeys &&old) noexcept: m_ctx(old.m_ctx), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
