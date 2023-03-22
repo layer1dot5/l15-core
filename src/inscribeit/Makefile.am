@@ -14,3 +14,11 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = libinscribeit.la
 libinscribeit_la_SOURCES = \
 	create_inscription.cpp
+
+libinscribeit_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
+libinscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -fPIC
+
+libinscribeit.a: libinscribeit.la
+	cp .libs/libinscribeit.a .
+
+all-local: libinscribeit.a

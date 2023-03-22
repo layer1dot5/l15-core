@@ -42,11 +42,11 @@ public:
     CreateInscriptionBuilder& DestinationPK(const std::string& pubkey);
     CreateInscriptionBuilder& FeeRate(const std::string& rate);
     CreateInscriptionBuilder& PrivKeys(const std::string& utxo_key, const std::string& funding_key, const std::string& genesys_key);
-    CreateInscriptionBuilder& FundingSignature(const l15::xonly_pubkey& utxo_pk, const std::string& funding_sig);
-    CreateInscriptionBuilder& GenesysSignature(const l15::xonly_pubkey& funding_pk, const std::string& genesys_sig);
+//    CreateInscriptionBuilder& FundingSignature(const l15::xonly_pubkey& utxo_pk, const std::string& funding_sig);
+//    CreateInscriptionBuilder& GenesysSignature(const l15::xonly_pubkey& funding_pk, const std::string& genesys_sig);
 
     std::vector<std::string> MakeRawTransactions();
-    std::vector<std::string> MakeSignatures() const;
+//    std::vector<std::string> MakeSignatures() const;
 
 };
 

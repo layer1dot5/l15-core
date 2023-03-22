@@ -28,6 +28,13 @@ else
   LDFLAGS_overridden=
 fi
 
+compiler_name=`basename "$CC"`
+if test "x$compiler_name" = "xemcc"; then
+    WITH_EMSCRIPTEN=yes
+else
+    WITH_EMSCRIPTEN=no
+fi
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
@@ -39,11 +46,22 @@ AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 build_tools=yes
 build_services=yes
 build_apis=yes
+build_inscribeit=no
 
-dnl Enable PyBind11 integrations
-AC_ARG_WITH([pybind11],
-            [AS_HELP_STRING([--with-pybind],[with python integration module])],
-            [with_pybind=yes],
+dnl Enable Python integrations
+AC_ARG_ENABLE([pybind],
+            [AS_HELP_STRING([--enable-pybind],[with python integration module])],
+            [
+                if test "$enableval" = "yes"; then
+                    if test "x$WITH_EMSCRIPTEN" = "xyes"; then
+                        AC_MSG_ERROR([python binding cannot be built with emscripten])
+                    fi
+                    build_inscribeit=yes
+                    with_pybind=yes
+                else
+                    with_pybind=no
+                fi
+            ],
             [with_pybind=no])
 
 AC_ARG_ENABLE([plugin-api],
@@ -97,13 +115,8 @@ AC_ARG_ENABLE([build-apis],
 
 AC_ARG_ENABLE([build-inscribeit],
               [AS_HELP_STRING([--enable-build-inscribeit], [Enable inscribeit API build (disabled by default)])],
-              [
-                if test "$enableval" = "yes"; then
-                    build_inscribeit=yes
-                    with_pybind=no
-                fi
-              ],
-              [build_inscribeit=no])
+              [build_inscribeit=yes]
+              [])
 
 
 if test "$plugin_api" = "yes"; then

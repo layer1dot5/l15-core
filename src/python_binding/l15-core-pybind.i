@@ -22,9 +22,14 @@ class ChannelKeysImpl;
 
 
 %{
+
 #include "../../node/src/support/cleanse.h"
+
 #include "../../src/inscribeit/create_inscription.hpp"
 
+#include "../../node/src/support/lockedpool.h"
+
+//#include "../../contrib/secp256k1/include/secp256k1_extrakeys.h"
 const std::string build_time = __DATE__ " " __TIME__;
 
 const std::string Version() {
@@ -33,6 +38,7 @@ const std::string Version() {
 %}
 
 %include "../../src/inscribeit/create_inscription.hpp"
+
 %inline %{
     const std::string Version();
 %}
