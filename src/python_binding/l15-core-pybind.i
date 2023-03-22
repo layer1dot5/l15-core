@@ -20,16 +20,19 @@ struct secp256k1_context_struct;
 class ChannelKeysImpl;
 */
 
+
 %{
-    #include "../../node/src/support/cleanse.h"
+#include "../../node/src/support/cleanse.h"
+#include "../../src/inscribeit/create_inscription.hpp"
 
-    const std::string build_time = __DATE__ " " __TIME__;
+const std::string build_time = __DATE__ " " __TIME__;
 
-    const std::string Version() {
-        return build_time;
-    }
+const std::string Version() {
+    return build_time;
+}
 %}
 
+%include "../../src/inscribeit/create_inscription.hpp"
 %inline %{
     const std::string Version();
 %}

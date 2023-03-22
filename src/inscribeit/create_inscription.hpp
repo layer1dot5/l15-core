@@ -22,16 +22,16 @@ class CreateInscriptionBuilder {
     std::string m_content_type;
     bytevector m_data;
 
-    std::optional<xonly_pubkey> m_destination_pk;
+    std::optional<l15::xonly_pubkey> m_destination_pk;
 
     std::optional<seckey> m_utxo_sk;
     std::optional<seckey> m_funding_sk;
     std::optional<seckey> m_genesys_sk;
 
-    std::optional<xonly_pubkey> m_utxo_pk;
+    std::optional<l15::xonly_pubkey> m_utxo_pk;
     std::optional<signature> m_funding_sig;
 
-    std::optional<xonly_pubkey> m_funding_pk;
+    std::optional<l15::xonly_pubkey> m_funding_pk;
     std::optional<signature> m_genesys_sig;
 
 public:
@@ -42,8 +42,8 @@ public:
     CreateInscriptionBuilder& DestinationPK(const std::string& pubkey);
     CreateInscriptionBuilder& FeeRate(const std::string& rate);
     CreateInscriptionBuilder& PrivKeys(const std::string& utxo_key, const std::string& funding_key, const std::string& genesys_key);
-    CreateInscriptionBuilder& FundingSignature(const xonly_pubkey& utxo_pk, const std::string& funding_sig);
-    CreateInscriptionBuilder& GenesysSignature(const xonly_pubkey& funding_pk, const std::string& genesys_sig);
+    CreateInscriptionBuilder& FundingSignature(const l15::xonly_pubkey& utxo_pk, const std::string& funding_sig);
+    CreateInscriptionBuilder& GenesysSignature(const l15::xonly_pubkey& funding_pk, const std::string& genesys_sig);
 
     std::vector<std::string> MakeRawTransactions();
     std::vector<std::string> MakeSignatures() const;

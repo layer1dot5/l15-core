@@ -34,20 +34,17 @@ pkglib_LTLIBRARIES = _libl15-core-pybind.la
 #lib_LTLIBRARIES = libl15-core-pybind.so
 #noinst_LTLIBRARIES = libl15-core-pybind.la
 
-#_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
+_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
+#_libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) l15-core-pybind.hpp l15-core-pybind.cpp
 _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS)
 #libl15_core_pybind_la_LDFLAGS = -module -avoid-version -no-undefined
-
-#$(top_builddir)/src/core/libl15-core.a \
-#$(top_builddir)/src/tools/libl15-tools.a \
-#$(top_builddir)/src/common/libl15-common.a
 
 _libl15_core_pybind_la_LIBADD = \
 $(top_builddir)/node/src/libbitcoin_common.a \
 $(top_builddir)/node/src/libbitcoin_util.a \
 $(top_builddir)/node/src/libbitcoin_consensus.a \
+$(top_builddir)/src/inscribeit/libinscribeit.a \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
@@ -57,8 +54,14 @@ $(top_builddir)/node/src/libunivalue.la \
 $(PYTHON_LIBS) \
 $(BOOST_FILESYSTEM_LIB)
 
+if ! BUILD_PLUGIN_API
+_libl15_core_pybind_la_LIBADD += $(top_builddir)/src/core/libl15-core.a \
+                                 $(top_builddir)/src/tools/libl15-tools.a \
+                                 $(top_builddir)/src/common/libl15-common.a
+endif
+
 install-completed-library:
-	cp $(srcdir)/__init__.py $(top_builddir)/pybind/
-	cp $(top_builddir)/pybind/.libs/_libl15-core-pybind.so $(top_builddir)/pybind/_libl15_core_pybind.so
+	cp $(srcdir)/__init__.py $(top_builddir)/src/python_binding/
+	cp $(top_builddir)/src/python_binding/.libs/_libl15-core-pybind.so $(top_builddir)/src/python_binding/_libl15_core_pybind.so
 
 #all-local: install-completed-library
