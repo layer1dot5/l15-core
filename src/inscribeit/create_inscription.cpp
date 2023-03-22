@@ -3,6 +3,7 @@
 
 #include "version.h"
 #include "serialize.h"
+#include "interpreter.h"
 
 #include "create_inscription.hpp"
 #include "utils.hpp"
@@ -120,42 +121,47 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::PrivKeys(const std::string& 
 
 std::vector<std::string> CreateInscriptionBuilder::MakeRawTransactions()
 {
+    std::unique_ptr<core::ChannelKeys> utxo_key;
+    std::unique_ptr<core::ChannelKeys> funding_key;
+    std::unique_ptr<core::ChannelKeys> genesys_key;
+
     if (m_genesys_sk) {
-        core::ChannelKeys genesys_key(*m_genesys_sk);
+        genesys_key = std::make_unique<core::ChannelKeys>(*m_genesys_sk);
         if (m_destination_pk) {
-            if (genesys_key.GetLocalPubKey() != *m_destination_pk) {
+            if (genesys_key->GetLocalPubKey() != *m_destination_pk) {
                 throw std::invalid_argument("destination pk does not match sk");
             }
         }
         else {
-            m_destination_pk = genesys_key.GetLocalPubKey();
+            m_destination_pk = genesys_key->GetLocalPubKey();
         }
     }
 
     if (m_utxo_sk) {
-        core::ChannelKeys utxo_key(*m_utxo_sk);
+        utxo_key = std::make_unique<core::ChannelKeys>(*m_utxo_sk);
         if (m_utxo_pk) {
-            if (utxo_key.GetLocalPubKey() != *m_utxo_pk) {
+            if (utxo_key->GetLocalPubKey() != *m_utxo_pk) {
                 throw std::invalid_argument("UTXO pk does not match sk");
             }
         }
         else {
-            m_utxo_pk = utxo_key.GetLocalPubKey();
+            m_utxo_pk = utxo_key->GetLocalPubKey();
         }
     }
     else if (!m_utxo_pk) {
         throw std::invalid_argument("No UTXO key is provided");
     }
 
+    uint8_t funding_taproot_parity;
+
     ScriptMerkleTree tap_tree(TreeBalanceType::WEIGHTED, {MakeInscriptionScript(m_destination_pk.value(), m_content_type, m_data)});
     uint256 root = tap_tree.CalculateRoot();
 
-    xonly_pubkey funding_taproot_pk;
-    uint8_t funding_taproot_parity;
-
     if (m_funding_sk) {
-        core::ChannelKeys funding_key(*m_funding_sk);
-        std::tie(funding_taproot_pk, funding_taproot_parity) = funding_key.AddTapTweak(root);
+        xonly_pubkey funding_taproot_pk;
+
+        funding_key = std::make_unique<core::ChannelKeys>(*m_funding_sk);
+        std::tie(funding_taproot_pk, funding_taproot_parity) = funding_key->AddTapTweak(root);
         if (m_funding_pk) {
             if (funding_taproot_pk != *m_funding_pk) {
                 throw std::invalid_argument("Funding pk does not match sk");
@@ -169,6 +175,10 @@ std::vector<std::string> CreateInscriptionBuilder::MakeRawTransactions()
         throw std::invalid_argument("No funding key is provided");
     }
 
+    CScript utxo_pubkeyscript;
+    utxo_pubkeyscript << 1;
+    utxo_pubkeyscript << *m_utxo_pk;
+
     CScript funding_pubkeyscript;
     funding_pubkeyscript << 1;
     funding_pubkeyscript << *m_funding_pk;
@@ -176,13 +186,22 @@ std::vector<std::string> CreateInscriptionBuilder::MakeRawTransactions()
     CMutableTransaction funding_tx;
     funding_tx.vin = {CTxIn(COutPoint(uint256S(m_txid), m_nout))};
     funding_tx.vout = {CTxOut(m_amount, funding_pubkeyscript)};
-//    funding_tx.vin.front().scriptWitness.stack.emplace_back(static_cast<bytevector>(signature()));
-//
-//    size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
-//
-//    funding_tx.vout.front().nValue = CalculateOutputAmount(m_amount, m_fee_rate, funding_tx_size)
+    funding_tx.vin.front().scriptWitness.stack.emplace_back(bytevector(64)); // Is needed to obtain correct tx size
 
+    size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
 
+    funding_tx.vout.front().nValue = CalculateOutputAmount(m_amount, m_fee_rate, funding_tx_size);
+
+    if (utxo_key) {
+        m_funding_sig = utxo_key->SignTaprootTx(
+                funding_tx, 0,
+                {CTxOut(m_amount, utxo_pubkeyscript)}, {});
+    }
+    else if (!m_funding_sig) {
+        throw std::invalid_argument("No funding signature is provided");
+    }
+
+    funding_tx.vin.front().scriptWitness.stack.back() = (bytevector&)m_funding_sig;
 
 
 

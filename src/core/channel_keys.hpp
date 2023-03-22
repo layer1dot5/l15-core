@@ -61,7 +61,12 @@ public:
 
     std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
 
-    seckey GetStrongRandomKey();
+    seckey GetStrongRandomKey() const;
+
+    signature SignSchnorr(const uint256& data) const;
+
+    signature SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> &&spent_outputs,
+                             const CScript &spend_script, int hashtype = SIGHASH_DEFAULT) const;
 };
 
 bool pubkey_less(const xonly_pubkey &, const xonly_pubkey &);
