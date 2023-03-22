@@ -1,4 +1,4 @@
-#include <pybind11/pybind11.h>
+#include "l15-core-pybind.hpp"
 
 #include "channel_keys.hpp"
 
@@ -13,10 +13,11 @@ public:
 };
 
 
+/*
 PYBIND11_MODULE(l15_core, m) {
     py::class_<ChannelKeysImpl>(m, "ChannelKeys")
             .def(py::init<l15::seckey>())
             .def("getLocalPrivKey", &ChannelKeysImpl::GetLocalPrivKey)
             .def("getLocalPubKey", &ChannelKeysImpl::GetLocalPubKey);
 }
-
+*/

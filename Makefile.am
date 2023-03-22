@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
-SUBDIRS = contrib node src test
+SUBDIRS = contrib node src test pybind
 
 if BUILD_TOOLS
 

@@ -22,3 +22,8 @@ libl15_common_la_SOURCES = \
 	utils.cpp
 
 nodist_libl15_common_la_SOURCES = version.cpp
+
+libl15-common.a: libl15-common.la
+	cp .libs/libl15-common.a .
+
+all-local: libl15-common.a

@@ -39,6 +39,11 @@ AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 build_tools=yes
 build_services=yes
 build_apis=yes
+dnl Enable PyBind11 integrations
+AC_ARG_WITH([pybind11],
+            [AS_HELP_STRING([--with-pybind],[with python integration module])],
+            [with_pybind=yes],
+            [with_pybind=no])
 
 AC_ARG_ENABLE([plugin-api],
               [AS_HELP_STRING([--enable-plugin-api], [Enable plugin API build (disabled by default)])],
@@ -62,6 +67,16 @@ AC_ARG_ENABLE([build-tools],
                 fi
               ],
               [])
+    AC_MSG_NOTICE([python is $PYTHON])
+    AC_LANG([C++])
+    AC_PROG_CXX
+    PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
+    AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
+    AX_SWIG_ENABLE_CXX
+    AX_PYTHON_DEVEL
+    AX_SWIG_PYTHON
+    AM_PATH_PYTHON([3])
+    LT_INIT([disable-static])
 
 AC_ARG_ENABLE([build-services],
               [AS_HELP_STRING([--enable-build-services], [Enable services build (enabled by default)])],
@@ -75,6 +90,15 @@ AC_ARG_ENABLE([build-services],
                 fi
               ],
               [])
+    AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
+    if test -n "$PYTHON3_CONFIG"; then
+        PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
+        PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
+    else
+        AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
+    fi
+    AC_SUBST(PYTHON_LIBS)
+    AC_SUBST(PYTHON_LDFLAGS)
 
 AC_ARG_ENABLE([build-apis],
               [AS_HELP_STRING([--enable-build-apis], [Enable APIs build (enabled by default)])],
@@ -107,6 +131,9 @@ AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
 
+    AC_LANG_SAVE
+    AC_LANG_RESTORE
+fi
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
