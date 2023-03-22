@@ -40,8 +40,6 @@ private:
     }
 
 public:
-
-
     fixsize_vector() noexcept : base(SIZE) {}
     explicit fixsize_vector(const allocator_type& a) noexcept : base(SIZE, a) {}
     explicit fixsize_vector(const value_type& v) noexcept : base(SIZE, v) {}
@@ -92,16 +90,13 @@ public:
         base::assign(f, l);
     }
 
+    base& as_vector() { return reinterpret_cast<base&>(*this); }
+    const base& as_vector() const { return reinterpret_cast<base&>(*this); }
+
     void swap(base& x) { base::swap(check_size(x)); }
 
-    operator std::vector<value_type, allocator_type>(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
-    operator std::vector<value_type, allocator_type>&&(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
-
-    void
-    reserve(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
-
-    void
-    resize(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
+    void reserve(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
+    void resize(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
 
     using base::begin;
     using base::cbegin;

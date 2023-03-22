@@ -92,7 +92,10 @@ template <class STREAM>
 STREAM& operator >> (STREAM& s, xonly_pubkey& x)
 { return operator>>(s, reinterpret_cast<xonly_pubkey::base&>(x)); }
 
-typedef cex::fixsize_vector<uint8_t, 64> signature;
+class signature: public bytevector {
+public:
+    signature() : bytevector(65) { resize(64); }
+};
 
 typedef std::unique_ptr<CMutableTransaction> transaction_ptr;
 typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;
