@@ -8,6 +8,10 @@ if BUILD_SERVICES
 SUBDIRS += service
 endif
 
+if BUILD_INSCRIBEIT
+SUBDIRS += inscribeit
+endif
+
 if BUILD_TOOLS
 
 AM_CPPFLAGS = \
@@ -19,6 +23,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
  -I$(top_srcdir)/node/src/consensus \
+ -I$(top_srcdir)/node/src/script \
  -I$(top_srcdir)/node/src/support \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \

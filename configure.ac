@@ -241,6 +241,9 @@ fi
 
 if test "$build_inscribeit" = "yes"; then
     AC_CONFIG_FILES([src/inscribeit/Makefile])
+    if test "$build_tools" = "yes"; then
+        AC_CONFIG_FILES([test/inscribeit/Makefile])
+    fi
 fi
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a

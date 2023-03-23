@@ -11,8 +11,8 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/cex
 
 
-noinst_LTLIBRARIES = libinscribeit.la
-libinscribeit_la_SOURCES = \
+noinst_LTLIBRARIES = libl15-inscribeit.la
+libl15_inscribeit_la_SOURCES = \
 	create_inscription.cpp
 
 libinscribeit_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
