@@ -18,7 +18,7 @@ libl15_inscribeit_la_SOURCES = \
 libinscribeit_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
 libinscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -fPIC
 
-libinscribeit.a: libinscribeit.la
-	cp .libs/libinscribeit.a .
+libl15-inscribeit.a: libl15-inscribeit.la
+	cp .libs/libl15-inscribeit.a .
 
-all-local: libinscribeit.a
+all-local: libl15-inscribeit.a

@@ -8,7 +8,7 @@
 %include "../../node/src/support/cleanse.h"
 
 /*
-%include "l15-core-pybind.hpp"
+
 
 %include "../contrib/cex/fixsizevector.hpp"
 %include "../src/core/channel_keys.hpp"
@@ -22,6 +22,7 @@ class ChannelKeysImpl;
 
 
 %{
+const std::function<std::string(const char *)> G_TRANSLATION_FUN = nullptr;
 
 #include "../../node/src/support/cleanse.h"
 
@@ -29,7 +30,6 @@ class ChannelKeysImpl;
 
 #include "../../node/src/support/lockedpool.h"
 
-//#include "../../contrib/secp256k1/include/secp256k1_extrakeys.h"
 const std::string build_time = __DATE__ " " __TIME__;
 
 const std::string Version() {
@@ -38,6 +38,7 @@ const std::string Version() {
 %}
 
 %include "../../src/inscribeit/create_inscription.hpp"
+%include "l15-core-pybind.hpp"
 
 %inline %{
     const std::string Version();
