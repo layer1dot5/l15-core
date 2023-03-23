@@ -21,6 +21,7 @@ namespace {
 
 const std::string name_utxo_txid("utxo_txid");
 const std::string name_utxo_nout("utxo_nout");
+const std::string name_utxo_amount("utxo_amount");
 const std::string name_utxo_pk("utxo_pk");
 const std::string name_fee_rate("fee_rate");
 const std::string name_content_type("content_type");
@@ -112,9 +113,7 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::Data(const std::string& cont
 CreateInscriptionBuilder &CreateInscriptionBuilder::PrivKeys(const std::string& utxo_sk, const std::string& destination_sk)
 {
     m_utxo_sk = unhex<seckey>(utxo_sk);
-
-
-
+    m_destination_sk = unhex<seckey>(destination_sk);
     return *this;
 }
 
@@ -152,6 +151,9 @@ void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
     }
     if (!contract.exists(name_utxo_nout)) {
         throw std::invalid_argument("No UTXO nout is provided");
+    }
+    if (!contract.exists(name_utxo_amount)) {
+        throw std::invalid_argument("No UTXO amount is provided");
     }
     if (!contract.exists(name_utxo_pk)) {
         throw std::invalid_argument("No UTXO pubkey is provided");
@@ -281,9 +283,10 @@ std::vector<std::string> CreateInscriptionBuilder::RawTransactions() const
 
 std::string CreateInscriptionBuilder::Serialize() const
 {
-    UniValue contract;
+    UniValue contract(UniValue::VOBJ);
     contract.pushKV(name_utxo_txid, m_txid.value());
     contract.pushKV(name_utxo_nout, (int)m_nout.value());
+    contract.pushKV(name_utxo_amount, m_amount.value());
     contract.pushKV(name_utxo_pk, hex(m_utxo_pk.value()));
     contract.pushKV(name_fee_rate, m_fee_rate.value());
     contract.pushKV(name_content_type, m_content_type.value());
@@ -296,7 +299,7 @@ std::string CreateInscriptionBuilder::Serialize() const
 
     contract.pushKV(name_destination_pk, hex(m_destination_pk.value()));
 
-    UniValue dataRoot;
+    UniValue dataRoot(UniValue::VOBJ);
     dataRoot.pushKV(name_contract_type, val_create_inscription);
     dataRoot.pushKV(name_params, contract);
 
@@ -318,6 +321,7 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
 
     m_txid = contract[name_utxo_txid].get_str();
     m_nout = contract[name_utxo_nout].get_int();
+    m_amount = contract[name_utxo_amount].get_int64();
 
     m_utxo_pk = unhex<xonly_pubkey>(contract[name_utxo_pk].get_str());
     m_fee_rate = contract[name_fee_rate].get_int64();
@@ -384,6 +388,10 @@ void CreateInscriptionBuilder::RestoreTransactions()
     }
 
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
+
+    size_t genesis_tx_size = GetSerializeSize(genesis_tx, PROTOCOL_VERSION);
+
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_fee_rate, genesis_tx_size);
 
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));

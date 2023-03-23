@@ -35,6 +35,8 @@ namespace {
     const char* const CREATEWALLET = "createwallet";
     const char* const GETBLOCK = "getblock";
     const char* const GETZMQNOTIFICATIONS = "getzmqnotifications";
+    const char* const ESTIMATESMARTFEE = "estimatesmartfee";
+
 }
 
 std::regex ChainApi::sNewlineRegExp("\n+");
@@ -481,6 +483,32 @@ std::string ChainApi::GetZMQNotifications() const
     btc_exec.Arguments().emplace_back(GETZMQNOTIFICATIONS);
 
     return btc_exec.Run();
+}
+
+std::string ChainApi::EstimateSmartFee(const std::string& confirmation_target, const std::string& mode) const
+{
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back(ESTIMATESMARTFEE);
+    btc_exec.Arguments().emplace_back(confirmation_target);
+    btc_exec.Arguments().emplace_back(mode);
+
+
+    std::string res = btc_exec.Run();
+
+    UniValue resRoot;
+    resRoot.read(res);
+
+    if (resRoot.exists("feerate")) {
+        return resRoot["feerate"].get_str();
+    }
+    else {
+        throw std::logic_error(resRoot["feerate"][0].get_str());
+    }
 }
 
 }

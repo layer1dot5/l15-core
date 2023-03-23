@@ -63,6 +63,8 @@ public:
     std::string GetZMQNotifications() const;
 
     std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string& address) const;
+
+    std::string EstimateSmartFee(const std::string& confirmation_target, const std::string& mode = "CONSERVATIVE") const;
 };
 
 }

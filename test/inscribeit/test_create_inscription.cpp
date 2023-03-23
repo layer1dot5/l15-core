@@ -12,11 +12,13 @@
 #include "wallet_api.hpp"
 #include "channel_keys.hpp"
 #include "exechelper.hpp"
-#include "utils.hpp"
-#include "script_merkle_tree.hpp"
+#include "create_inscription.hpp"
+#include "core_io.h"
+#include "serialize.h"
 
 using namespace l15;
 using namespace l15::core;
+using namespace l15::inscribeit;
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -51,8 +53,6 @@ struct TestcaseWrapper
     ChainApi mBtc;
     ExecHelper mCli;
     ExecHelper mBtcd;
-//    channelhtlc_ptr mChannelForAliceSide;
-//    channelhtlc_ptr mChannelForCarolSide;
 
     explicit TestcaseWrapper() :
             mConfFactory(configpath),
@@ -95,15 +95,11 @@ struct TestcaseWrapper
 
     ChainApi &btc()
     { return mBtc; }
-//    ChannelHtlc& channel_for_alice() { return *mChannelForAliceSide; }
-//    ChannelHtlc& channel_for_carol() { return *mChannelForCarolSide; }
 
     void ResetMemPool()
     {
         StopBitcoinNode();
-
         std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
-
         StartBitcoinNode();
     }
 
@@ -150,5 +146,118 @@ int main(int argc, char* argv[])
 
 TEST_CASE("CreateInscriptionBuilder positive scenario")
 {
+    //get key pair
+    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
+    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+
+    //create address from key pair
+    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+
+    //send to the address
+    string txid = w->btc().SendToAddress(addr, "1");
+
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    std::string fee_rate = "0.00005";
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    CreateInscriptionBuilder builder("regtest");
+
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+                         .Data("text", hex(std::string("test")))
+                         .FeeRate(fee_rate)
+                         .PrivKeys(hex(utxo_key.GetLocalPrivKey()), hex(dest_key.GetLocalPrivKey()))
+                         .Build());
+
+    std::string ser_data;
+    CHECK_NOTHROW(ser_data = builder.Serialize());
+
+    std::clog << ser_data << std::endl;
+
+    CreateInscriptionBuilder builder2("regtest");
+
+    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+
+    stringvector rawtx;
+    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+
+    CMutableTransaction funding_tx, genesis_tx;
+    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
+    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
+
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
+
+}
+
+TEST_CASE("CreateInscriptionBuilder spend funding tx back")
+{
+    //get key pair
+    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
+    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+
+    //create address from key pair
+    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+
+    //send to the address
+    string txid = w->btc().SendToAddress(addr, "1");
+
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    std::string fee_rate = "0.00005";
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    CreateInscriptionBuilder builder("regtest");
+
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+                          .Data("text", hex(std::string("test")))
+                          .FeeRate(fee_rate)
+                          .PrivKeys(hex(utxo_key.GetLocalPrivKey()), hex(dest_key.GetLocalPrivKey()))
+                          .Build());
+
+    ChannelKeys rollback_key(w->wallet().Secp256k1Context(), unhex<seckey>(builder.IntermediateTaprootPrivKey()));
+
+    std::string ser_data;
+    CHECK_NOTHROW(ser_data = builder.Serialize());
+
+    std::clog << ser_data << std::endl;
+
+    CreateInscriptionBuilder builder2("regtest");
+
+    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+
+    stringvector rawtx;
+    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+
+    CMutableTransaction funding_tx, genesis_tx;
+    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
+    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
+
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+
+    CScript rollbackpubkeyscript;
+    rollbackpubkeyscript << 1;
+    rollbackpubkeyscript << rollback_key.GetLocalPubKey();
+
+    CMutableTransaction rollback_tx;
+    rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
+    rollback_tx.vout.emplace_back(0, rollbackpubkeyscript);
+
+    rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
+
+    size_t rollback_tx_size = GetSerializeSize(rollback_tx, PROTOCOL_VERSION);
+
+    rollback_tx.vout.front().nValue = funding_tx.vout.front().nValue - rollback_tx_size * ParseAmount(fee_rate) / 1024;
+
+    signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
+    rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
+
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
 
 }

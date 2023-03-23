@@ -14,12 +14,14 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/api \
- -I$(top_srcdir)/src/core
+ -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/src/inscribeit
 
 
 AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
 L15_LIBS = \
+$(top_builddir)/src/inscribeit/libl15-inscribeit.la \
 $(top_builddir)/src/api/libl15-api.la \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \

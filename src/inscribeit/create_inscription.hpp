@@ -5,6 +5,8 @@
 #include <optional>
 #include <memory>
 
+#include "univalue.h"
+
 #include "common.hpp"
 #include "utils.hpp"
 
