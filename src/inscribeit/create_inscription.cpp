@@ -76,13 +76,13 @@ CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t siz
 CreateInscriptionBuilder::CreateInscriptionBuilder(const std::string& chain_mode)
 {
     if (chain_mode == "mainnet") {
-        m_bech_coder = std::make_unique<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::MAINNET>>();
+        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::MAINNET>>();
     }
     else if (chain_mode == "testnet") {
-        m_bech_coder = std::make_unique<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::TESTNET>>();
+        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::TESTNET>>();
     }
     else if (chain_mode == "regtest") {
-        m_bech_coder = std::make_unique<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::REGTEST>>();
+        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::REGTEST>>();
     }
     else {
         throw std::invalid_argument(chain_mode);
@@ -276,8 +276,8 @@ std::vector<std::string> CreateInscriptionBuilder::RawTransactions() const
         throw std::logic_error("Transaction data unavailable");
     }
 
-    std::string funding_tx_hex = EncodeHexTx(*mFundingTx);
-    std::string genesis_tx_hex = EncodeHexTx(*mGenesisTx);
+    std::string funding_tx_hex = EncodeHexTx(CTransaction(*mFundingTx));
+    std::string genesis_tx_hex = EncodeHexTx(CTransaction(*mGenesisTx));
     return {move(funding_tx_hex), move(genesis_tx_hex)};
 }
 
