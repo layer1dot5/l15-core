@@ -17,14 +17,6 @@ SWIG_SOURCES_CPP = \
  $(top_srcdir)/node/src/primitives/transaction.cpp \
  l15-core-pybind.cpp
 
-# $(top_srcdir)/src/common/common.cpp \
-# $(top_srcdir)/src/common/utils.cpp \
-# $(top_srcdir)/src/core/channel_keys.cpp \
-# $(top_srcdir)/src/core/script_merkle_tree.cpp \
-# $(top_srcdir)/node/src/core_write.cpp
-# $(top_srcdir)/node/src/protocol.cpp \
-# $(top_srcdir)/node/src/core_read.cpp
-
 SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i
 SWIG_PYTHON_MODULE = libl15-core-pybind-wrap.cxx
@@ -44,12 +36,6 @@ pkglib_LTLIBRARIES = _libl15-core-pybind.la
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
 _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS)
-
-#    $(top_builddir)/src/tools/libl15-tools.a
-#    $(top_builddir)/src/common/libl15-common.a
-#    $(top_builddir)/src/service/libl15-srv.la
-#    $(top_builddir)/src/tools/libl15-tools.la
-
 
 _libl15_core_pybind_la_LIBADD = \
     $(top_builddir)/src/inscribeit/libl15-inscribeit.la \
