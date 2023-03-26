@@ -13,7 +13,7 @@
 namespace l15::inscribeit {
 
 class CreateInscriptionBuilder {
-    std::unique_ptr<IBech32Coder> m_bech_coder;
+    std::shared_ptr<IBech32Coder> m_bech_coder;
 
     std::optional<std::string> m_txid;
     std::optional<uint32_t> m_nout;
@@ -38,8 +38,8 @@ class CreateInscriptionBuilder {
     std::optional<seckey> m_destination_sk;
     std::optional<xonly_pubkey> m_destination_pk;
 
-    std::optional<CTransaction> mFundingTx;
-    std::optional<CTransaction> mGenesisTx;
+    std::optional<CMutableTransaction> mFundingTx;
+    std::optional<CMutableTransaction> mGenesisTx;
 
     void CheckBuildArgs() const;
     void CheckRestoreArgs(const UniValue& params) const;
@@ -47,6 +47,13 @@ class CreateInscriptionBuilder {
     void RestoreTransactions();
 
 public:
+    CreateInscriptionBuilder() = default;
+    CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
+    CreateInscriptionBuilder(CreateInscriptionBuilder&&) noexcept = default;
+
+    CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
+    CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;
+
     explicit CreateInscriptionBuilder(const std::string& chain_mode);
     CreateInscriptionBuilder& UTXO(const std::string& txid, uint32_t nout, const std::string& amount);
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);

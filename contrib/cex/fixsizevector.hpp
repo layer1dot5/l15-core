@@ -4,6 +4,7 @@
 #pragma ide diagnostic ignored "HidingNonVirtualFunction"
 
 #include <vector>
+#include <iterator>
 #include <stdexcept>
 
 namespace cex {
@@ -56,7 +57,7 @@ public:
 
     fixsize_vector(std::initializer_list<value_type> l, const allocator_type& a = allocator_type()) : base(check_size(l), a) {}
 
-    template<typename I, typename = std::_RequireInputIter<I>>
+    template<std::input_iterator I>
     fixsize_vector(I f, I l, const allocator_type& a = allocator_type()) : base(SIZE, a)
     { assign(f, l); }
 
@@ -83,7 +84,7 @@ public:
     void assign(const value_type& v) { assign(SIZE, v); }
     void assign(std::initializer_list<value_type> l) { base::assign(check_size(l)); }
 
-    template<typename I, typename = std::_RequireInputIter<I>>
+    template<std::input_iterator I>
     void assign(I f, I l)
     {
         if (std::distance(f, l) != SIZE) throw std::out_of_range("Wrong size");

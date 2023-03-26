@@ -64,6 +64,19 @@ AC_ARG_ENABLE([pybind],
             ],
             [with_pybind=no])
 
+AC_ARG_ENABLE([wasm-bind],
+              [AS_HELP_STRING([--enable-wasm-bind], [Enable plugin API binding for WebAssembly (disabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    wasm_bind=yes
+                    plugin_api=yes
+                    build_tools=no
+                    build_services=no
+                    build_apis=no
+                fi
+              ],
+              [wasm_bind=no])
+
 AC_ARG_ENABLE([plugin-api],
               [AS_HELP_STRING([--enable-plugin-api], [Enable plugin API build (disabled by default)])],
               [
@@ -74,7 +87,12 @@ AC_ARG_ENABLE([plugin-api],
                     build_apis=no
                 fi
               ],
-              [plugin_api=no])
+              [
+                if test "$wasm_bind" = "yes"; then
+                  AC_MSG_ERROR([wasm-bind cannot be build with disabled plugin-api])
+                fi
+                plugin_api=no
+              ])
 
 AC_ARG_ENABLE([build-tools],
               [AS_HELP_STRING([--enable-build-tools], [Enable tools build (enabled by default)])],
@@ -131,6 +149,7 @@ AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
+AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
 
 if test "$with_pybind" = "yes"; then
     AC_CHECK_PROGS(PYTHON, [python3 python], [])
@@ -207,6 +226,11 @@ CXXFLAGS="$DEBUG_CXXFLAGS $PTHREAD_CFLAGS $CXXFLAGS"
 if test "$plugin_api" = "no"; then
   AX_TBB
   AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
+fi
+
+if test "$wasm_bind" = "yes"; then
+    CXXFLAGS+=" -fwasm-exceptions $CXXFLAGS"
+    LDFLAGS+=" -fwasm-exceptions $LDFLAGS -lembind"
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -286,18 +310,27 @@ AX_SUBDIRS_CONFIGURE(
      [--disable-wallet], [--disable-usdt], [--disable-upnp-default], [--disable-natpmp-default],
      [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
      [--disable-fuzz], [--disable-fuzz-binary], [--disable-asm], [--disable-multiprocess], [--disable-external-signer],
-     [--disable-experimental-util-chainstate]],
+     [--disable-experimental-util-chainstate], [--disable-hardening]],
     [[--disable-tests], [--disable-bench], [--with-pic]],
-    [],
+    [[--disable-examples]],
     [])
+
+AX_SUBDIRS_CONFIGURE(
+    [contrib/secp256k1],
+    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-musig], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
+    [[--disable-tests], [--disable-benchmark], [--disable-examples], [--with-pic]],
+    [],
+    [[--disable-bench]])
+
+
 else
+
 AX_SUBDIRS_CONFIGURE(
     [node],
     [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
     [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
     [],
     [])
-fi
 
 AX_SUBDIRS_CONFIGURE(
     [contrib/secp256k1],
@@ -305,6 +338,9 @@ AX_SUBDIRS_CONFIGURE(
     [[--disable-tests], [--disable-benchmark], [--enable-examples], [--with-pic]],
     [],
     [[--disable-bench]])
+
+fi
+
 
 
 AC_OUTPUT
