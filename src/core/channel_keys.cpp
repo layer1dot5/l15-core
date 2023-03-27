@@ -9,9 +9,6 @@
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
 
-#include <mutex>
-#include <atomic>
-
 namespace l15::core {
 
 namespace {
@@ -29,6 +26,7 @@ secp256k1_context *ChannelKeys::GetStaticSecp256k1Context()
         if (!ctx) {
             res = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
             std::vector<unsigned char, secure_allocator<unsigned char>> vseed(32);
+            RandomInit();
             GetRandBytes(vseed);
             int ret = secp256k1_context_randomize(res, vseed.data());
             assert(ret);
