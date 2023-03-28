@@ -170,7 +170,7 @@ struct hash/* : public std::__hash_base<size_t, T>*/
 {
     typedef T value_type;
     size_t operator()(const value_type& val) const
-    { return std::hash(hex(val)); }
+    { return std::hash<std::string>()(hex(val)); }
 };
 
 template <class T>
@@ -178,7 +178,7 @@ struct hash<T*>/* : public std::__hash_base<size_t, T*>*/
 {
     //typedef std::remove_cv<T*> value_type;
     size_t operator()(const T* val) const
-    { return std::hash(hex(*val)); }
+    { return std::hash<std::string>()(hex(*val)); }
 };
 
 template <typename T>

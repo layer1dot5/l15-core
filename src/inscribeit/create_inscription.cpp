@@ -19,20 +19,6 @@ namespace l15::inscribeit {
 
 namespace {
 
-const std::string name_utxo_txid("utxo_txid");
-const std::string name_utxo_nout("utxo_nout");
-const std::string name_utxo_amount("utxo_amount");
-const std::string name_utxo_pk("utxo_pk");
-const std::string name_fee_rate("fee_rate");
-const std::string name_content_type("content_type");
-const std::string name_payload("payload");
-const std::string name_utxo_sig("utxo_sig");
-const std::string name_inscribe_script_pk("inscribe_script_pk");
-const std::string name_inscribe_int_pk("inscribe_int_pk");
-const std::string name_inscribe_sig("inscribe_sig");
-const std::string name_destination_pk("destination_pk");
-const std::string name_contract_type("contract_type");
-const std::string name_params("params");
 const std::string val_create_inscription("CreateInscription");
 
 const size_t chunk_size = 520;
@@ -63,11 +49,6 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
     script << OP_ENDIF;
 
     return script;
-}
-
-CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
-{
-    return input_amount - size * fee_rate / 1024;
 }
 
 
@@ -106,27 +87,23 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::FeeRate(const string &rate)
 CreateInscriptionBuilder &CreateInscriptionBuilder::Data(const std::string& content_type, const string &hex_data)
 {
     m_content_type = content_type;
-    m_data = unhex<bytevector>(hex_data);
+    m_content = unhex<bytevector>(hex_data);
     return *this;
 }
 
-CreateInscriptionBuilder &CreateInscriptionBuilder::PrivKeys(const std::string& utxo_sk, const std::string& destination_sk)
+CreateInscriptionBuilder &CreateInscriptionBuilder::Destination(const string &pk)
 {
-    m_utxo_sk = unhex<seckey>(utxo_sk);
-    m_destination_sk = unhex<seckey>(destination_sk);
+    m_destination_pk = unhex<xonly_pubkey>(pk);
     return *this;
 }
 
 
 void CreateInscriptionBuilder::CheckBuildArgs() const
 {
-    if (!m_utxo_sk) {
-        throw std::invalid_argument("No UTXO key is provided");
+    if (!m_destination_pk) {
+        throw std::invalid_argument("No destination public key is provided");
     }
-    if (!m_destination_sk) {
-        throw std::invalid_argument("No destination key is provided");
-    }
-    if (!m_data) {
+    if (!m_content) {
         throw std::invalid_argument("No content data is provided");
     }
     if (!m_content_type) {
@@ -164,7 +141,7 @@ void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
     if (!contract.exists(name_content_type)) {
         throw std::invalid_argument("No data content-type is provided");
     }
-    if (!contract.exists(name_payload)) {
+    if (!contract.exists(name_content)) {
         throw std::invalid_argument("No inscription media data is provided");
     }
     if (!contract.exists(name_utxo_sig)) {
@@ -184,16 +161,15 @@ void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
     }
 }
 
-void CreateInscriptionBuilder::Build()
+void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 {
     CheckBuildArgs();
 
-    core::ChannelKeys utxo_key(*m_utxo_sk);
+    core::ChannelKeys utxo_key(unhex<seckey>(utxo_sk));
     core::ChannelKeys inscribe_script_key;
     core::ChannelKeys inscribe_internal_key;
-    core::ChannelKeys destination_key(*m_destination_sk);
 
-    CScript genesis_script = MakeInscriptionScript(inscribe_script_key.GetLocalPubKey(), *m_content_type, *m_data);
+    CScript genesis_script = MakeInscriptionScript(inscribe_script_key.GetLocalPubKey(), *m_content_type, *m_content);
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
     m_insribe_script_pk = inscribe_script_key.GetLocalPubKey();
@@ -215,8 +191,7 @@ void CreateInscriptionBuilder::Build()
 
     CScript genesis_pubkeyscript;
     genesis_pubkeyscript << 1;
-    genesis_pubkeyscript << destination_key.GetLocalPubKey();
-    m_destination_pk = destination_key.GetLocalPubKey();
+    genesis_pubkeyscript << *m_destination_pk;
 
     CMutableTransaction funding_tx;
     funding_tx.vin = {CTxIn(COutPoint(uint256S(*m_txid), *m_nout))};
@@ -284,13 +259,14 @@ std::vector<std::string> CreateInscriptionBuilder::RawTransactions() const
 std::string CreateInscriptionBuilder::Serialize() const
 {
     UniValue contract(UniValue::VOBJ);
+    contract.pushKV(name_version, (int)m_protocol_version);
     contract.pushKV(name_utxo_txid, m_txid.value());
     contract.pushKV(name_utxo_nout, (int)m_nout.value());
     contract.pushKV(name_utxo_amount, m_amount.value());
     contract.pushKV(name_utxo_pk, hex(m_utxo_pk.value()));
     contract.pushKV(name_fee_rate, m_fee_rate.value());
     contract.pushKV(name_content_type, m_content_type.value());
-    contract.pushKV(name_payload, hex(m_data.value()));
+    contract.pushKV(name_content, hex(m_content.value()));
     contract.pushKV(name_utxo_sig, hex(m_utxo_sig.value()));
 
     contract.pushKV(name_inscribe_script_pk, hex(m_insribe_script_pk.value()));
@@ -317,6 +293,10 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
 
     UniValue contract = dataRoot[name_params];
 
+    if (contract[name_version].get_int() != m_protocol_version) {
+        throw std::invalid_argument("Wrong CreateInscription contract version: " + contract[name_version].getValStr());
+    }
+
     CheckRestoreArgs(contract);
 
     m_txid = contract[name_utxo_txid].get_str();
@@ -326,7 +306,7 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
     m_utxo_pk = unhex<xonly_pubkey>(contract[name_utxo_pk].get_str());
     m_fee_rate = contract[name_fee_rate].get_int64();
     m_content_type = contract[name_content_type].get_str();
-    m_data = unhex<bytevector>(contract[name_payload].get_str());
+    m_content = unhex<bytevector>(contract[name_content].get_str());
     m_utxo_sig = unhex<signature>(contract[name_utxo_sig].get_str());
 
     m_insribe_script_pk = unhex<xonly_pubkey>(contract[name_inscribe_script_pk].get_str());
@@ -340,7 +320,7 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
 
 void CreateInscriptionBuilder::RestoreTransactions()
 {
-    CScript genesis_script = MakeInscriptionScript(m_insribe_script_pk.value(), *m_content_type, *m_data);
+    CScript genesis_script = MakeInscriptionScript(m_insribe_script_pk.value(), *m_content_type, *m_content);
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
 

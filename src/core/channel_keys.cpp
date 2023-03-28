@@ -9,6 +9,9 @@
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
 
+#include <mutex>
+#include <atomic>
+
 namespace l15::core {
 
 namespace {
