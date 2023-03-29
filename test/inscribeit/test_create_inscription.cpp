@@ -143,7 +143,6 @@ int main(int argc, char* argv[])
 }
 
 
-
 TEST_CASE("CreateInscriptionBuilder positive scenario")
 {
     //get key pair
@@ -169,8 +168,8 @@ TEST_CASE("CreateInscriptionBuilder positive scenario")
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
                          .Data("text", hex(std::string("test")))
                          .FeeRate(fee_rate)
-                         .PrivKeys(hex(utxo_key.GetLocalPrivKey()), hex(dest_key.GetLocalPrivKey()))
-                         .Build());
+                         .Destination(hex(dest_key.GetLocalPubKey()))
+                         .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     std::string ser_data;
     CHECK_NOTHROW(ser_data = builder.Serialize());
@@ -190,7 +189,58 @@ TEST_CASE("CreateInscriptionBuilder positive scenario")
 
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
+}
 
+TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
+{
+    //get key pair
+    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
+    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+
+    //create address from key pair
+    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+
+    //send to the address
+    string txid = w->btc().SendToAddress(addr, "1");
+
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    std::string fee_rate = "0.00005";
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    CreateInscriptionBuilder builder("regtest");
+
+    builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
+    builder.SetUtxoNOut(get<0>(prevout).n);
+    builder.SetUtxoAmount("1");
+    builder.SetFeeRate(fee_rate);
+    builder.SetContentType("text");
+    builder.SetContent(hex(std::string("test")));
+    builder.SetDestinationPubKey(hex(dest_key.GetLocalPubKey()));
+
+    CHECK_NOTHROW(builder.Sign(hex(utxo_key.GetLocalPrivKey())));
+
+    std::string ser_data;
+    CHECK_NOTHROW(ser_data = builder.Serialize());
+
+    std::clog << ser_data << std::endl;
+
+    CreateInscriptionBuilder builder2("regtest");
+
+    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+
+    stringvector rawtx;
+    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+
+    CMutableTransaction funding_tx, genesis_tx;
+    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
+    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
+
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 }
 
 TEST_CASE("CreateInscriptionBuilder spend funding tx back")
@@ -218,8 +268,8 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
                           .Data("text", hex(std::string("test")))
                           .FeeRate(fee_rate)
-                          .PrivKeys(hex(utxo_key.GetLocalPrivKey()), hex(dest_key.GetLocalPrivKey()))
-                          .Build());
+                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     ChannelKeys rollback_key(w->wallet().Secp256k1Context(), unhex<seckey>(builder.IntermediateTaprootPrivKey()));
 
@@ -253,11 +303,10 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     size_t rollback_tx_size = GetSerializeSize(rollback_tx, PROTOCOL_VERSION);
 
-    rollback_tx.vout.front().nValue = funding_tx.vout.front().nValue - rollback_tx_size * ParseAmount(fee_rate) / 1024;
+    rollback_tx.vout.front().nValue = l15::inscribeit::CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx_size);
 
     signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
     rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
 
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
-
 }

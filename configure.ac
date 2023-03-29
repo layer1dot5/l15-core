@@ -16,6 +16,12 @@ else
   CXXFLAGS_overridden=
 fi
 
+if test "x${CFLAGS}" != "x"; then
+  CFLAGS_overridden=yes
+else
+  CFLAGS_overridden=
+fi
+
 if test "x${CPPFLAGS}" != "x"; then
   CPPFLAGS_overridden=yes
 else
@@ -189,13 +195,22 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+
+dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
+dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
+dnl with "-O0 -g3 -g -O2".
+if test "$CXXFLAGS_overridden" != "yes"; then
+      CXXFLAGS=""
+fi
+if test "$CFLAGS_overridden" != "yes"; then
+      CFLAGS=""
+fi
+if test "$LDLAGS_overridden" != "yes"; then
+      LDLAGS=""
+fi
+
+
 if test "$enable_debug" = "yes"; then
-  dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
-  dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
-  dnl with "-O0 -g3 -g -O2".
-  if test "$CXXFLAGS_overridden" != "yes"; then
-  CXXFLAGS=""
-  fi
 
   dnl Disable all optimizations
   AX_CHECK_COMPILE_FLAG([-O0], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"], [], [$CXXFLAG_WERROR])
@@ -209,28 +224,32 @@ if test "$enable_debug" = "yes"; then
 
   AX_CHECK_PREPROC_FLAG([-DDEBUG], [DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DDEBUG"], [], [$CXXFLAG_WERROR])
   AX_CHECK_COMPILE_FLAG([-ftrapv], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -ftrapv"], [], [$CXXFLAG_WERROR])
+
 fi
 
 # Checks for libraries.
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
-AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
-
-CC="$PTHREAD_CC"
-CXX="$PTHREAD_CXX"
-LIBS="$PTHREAD_LIBS $LIBS"
-CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
-CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
-CXXFLAGS="$DEBUG_CXXFLAGS $PTHREAD_CFLAGS $CXXFLAGS"
-
-if test "$plugin_api" = "no"; then
-  AX_TBB
-  AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
-fi
 
 if test "$wasm_bind" = "yes"; then
-    CXXFLAGS+=" -fwasm-exceptions $CXXFLAGS"
-    LDFLAGS+=" -fwasm-exceptions $LDFLAGS -lembind"
+  CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
+  CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
+  LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
+else
+  AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
+
+  CC="$PTHREAD_CC"
+  CXX="$PTHREAD_CXX"
+  LIBS="$PTHREAD_LIBS $LIBS"
+  CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
+  CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
+  CXXFLAGS="$DEBUG_CXXFLAGS $PTHREAD_CFLAGS $CXXFLAGS"
+
+  AX_TBB
+fi
+
+if test "$plugin_api" = "no"; then
+  AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
 fi
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -317,7 +336,7 @@ AX_SUBDIRS_CONFIGURE(
 
 AX_SUBDIRS_CONFIGURE(
     [contrib/secp256k1],
-    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-musig], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
+    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-schnorrsig]],
     [[--disable-tests], [--disable-benchmark], [--disable-examples], [--with-pic]],
     [],
     [[--disable-bench]])
