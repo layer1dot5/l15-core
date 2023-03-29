@@ -13,21 +13,21 @@
 
 namespace l15::inscribeit {
 
-const std::string name_version("protocol_version");
-const std::string name_utxo_txid("utxo_txid");
-const std::string name_utxo_nout("utxo_nout");
-const std::string name_utxo_amount("utxo_amount");
-const std::string name_utxo_pk("utxo_pk");
-const std::string name_fee_rate("fee_rate");
-const std::string name_content_type("content_type");
-const std::string name_content("content");
-const std::string name_utxo_sig("utxo_sig");
-const std::string name_inscribe_script_pk("inscribe_script_pk");
-const std::string name_inscribe_int_pk("inscribe_int_pk");
-const std::string name_inscribe_sig("inscribe_sig");
-const std::string name_destination_pk("destination_pk");
-const std::string name_contract_type("contract_type");
-const std::string name_params("params");
+const std::string name_version = "protocol_version";
+const std::string name_utxo_txid = "utxo_txid";
+const std::string name_utxo_nout = "utxo_nout";
+const std::string name_utxo_amount = "utxo_amount";
+const std::string name_utxo_pk = "utxo_pk";
+const std::string name_fee_rate = "fee_rate";
+const std::string name_content_type = "content_type";
+const std::string name_content = "content";
+const std::string name_utxo_sig = "utxo_sig";
+const std::string name_inscribe_script_pk = "inscribe_script_pk";
+const std::string name_inscribe_int_pk = "inscribe_int_pk";
+const std::string name_inscribe_sig = "inscribe_sig";
+const std::string name_destination_pk = "destination_pk";
+const std::string name_contract_type = "contract_type";
+const std::string name_params = "params";
 
 
 inline std::string FormatAmount(CAmount amount)
