@@ -8,10 +8,8 @@ if BUILD_SERVICES
 SUBDIRS += service
 endif
 
-if BUILD_INSCRIBEIT
-if !WASM_BIND
-SUBDIRS += inscribeit
-endif
+if BUILD_INSCRIBEIT_TESTS
+  SUBDIRS += inscribeit
 endif
 
 if BUILD_TOOLS

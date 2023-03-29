@@ -53,6 +53,7 @@ build_tools=yes
 build_services=yes
 build_apis=yes
 build_inscribeit=no
+build_inscribeit_tests=no
 
 dnl Enable Python integrations
 AC_ARG_ENABLE([pybind],
@@ -64,6 +65,10 @@ AC_ARG_ENABLE([pybind],
                     fi
                     build_inscribeit=yes
                     with_pybind=yes
+                    plugin_api=yes
+                    build_tools=no
+                    build_services=no
+                    build_apis=no
                 else
                     with_pybind=no
                 fi
@@ -149,11 +154,23 @@ if test "$plugin_api" = "yes"; then
     fi
 fi
 
+if test "$build_inscribeit" = "yes"; then
+    build_inscribeit_tests=yes
+    if test "$wasm_bind" = "yes"; then
+        build_inscribeit_tests=no
+    fi
+    if test "$with_pybind" = "yes"; then
+        build_inscribeit_tests=no
+    fi
+
+fi
+
 AM_CONDITIONAL([BUILD_APIS], [test "$build_apis" = "yes"])
 AM_CONDITIONAL([BUILD_PYTHON_PLUGIN], [test "$with_pybind" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
+AM_CONDITIONAL([BUILD_INSCRIBEIT_TESTS], [test "$build_inscribeit_tests" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
 AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
 
@@ -235,6 +252,10 @@ if test "$wasm_bind" = "yes"; then
   CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
   CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
   LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
+elif test "$with_pybind" = "yes"; then
+  CFLAGS+="$CFLAGS -O3"
+  CXXFLAGS+="$CXXFLAGS -O3"
+  LDFLAGS+="$LDFLAGS -O3 -s EXPORT_EXCEPTION_HANDLING_HELPERS"
 else
   AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 

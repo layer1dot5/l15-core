@@ -8,13 +8,15 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
- -I$(top_srcdir)/contrib/cex\
+ -I$(top_srcdir)/contrib/cex \
+ -I$(top_srcdir)/src/inscribeit \
  $(PYBIND_CPPFLAGS)
 
+# $(top_srcdir)/node/src/support/cleanse.cpp \
+# $(top_srcdir)/node/src/bech32.cpp \
+# $(top_srcdir)/node/src/primitives/transaction.cpp
+
 SWIG_SOURCES_CPP = \
- $(top_srcdir)/node/src/support/cleanse.cpp \
- $(top_srcdir)/node/src/bech32.cpp \
- $(top_srcdir)/node/src/primitives/transaction.cpp \
  l15-core-pybind.cpp
 
 SWIG_FLAGS = -stdstl
@@ -35,21 +37,15 @@ pkglib_LTLIBRARIES = _libl15-core-pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
 _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
-_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version -no-undefined $(PYTHON_LDFLAGS)
+_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS)
 
 _libl15_core_pybind_la_LIBADD = \
-    $(top_builddir)/src/inscribeit/libl15-inscribeit.la \
-    $(top_builddir)/src/core/libl15-core.la \
+    $(top_builddir)/src/core/libl15-core.la  \
     $(top_builddir)/src/common/libl15-common.la \
-    $(top_builddir)/node/src/libbitcoin_common.a \
-    $(top_builddir)/node/src/libbitcoin_util.a \
-    $(top_builddir)/node/src/libbitcoin_consensus.a \
-    $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
-    $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
-    $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
-    $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
-    $(top_builddir)/contrib/secp256k1/libsecp256k1.a \
+    $(top_builddir)/node/src/libbitcoinconsensus.la \
+    $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
     $(top_builddir)/node/src/libunivalue.la \
+    $(top_builddir)/src/inscribeit/libl15-inscribeit.la \
     $(PYTHON_LIBS) \
     $(BOOST_FILESYSTEM_LIB)
 
