@@ -57,9 +57,9 @@ RUN cd /l15/l15-core && ./autogen.sh
 RUN mkdir /l15/l15-core/build
 WORKDIR /l15/l15-core/build
 RUN cd /l15/l15-core/build && \
-      ../configure --with-zmq=/usr/local/lib --enable-pybind
+      ../configure --enable-pybind=yes --enable-plugin-api --enable-build-inscribeit
 
 RUN make -j4
-WORKDIR /l15/l15-core/build/python_binding
+WORKDIR /l15/l15-core/build/src/python_binding
 RUN cd /l15/l15-core/build/src/python_binding && \
       make install-completed-library

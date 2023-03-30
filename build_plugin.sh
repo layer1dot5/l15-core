@@ -5,7 +5,7 @@ FILE_NAME="Dockerfile.build_python_plugin"
 IMAGE_NAME="build_python_plugin"
 CONTAINER_NAME="l15-build-python-plugin"
 BUILD_DIR="/l15/l15-core/build/src/python_binding"
-HOST_DIR="./build/python_binding"
+HOST_DIR="./build/python_binding_from_docker"
 
 # Build the Docker image
 docker build -t $IMAGE_NAME -f $FILE_NAME .
