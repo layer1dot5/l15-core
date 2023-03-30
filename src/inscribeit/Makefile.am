@@ -17,6 +17,3 @@ libl15_inscribeit_la_SOURCES = \
 
 libinscribeit_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
 libinscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -fPIC
-
-libinscribeit_la_LIBADD = \
-    $(top_builddir)/node/src/libbitcoinconsensus.la
