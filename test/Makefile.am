@@ -9,7 +9,7 @@ SUBDIRS += service
 endif
 
 if BUILD_INSCRIBEIT
-if !WASM_BIND
+if !BUILD_PLUGIN_API
 SUBDIRS += inscribeit
 endif
 endif
