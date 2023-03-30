@@ -31,7 +31,7 @@ $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
-$(top_builddir)/contrib/secp256k1/libsecp256k1.la \
+$(top_builddir)/node/src/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 

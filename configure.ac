@@ -34,6 +34,13 @@ else
   LDFLAGS_overridden=
 fi
 
+compiler_name=`basename "$CC"`
+if test "x$compiler_name" = "xemcc"; then
+    WITH_EMSCRIPTEN=yes
+else
+    WITH_EMSCRIPTEN=no
+fi
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
@@ -45,6 +52,23 @@ AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 build_tools=yes
 build_services=yes
 build_apis=yes
+build_inscribeit=no
+
+dnl Enable Python integrations
+AC_ARG_ENABLE([pybind],
+            [AS_HELP_STRING([--enable-pybind],[with python integration module])],
+            [
+                if test "$enableval" = "yes"; then
+                    if test "x$WITH_EMSCRIPTEN" = "xyes"; then
+                        AC_MSG_ERROR([python binding cannot be built with emscripten])
+                    fi
+                    build_inscribeit=yes
+                    with_pybind=yes
+                else
+                    with_pybind=no
+                fi
+            ],
+            [with_pybind=no])
 
 AC_ARG_ENABLE([wasm-bind],
               [AS_HELP_STRING([--enable-wasm-bind], [Enable plugin API binding for WebAssembly (disabled by default)])],
@@ -115,8 +139,8 @@ AC_ARG_ENABLE([build-apis],
 
 AC_ARG_ENABLE([build-inscribeit],
               [AS_HELP_STRING([--enable-build-inscribeit], [Enable inscribeit API build (disabled by default)])],
-              [build_inscribeit=$enableval],
-              [build_inscribeit=no])
+              [build_inscribeit=yes]
+              [])
 
 
 if test "$plugin_api" = "yes"; then
@@ -126,12 +150,43 @@ if test "$plugin_api" = "yes"; then
 fi
 
 AM_CONDITIONAL([BUILD_APIS], [test "$build_apis" = "yes"])
+AM_CONDITIONAL([BUILD_PYTHON_PLUGIN], [test "$with_pybind" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
 AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
 
+if test "$with_pybind" = "yes"; then
+    AC_CHECK_PROGS(PYTHON, [python3 python], [])
+    if test "x$PYTHON" = "x"; then
+        AC_MSG_ERROR([python is required to build with python bindings])
+    fi
+
+    AC_MSG_NOTICE([python is $PYTHON])
+    AC_LANG([C++])
+    AC_PROG_CXX
+    PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
+    AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
+    AX_PYTHON_DEVEL
+    AX_SWIG_PYTHON
+    AM_PATH_PYTHON([3])
+
+    AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
+    if test -n "$PYTHON3_CONFIG"; then
+        PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
+        PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
+    else
+        AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
+    fi
+    AC_SUBST(PYTHON_LIBS)
+    AC_SUBST(PYTHON_LDFLAGS)
+
+    AC_LANG_SAVE
+    AC_LANG_RESTORE
+
+    AC_CONFIG_FILES([src/python_binding/Makefile])
+fi
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
@@ -291,7 +346,7 @@ else
 
 AX_SUBDIRS_CONFIGURE(
     [node],
-    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
+    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-hardening], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
     [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
     [],
     [])
@@ -322,6 +377,7 @@ echo "  build services   = $build_services"
 echo "  build apis       = $build_apis"
 echo "  build inscribeit = $build_inscribeit"
 echo "  plugin api       = $plugin_api"
+echo "  python api       = $with_pybind"
 echo
 echo "  target os        = $host_os"
 echo "  build os         = $build_os"

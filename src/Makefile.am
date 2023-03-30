@@ -15,3 +15,7 @@ endif
 if BUILD_INSCRIBEIT
 SUBDIRS += inscribeit
 endif
+
+if BUILD_PYTHON_PLUGIN
+SUBDIRS += python_binding
+endif

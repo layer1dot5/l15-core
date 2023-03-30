@@ -11,6 +11,8 @@
 
 #include <optional>
 
+#include "interpreter.h"
+
 namespace l15::core {
 
 

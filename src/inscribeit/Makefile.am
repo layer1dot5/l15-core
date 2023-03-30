@@ -14,3 +14,6 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = libl15-inscribeit.la
 libl15_inscribeit_la_SOURCES = \
 	create_inscription.cpp
+
+libinscribeit_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
+libinscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -fPIC

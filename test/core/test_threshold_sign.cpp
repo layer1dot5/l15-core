@@ -11,15 +11,12 @@
 #define CATCH_CONFIG_MAIN
 #include "catch/catch.hpp"
 
-#include "util/translation.h"
 #include "util/strencodings.h"
 
 #include "common.hpp"
 
 #include "signer_api.hpp"
 #include "wallet_api.hpp"
-#include "chain_api.hpp"
-#include "channel_keys.hpp"
 
 
 #include "time_measure.hpp"
@@ -283,7 +280,7 @@ TEST_CASE("500 of 1K local")
     };
 
     std::ranges::transform(
-       std::ranges::common_view(std::views::iota(0) | std::views::take(N)),
+       std::views::iota(0) | std::views::take(N),
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
            return std::make_unique<SignerApi> (
