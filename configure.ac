@@ -147,7 +147,6 @@ AC_ARG_ENABLE([build-inscribeit],
               [build_inscribeit=yes]
               [])
 
-
 if test "$plugin_api" = "yes"; then
     if test $build_apis = "yes"; then
         AC_MSG_ERROR([Cannot enable plugin API with general APIs])
@@ -253,9 +252,9 @@ if test "$wasm_bind" = "yes"; then
   CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
   LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
 elif test "$with_pybind" = "yes"; then
-  CFLAGS+="$CFLAGS -O3"
-  CXXFLAGS+="$CXXFLAGS -O3"
-  LDFLAGS+="$LDFLAGS -O3 -s EXPORT_EXCEPTION_HANDLING_HELPERS"
+  CFLAGS+="$CFLAGS -O3  -flto"
+  CXXFLAGS+="$CXXFLAGS -O3  -flto"
+  LDFLAGS+="$LDFLAGS -O3 -s EXPORT_EXCEPTION_HANDLING_HELPERS -flto"
 else
   AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
@@ -351,7 +350,7 @@ AX_SUBDIRS_CONFIGURE(
      [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
      [--disable-fuzz], [--disable-fuzz-binary], [--disable-asm], [--disable-multiprocess], [--disable-external-signer],
      [--disable-experimental-util-chainstate], [--disable-hardening]],
-    [[--disable-tests], [--disable-bench], [--with-pic]],
+    [[--disable-tests], [--disable-bench], [--with-pic], [--enable-lto], [--enable-reduce-exports]],
     [[--disable-examples]],
     [])
 

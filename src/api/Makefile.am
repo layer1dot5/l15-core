@@ -11,7 +11,6 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex
 
-
 noinst_LTLIBRARIES = libl15-api.la
 libl15_api_la_SOURCES = \
 	chain_api.cpp \
