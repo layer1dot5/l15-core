@@ -319,11 +319,11 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
     CheckRestoreArgs(contract);
 
     m_txid = contract[name_utxo_txid].get_str();
-    m_nout = contract[name_utxo_nout].get_int();
-    m_amount = contract[name_utxo_amount].get_int64();
+    m_nout = contract[name_utxo_nout].getInt<int>();
+    m_amount = contract[name_utxo_amount].getInt<int64_t>();
 
     m_utxo_pk = unhex<xonly_pubkey>(contract[name_utxo_pk].get_str());
-    m_fee_rate = contract[name_fee_rate].get_int64();
+    m_fee_rate = contract[name_fee_rate].getInt<int64_t>();
     m_content_type = contract[name_content_type].get_str();
     m_data = unhex<bytevector>(contract[name_payload].get_str());
     m_utxo_sig = unhex<signature>(contract[name_utxo_sig].get_str());

@@ -11,15 +11,12 @@
 #define CATCH_CONFIG_MAIN
 #include "catch/catch.hpp"
 
-#include "util/translation.h"
 #include "util/strencodings.h"
 
 #include "common.hpp"
 
 #include "signer_api.hpp"
 #include "wallet_api.hpp"
-#include "chain_api.hpp"
-#include "channel_keys.hpp"
 
 
 #include "time_measure.hpp"

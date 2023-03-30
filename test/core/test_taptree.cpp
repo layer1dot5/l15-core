@@ -48,12 +48,12 @@ TEST_CASE("TapLeaf hash")
     std::clog << "Reference TapLeaf hash: " << HexStr(Span<uint8_t>(reference_hash.begin(), reference_hash.end())) << std::endl;
 
     std::clog << "Calculate bitcoin tapleaf hash" << std::endl;
-    uint256 bitcoin_hash = (CHashWriter(HASHER_TAPLEAF) << TAPLEAF_VERSION << TestScript).GetSHA256();
+    uint256 bitcoin_hash = (::HashWriter(HASHER_TAPLEAF) << TAPLEAF_VERSION << TestScript).GetSHA256();
     std::clog << "Bitcoin TapLeaf hash: " << HexStr(Span<uint8_t>(bitcoin_hash.begin(), bitcoin_hash.end())) << std::endl;
 
 
     std::clog << "Calculate l15 tapleaf hash" << std::endl;
-    HashWriter writer(TAPLEAF_HASH);
+    l15::HashWriter writer(TAPLEAF_HASH);
     writer << TAPLEAF_VERSION << TestScript;
     uint256 result_hash = writer;
 
@@ -70,7 +70,7 @@ TEST_CASE("TapTweak")
     ChannelKeys key(wallet.Secp256k1Context());
 
     // Lets just simulate some uint256
-    HashWriter hash(TAPBRANCH_HASH);
+    l15::HashWriter hash(TAPBRANCH_HASH);
     hash  << "test test test";
     uint256 fake_root = hash;
 

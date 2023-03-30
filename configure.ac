@@ -327,7 +327,7 @@ else
 
 AX_SUBDIRS_CONFIGURE(
     [node],
-    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
+    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-hardening], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
     [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
     [],
     [])
