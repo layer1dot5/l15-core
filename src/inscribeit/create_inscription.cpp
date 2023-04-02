@@ -21,6 +21,7 @@ namespace {
 
 const std::string val_create_inscription("CreateInscription");
 
+
 const size_t chunk_size = 520;
 const bytevector ord_tag {'o', 'r', 'd'};
 const bytevector one_tag {'\1'};
@@ -54,21 +55,20 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
 
 }
 
-CreateInscriptionBuilder::CreateInscriptionBuilder(const std::string& chain_mode)
-{
-    if (chain_mode == "mainnet") {
-        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::MAINNET>>();
-    }
-    else if (chain_mode == "testnet") {
-        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::TESTNET>>();
-    }
-    else if (chain_mode == "regtest") {
-        m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::REGTEST>>();
-    }
-    else {
-        throw std::invalid_argument(chain_mode);
-    }
-}
+const std::string CreateInscriptionBuilder::name_utxo_txid = "utxo_txid";
+const std::string CreateInscriptionBuilder::name_utxo_nout = "utxo_nout";
+const std::string CreateInscriptionBuilder::name_utxo_amount = "utxo_amount";
+const std::string CreateInscriptionBuilder::name_utxo_pk = "utxo_pk";
+const std::string CreateInscriptionBuilder::name_content_type = "content_type";
+const std::string CreateInscriptionBuilder::name_content = "content";
+const std::string CreateInscriptionBuilder::name_utxo_sig = "utxo_sig";
+const std::string CreateInscriptionBuilder::name_inscribe_script_pk = "inscribe_script_pk";
+const std::string CreateInscriptionBuilder::name_inscribe_int_pk = "inscribe_int_pk";
+const std::string CreateInscriptionBuilder::name_inscribe_sig = "inscribe_sig";
+const std::string CreateInscriptionBuilder::name_destination_pk = "destination_pk";
+const std::string CreateInscriptionBuilder::name_contract_type = "contract_type";
+const std::string CreateInscriptionBuilder::name_params = "params";
+
 
 CreateInscriptionBuilder &l15::inscribeit::CreateInscriptionBuilder::UTXO(const string &txid, uint32_t nout, const std::string& amount)
 {
@@ -80,7 +80,7 @@ CreateInscriptionBuilder &l15::inscribeit::CreateInscriptionBuilder::UTXO(const 
 
 CreateInscriptionBuilder &CreateInscriptionBuilder::FeeRate(const string &rate)
 {
-    m_fee_rate = ParseAmount(rate);
+    m_mining_fee_rate = ParseAmount(rate);
     return *this;
 }
 
@@ -115,7 +115,7 @@ void CreateInscriptionBuilder::CheckBuildArgs() const
     if (!m_amount) {
         throw std::invalid_argument("No UTXO amount is provided");
     }
-    if (!m_fee_rate) {
+    if (!m_mining_fee_rate) {
         throw std::invalid_argument("No mining fee rate is provided");
     }
 
@@ -135,7 +135,7 @@ void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
     if (!contract.exists(name_utxo_pk)) {
         throw std::invalid_argument("No UTXO pubkey is provided");
     }
-    if (!contract.exists(name_fee_rate)) {
+    if (!contract.exists(name_mining_fee_rate)) {
         throw std::invalid_argument("No transaction fee rate is provided");
     }
     if (!contract.exists(name_content_type)) {
@@ -200,7 +200,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 
     size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
 
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_fee_rate, funding_tx_size);
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx_size);
 
     m_utxo_sig = utxo_key.SignTaprootTx(
                 funding_tx, 0,
@@ -230,7 +230,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
 
     size_t genesis_tx_size = GetSerializeSize(genesis_tx, PROTOCOL_VERSION);
-    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_fee_rate, genesis_tx_size);
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx_size);
 
     m_inscribe_script_sig = inscribe_script_key.SignTaprootTx(
             genesis_tx, 0,
@@ -264,7 +264,7 @@ std::string CreateInscriptionBuilder::Serialize() const
     contract.pushKV(name_utxo_nout, (int)m_nout.value());
     contract.pushKV(name_utxo_amount, m_amount.value());
     contract.pushKV(name_utxo_pk, hex(m_utxo_pk.value()));
-    contract.pushKV(name_fee_rate, m_fee_rate.value());
+    contract.pushKV(name_mining_fee_rate, m_mining_fee_rate.value());
     contract.pushKV(name_content_type, m_content_type.value());
     contract.pushKV(name_content, hex(m_content.value()));
     contract.pushKV(name_utxo_sig, hex(m_utxo_sig.value()));
@@ -304,7 +304,7 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
     m_amount = contract[name_utxo_amount].getInt<int64_t>();
 
     m_utxo_pk = unhex<xonly_pubkey>(contract[name_utxo_pk].get_str());
-    m_fee_rate = contract[name_fee_rate].getInt<int64_t>();
+    m_mining_fee_rate = contract[name_mining_fee_rate].getInt<int64_t>();
     m_content_type = contract[name_content_type].get_str();
     m_content = unhex<bytevector>(contract[name_content].get_str());
     m_utxo_sig = unhex<signature>(contract[name_utxo_sig].get_str());
@@ -347,7 +347,7 @@ void CreateInscriptionBuilder::RestoreTransactions()
 
     size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
 
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_fee_rate, funding_tx_size);
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx_size);
 
     CMutableTransaction genesis_tx;
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
@@ -371,7 +371,7 @@ void CreateInscriptionBuilder::RestoreTransactions()
 
     size_t genesis_tx_size = GetSerializeSize(genesis_tx, PROTOCOL_VERSION);
 
-    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_fee_rate, genesis_tx_size);
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx_size);
 
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));

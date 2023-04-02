@@ -47,8 +47,7 @@ public:
     xonly_pubkey(xonly_pubkey&&) noexcept = default;
     xonly_pubkey(const base::base& v) : cex::fixsize_vector<uint8_t, 32>(v) {}
     xonly_pubkey(base::base&& v) noexcept : cex::fixsize_vector<uint8_t, 32>(move(v)) {}
-    xonly_pubkey(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk)
-    : cex::fixsize_vector<uint8_t, 32>()
+    xonly_pubkey(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk) : base()
     { set(ctx, pk); }
 
     xonly_pubkey& operator=(const xonly_pubkey&) = default;
@@ -138,7 +137,7 @@ std::string hex(const SPAN& s)
 }
 
 template<typename R>
-R unhex(std::string_view str) {
+constexpr R unhex(std::string_view str) {
     if (str.length()%2) {
         throw std::out_of_range("Wrong hex string length");
     }

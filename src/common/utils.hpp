@@ -24,6 +24,21 @@ inline CAmount ParseAmount(const std::string& amountstr)
     return amount;
 }
 
+inline std::string FormatAmount(CAmount amount)
+{
+    std::ostringstream str_amount;
+    str_amount << (amount / COIN);
+    CAmount rem = amount % COIN;
+    if (rem) str_amount << '.' << rem;
+    return str_amount.str();
+}
+
+inline CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
+{
+    return input_amount - static_cast<int64_t>(size) * fee_rate / 1024;
+}
+
+
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();
 bytevector Hash160(const bytevector& preimage);

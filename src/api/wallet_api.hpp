@@ -39,7 +39,6 @@ class WalletApi
 
 public:
     WalletApi();
-    ~WalletApi();
 
     const secp256k1_context* Secp256k1Context() const { return m_ctx; }
 

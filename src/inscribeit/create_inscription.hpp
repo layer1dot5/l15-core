@@ -9,68 +9,30 @@
 #include "univalue.h"
 
 #include "common.hpp"
-#include "utils.hpp"
+#include "contract_builder.hpp"
 
 namespace l15::inscribeit {
 
-    const std::string name_version = "protocol_version";
-    const std::string name_utxo_txid = "utxo_txid";
-    const std::string name_utxo_nout = "utxo_nout";
-    const std::string name_utxo_amount = "utxo_amount";
-    const std::string name_utxo_pk = "utxo_pk";
-    const std::string name_fee_rate = "fee_rate";
-    const std::string name_content_type = "content_type";
-    const std::string name_content = "content";
-    const std::string name_utxo_sig = "utxo_sig";
-    const std::string name_inscribe_script_pk = "inscribe_script_pk";
-    const std::string name_inscribe_int_pk = "inscribe_int_pk";
-    const std::string name_inscribe_sig = "inscribe_sig";
-    const std::string name_destination_pk = "destination_pk";
-    const std::string name_contract_type = "contract_type";
-    const std::string name_params = "params";
-
-
-inline std::string FormatAmount(CAmount amount)
+class CreateInscriptionBuilder: public ContractBuilder
 {
-    std::ostringstream str_amount;
-    str_amount << (amount / COIN);
-    CAmount rem = amount % COIN;
-    if (rem) str_amount << '.' << rem;
-    return str_amount.str();
-}
-
-inline CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
-{
-    return input_amount - static_cast<int64_t>(size) * fee_rate / 1024;
-}
-
-
-class CreateInscriptionBuilder {
-    std::shared_ptr<IBech32Coder> m_bech_coder;
-
     static const uint32_t m_protocol_version = 1;
 
     std::optional<std::string> m_txid;
     std::optional<uint32_t> m_nout;
     std::optional<CAmount> m_amount;
 
-    std::optional<CAmount> m_fee_rate;
-
     std::optional<std::string> m_content_type;
     std::optional<bytevector> m_content;
 
-    //std::optional<seckey> m_utxo_sk;
     std::optional<xonly_pubkey> m_utxo_pk; //taproot
     std::optional<signature> m_utxo_sig;
 
-    //std::optional<seckey> m_inscribe_script_sk;
     std::optional<xonly_pubkey> m_insribe_script_pk;
     std::optional<signature> m_inscribe_script_sig;
 
     std::optional<seckey> m_inscribe_taproot_sk; // needed in case of a fallback scenario to return funds
     std::optional<xonly_pubkey> m_inscribe_int_pk; //taproot
 
-    //std::optional<seckey> m_destination_sk;
     std::optional<xonly_pubkey> m_destination_pk;
 
     std::optional<CMutableTransaction> mFundingTx;
@@ -82,6 +44,21 @@ class CreateInscriptionBuilder {
     void RestoreTransactions();
 
 public:
+
+    static const std::string name_utxo_txid;
+    static const std::string name_utxo_nout;
+    static const std::string name_utxo_amount;
+    static const std::string name_utxo_pk;
+    static const std::string name_content_type;
+    static const std::string name_content;
+    static const std::string name_utxo_sig;
+    static const std::string name_inscribe_script_pk;
+    static const std::string name_inscribe_int_pk;
+    static const std::string name_inscribe_sig;
+    static const std::string name_destination_pk;
+    static const std::string name_contract_type;
+    static const std::string name_params;
+
     CreateInscriptionBuilder() = default;
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder(CreateInscriptionBuilder&&) noexcept = default;
@@ -89,9 +66,9 @@ public:
     CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;
 
-    explicit CreateInscriptionBuilder(const std::string& chain_mode);
+    explicit CreateInscriptionBuilder(const std::string& chain_mode) : ContractBuilder(chain_mode) {};
 
-    uint32_t GetProtocolVersion() const { return m_protocol_version; }
+    uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }
@@ -101,9 +78,6 @@ public:
 
     std::string GetUtxoAmount() const { return FormatAmount( m_amount.value()); }
     void SetUtxoAmount(std::string v) { m_amount = ParseAmount(v); }
-
-    std::string GetFeeRate() const { return FormatAmount( m_fee_rate.value()); }
-    void SetFeeRate(std::string v) { m_fee_rate = ParseAmount(v); }
 
     std::string GetContentType() const { return m_content_type.value(); }
     void SetContentType(std::string v) { m_content_type = v; }

@@ -216,7 +216,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
     builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
     builder.SetUtxoNOut(get<0>(prevout).n);
     builder.SetUtxoAmount("1");
-    builder.SetFeeRate(fee_rate);
+    builder.SetMiningFeeRate(fee_rate);
     builder.SetContentType("text");
     builder.SetContent(hex(std::string("test")));
     builder.SetDestinationPubKey(hex(dest_key.GetLocalPubKey()));
@@ -303,7 +303,7 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     size_t rollback_tx_size = GetSerializeSize(rollback_tx, PROTOCOL_VERSION);
 
-    rollback_tx.vout.front().nValue = l15::inscribeit::CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx_size);
+    rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx_size);
 
     signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
     rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);

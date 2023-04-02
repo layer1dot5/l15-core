@@ -158,19 +158,14 @@ AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
 AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
 
 if test "$with_pybind" = "yes"; then
-    AC_CHECK_PROGS(PYTHON, [python3 python], [])
-    if test "x$PYTHON" = "x"; then
-        AC_MSG_ERROR([python is required to build with python bindings])
-    fi
+    AM_PATH_PYTHON([3])
 
     AC_MSG_NOTICE([python is $PYTHON])
-    AC_LANG([C++])
-    AC_PROG_CXX
+
     PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
     AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
-    AM_PATH_PYTHON([3])
 
     AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
     if test -n "$PYTHON3_CONFIG"; then
@@ -181,9 +176,6 @@ if test "$with_pybind" = "yes"; then
     fi
     AC_SUBST(PYTHON_LIBS)
     AC_SUBST(PYTHON_LDFLAGS)
-
-    AC_LANG_SAVE
-    AC_LANG_RESTORE
 
     AC_CONFIG_FILES([src/python_binding/Makefile])
 fi

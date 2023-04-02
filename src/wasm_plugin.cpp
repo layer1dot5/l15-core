@@ -60,7 +60,7 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
             .property(l15::inscribeit::name_utxo_txid.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoTxId, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoTxId)
             .property(l15::inscribeit::name_utxo_nout.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoNOut, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoNOut)
             .property(l15::inscribeit::name_utxo_amount.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoAmount, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoAmount)
-            .property(l15::inscribeit::name_fee_rate.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetFeeRate, &l15::inscribeit::CreateInscriptionBuilder::SetFeeRate)
+            .property(l15::inscribeit::name_fee_rate.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetMiningFeeRate, &l15::inscribeit::CreateInscriptionBuilder::SetMiningFeeRate)
             .property(l15::inscribeit::name_content_type.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetContentType, &l15::inscribeit::CreateInscriptionBuilder::SetContentType)
             .property(l15::inscribeit::name_content.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetContent, &l15::inscribeit::CreateInscriptionBuilder::SetContent)
             .property(l15::inscribeit::name_destination_pk.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetDestinationPubKey, &l15::inscribeit::CreateInscriptionBuilder::SetDestinationPubKey)
