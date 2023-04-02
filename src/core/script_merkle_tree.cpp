@@ -1,5 +1,8 @@
+#include <optional>
+
 #include "script_merkle_tree.hpp"
 #include "hash_helper.hpp"
+#include "common_error.hpp"
 
 
 namespace l15 {
@@ -49,28 +52,30 @@ uint256 ScriptMerkleTree::CalculateRoot() const
 std::vector<uint256> ScriptMerkleTree::CalculateScriptPath(const CScript &script) const
 {
     std::vector<uint256> res;
-    auto node_it = GetScripts().crbegin();
-    uint256 hash = TapLeafHash(*node_it);
+    bool path_stage = false;
+
+    std::optional<uint256> hash;// = TapLeafHash(*node_it);
 
     // Weighted case only so far!!!
-    for(++node_it; node_it != GetScripts().crend(); ++node_it)
+    for (auto node_it = GetScripts().crbegin(); node_it != GetScripts().crend(); ++node_it)
     {
-        if(*node_it == script)
-        {
-            res.push_back(hash);
+        if (path_stage) {
+            res.push_back(TapLeafHash(*node_it));
         }
-        else
-        {
-            uint256 hash2 = TapLeafHash(*node_it);
-            if(res.empty())
-            {
-                hash = TapBranchHash(hash, hash2);
-            }
-            else
-            {
-                res.push_back(hash2);
-            }
+        else if (*node_it == script) {
+            path_stage = true;
+            if (hash) res.push_back(*hash);
         }
+        else if (hash) {
+            hash = TapBranchHash(*hash, TapLeafHash(*node_it));
+        }
+        else {
+            hash = TapLeafHash(*node_it);
+        }
+    }
+
+    if (!path_stage) {
+        throw TransactionError("The script was not found at the script tree");
     }
 
     return res;

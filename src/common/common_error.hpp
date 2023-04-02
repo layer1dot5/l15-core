@@ -41,4 +41,14 @@ public:
 
 };
 
+class TransactionError : public Error {
+public:
+    explicit TransactionError(std::string&& details) : Error(move(details)) {}
+    ~TransactionError() override = default;
+
+    const char* what() const noexcept override
+    { return "TransactionError"; }
+
+};
+
 }

@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "script_merkle_tree.hpp"
+
 #include "contract_builder.hpp"
 
 namespace l15::inscribeit {
@@ -10,6 +12,9 @@ namespace l15::inscribeit {
 class SwapInscriptionBuilder : public ContractBuilder
 {
     static const uint32_t m_protocol_version = 1;
+
+    CAmount m_ord_price;
+    CAmount m_market_fee;
 
     std::optional<xonly_pubkey> m_swap_script_pk_A;
     std::optional<xonly_pubkey> m_swap_script_pk_B;
@@ -33,10 +38,12 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<signature> m_funds_utxo_sig;
 
     std::optional<CMutableTransaction> mOrdCommitTx;
+    std::optional<CMutableTransaction> mOrdPayOffTx;
     std::optional<CMutableTransaction> mFundsCommitTx;
+    std::optional<CMutableTransaction> mFundsPayOffTx;
 
-    xonly_pubkey OrdCommitTapRoot() const;
-    xonly_pubkey FundsCommitTapRoot() const;
+    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdCommitTapRoot() const;
+    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTapRoot() const;
 
 public:
     static const std::string name_ord_utxo_txid;
@@ -98,7 +105,8 @@ public:
     std::string GetOrdUtxoSig() const { return hex(m_ord_utxo_sig.value()); }
     void SetOrdUtxoSig(std::string v) { m_ord_utxo_sig = unhex<signature>(v); }
 
-    void SignOrdUtxo(std::string ord_sk);
+    void SignOrdCommitment(std::string sk);
+    void SignOrdPayBack(std::string sk);
 
 
     std::string GetFundsUtxoTxId() const { return m_funds_txid.value(); }
@@ -119,16 +127,19 @@ public:
     std::string GetFundsUtxoSig() const { return hex(m_funds_utxo_sig.value()); }
     void SetFundsUtxoSig(std::string v) { m_funds_utxo_sig = unhex<signature>(v); }
 
-    void SignFundsUtxo(std::string sk);
+    void SignFundsCommitment(std::string sk);
+    void SignFundsPayBack(std::string sk);
 
 
     string Serialize();
 
     void Deserialize(string hex_data);
 
-    string OrdCommitRawTransaction();
+    string OrdCommitRawTransaction() const;
+    string OrdPayBackRawTransaction() const;
 
-    string FundsCommitRawTransaction();
+    string FundsCommitRawTransaction() const;
+    string FundsPayBackRawTransaction() const;
 };
 
 }
