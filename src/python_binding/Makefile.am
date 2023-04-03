@@ -9,13 +9,12 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex\
- $(PYBIND_CPPFLAGS)
+ $(PYTHON_CPPFLAGS)
 
 SWIG_SOURCES_CPP = \
  $(top_srcdir)/node/src/support/cleanse.cpp \
  $(top_srcdir)/node/src/bech32.cpp \
- $(top_srcdir)/node/src/primitives/transaction.cpp \
- l15-core-pybind.cpp
+ $(top_srcdir)/node/src/primitives/transaction.cpp
 
 SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i

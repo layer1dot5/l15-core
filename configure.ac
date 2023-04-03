@@ -55,33 +55,37 @@ build_apis=yes
 build_inscribeit=no
 
 dnl Enable Python integrations
-AC_ARG_ENABLE([pybind],
-            [AS_HELP_STRING([--enable-pybind],[with python integration module])],
+AC_ARG_ENABLE([python-module],
+            [AS_HELP_STRING([--enable-python-module],[Enable API binding module for python (disabled by default)])],
             [
                 if test "$enableval" = "yes"; then
                     if test "x$WITH_EMSCRIPTEN" = "xyes"; then
                         AC_MSG_ERROR([python binding cannot be built with emscripten])
                     fi
                     build_inscribeit=yes
-                    with_pybind=yes
+                    python_module=yes
                 else
-                    with_pybind=no
+                    python_module=no
                 fi
             ],
-            [with_pybind=no])
+            [python_module=no])
 
-AC_ARG_ENABLE([wasm-bind],
-              [AS_HELP_STRING([--enable-wasm-bind], [Enable plugin API binding for WebAssembly (disabled by default)])],
+AC_ARG_ENABLE([wasm-module],
+              [AS_HELP_STRING([--enable-wasm-module], [Enable plugin API binding for WebAssembly (disabled by default)])],
               [
                 if test "$enableval" = "yes"; then
-                    wasm_bind=yes
+                    wasm_module=yes
                     plugin_api=yes
                     build_tools=no
                     build_services=no
                     build_apis=no
                 fi
               ],
-              [wasm_bind=no])
+              [wasm_module=no])
+
+if test "$python_module" = "yes" "$wasm_module" = "yes"; then
+    AC_MSG_ERROR([Webassembly module and Python module cannot be build simultaneously])
+fi
 
 AC_ARG_ENABLE([plugin-api],
               [AS_HELP_STRING([--enable-plugin-api], [Enable plugin API build (disabled by default)])],
@@ -94,8 +98,8 @@ AC_ARG_ENABLE([plugin-api],
                 fi
               ],
               [
-                if test "$wasm_bind" = "yes"; then
-                  AC_MSG_ERROR([wasm-bind cannot be build with disabled plugin-api])
+                if test "$wasm_module" = "yes" -o "$python_module" = "yes" ; then
+                  AC_MSG_ERROR([Wasm module and Python module cannot be build with disabled plugin-api])
                 fi
                 plugin_api=no
               ])
@@ -144,25 +148,23 @@ AC_ARG_ENABLE([build-inscribeit],
 
 
 if test "$plugin_api" = "yes"; then
-    if test $build_apis = "yes"; then
+    if test "$build_apis" = "yes"; then
         AC_MSG_ERROR([Cannot enable plugin API with general APIs])
     fi
 fi
 
 AM_CONDITIONAL([BUILD_APIS], [test "$build_apis" = "yes"])
-AM_CONDITIONAL([BUILD_PYTHON_PLUGIN], [test "$with_pybind" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
-AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
+AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$python_module" = "yes"])
+AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$wasm_module" = "yes"])
 
-if test "$with_pybind" = "yes"; then
+if test "$python_module" = "yes"; then
     AM_PATH_PYTHON([3])
-
     AC_MSG_NOTICE([python is $PYTHON])
 
-    PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
     AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
@@ -171,11 +173,13 @@ if test "$with_pybind" = "yes"; then
     if test -n "$PYTHON3_CONFIG"; then
         PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
         PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
+        PYTHON_CPPFLAGS=`$PYTHON3_CONFIG --cflags`
     else
         AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
     fi
     AC_SUBST(PYTHON_LIBS)
     AC_SUBST(PYTHON_LDFLAGS)
+    AC_SUBST(PYTHON_CPPFLAGS)
 
     AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
@@ -223,7 +227,7 @@ fi
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
 
-if test "$wasm_bind" = "yes"; then
+if test "$wasm_module" = "yes"; then
   CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
   CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
   LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
@@ -369,12 +373,13 @@ echo "  build services   = $build_services"
 echo "  build apis       = $build_apis"
 echo "  build inscribeit = $build_inscribeit"
 echo "  plugin api       = $plugin_api"
-echo "  python api       = $with_pybind"
+echo "  python module    = $python_module"
+echo "  wasm module      = $wasm_module"
 echo
 echo "  target os        = $host_os"
 echo "  build os         = $build_os"
 echo
-echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS $PYBIND_CPPFLAGS"
+echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS $PYTHON_CPPFLAGS"
 echo "  CXX              = $CXX"
 echo "  CXXFLAGS         = $CXXFLAGS"
 echo "  LDFLAGS          = $LDFLAGS $ZMQ_LDFLAGS"

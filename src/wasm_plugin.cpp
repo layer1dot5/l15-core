@@ -1,4 +1,4 @@
-#ifdef WASM_BIND
+#ifdef WASM_MODULE
 
 #include "random.h"
 
