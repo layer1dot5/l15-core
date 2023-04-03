@@ -199,7 +199,6 @@ TEST_CASE("SwapInscriptionBuilder Ord pay back from commit")
     REQUIRE(DecodeHexTx(ord_commit_tx, ord_commit_raw_tx));
 
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_commit_tx)));
-    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "12");
 
 
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdPayBack(hex(swap_script_key_A.GetLocalPrivKey())));
@@ -208,6 +207,10 @@ TEST_CASE("SwapInscriptionBuilder Ord pay back from commit")
 
     CMutableTransaction ord_payback_tx;
     REQUIRE(DecodeHexTx(ord_payback_tx, ord_payback_raw_tx));
+
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "11");
+    REQUIRE_THROWS(w->btc().SpendTx(CTransaction(ord_payback_tx)));
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_payback_tx)));
 
 
@@ -278,7 +281,6 @@ TEST_CASE("SwapInscriptionBuilder Funds pay back from commit")
     REQUIRE(DecodeHexTx(funds_commit_tx, funds_commit_raw_tx));
 
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funds_commit_tx)));
-    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "12");
 
 
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsPayBack(hex(swap_script_key_B.GetLocalPrivKey())));
@@ -287,6 +289,10 @@ TEST_CASE("SwapInscriptionBuilder Funds pay back from commit")
 
     CMutableTransaction funds_payback_tx;
     REQUIRE(DecodeHexTx(funds_payback_tx, funds_payback_raw_tx));
+
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "11");
+    REQUIRE_THROWS(w->btc().SpendTx(CTransaction(funds_payback_tx)));
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funds_payback_tx)));
 
 
