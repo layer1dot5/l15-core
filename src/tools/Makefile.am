@@ -12,8 +12,3 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = libl15-tools.la
 libl15_tools_la_SOURCES = \
 	config.cpp nodehelper.cpp
-
-libl15-tools.a: libl15-tools.la
-	cp .libs/libl15-tools.a .
-
-all-local: libl15-tools.a

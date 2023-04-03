@@ -17,8 +17,3 @@ libl15_core_la_SOURCES = \
 
 #	channel_contract.cpp
 #	channel.cpp
-
-libl15-core.a: libl15-core.la
-	cp .libs/libl15-core.a .
-
-all-local: libl15-core.a

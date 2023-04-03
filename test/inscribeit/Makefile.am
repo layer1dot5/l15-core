@@ -31,15 +31,16 @@ $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
-$(top_builddir)/contrib/secp256k1/libsecp256k1.la \
+$(top_builddir)/node/src/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_create_inscription
-#test_ptlc
+bin_PROGRAMS = test_create_inscription test_swap_inscription
 
 
 test_create_inscription_SOURCES = test_create_inscription.cpp
 test_create_inscription_LDADD = $(L15_LIBS)
 
+test_swap_inscription_SOURCES = test_swap_inscription.cpp
+test_swap_inscription_LDADD = $(L15_LIBS)
 

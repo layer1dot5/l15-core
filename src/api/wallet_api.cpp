@@ -11,10 +11,6 @@
 #include "core_io.h"
 #include "primitives/transaction.h"
 #include "script/interpreter.h"
-#include "uint256.h"
-#include "hash.h"
-#include "allocators/secure.h"
-#include "random.h"
 
 #include "secp256k1_schnorrsig.h"
 
@@ -24,27 +20,9 @@ namespace l15::core {
 
 WalletApi::WalletApi()
 {
-    secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN|SECP256K1_CONTEXT_VERIFY);
-    assert(ctx != nullptr);
-
-    {
-        // Pass in a random blinding seed to the secp256k1 context.
-        std::vector<unsigned char, secure_allocator<unsigned char>> vseed(32);
-        GetRandBytes(vseed);
-        bool ret = secp256k1_context_randomize(ctx, vseed.data());
-        assert(ret);
-    }
-
-    m_ctx = ctx;
+    m_ctx = ChannelKeys::GetStaticSecp256k1Context();
 }
 
-
-WalletApi::~WalletApi()
-{
-    if (m_ctx) {
-        secp256k1_context_destroy(m_ctx);
-    }
-}
 
 
 //bytevector WalletApi::SignTxHash(const uint256 &sighash, unsigned char sighashtype, const bytevector &keydata) const

@@ -14,15 +14,9 @@
 
 namespace l15 {
 
-inline CAmount ParseAmount(const std::string& amountstr)
-{
-    CAmount amount;
-    if(!ParseFixedPoint(amountstr, 8, &amount))
-    {
-        throw std::runtime_error(std::string("Error parsing amount: ") + amountstr);
-    }
-    return amount;
-}
+CAmount ParseAmount(const std::string& amountstr);
+std::string FormatAmount(CAmount amount);
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size);
 
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();

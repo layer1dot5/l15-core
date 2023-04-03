@@ -11,7 +11,7 @@
 
 #include <optional>
 
-#include "../../node/src/script/interpreter.h"
+#include "interpreter.h"
 
 namespace l15::core {
 
@@ -28,6 +28,7 @@ class ChannelKeys
     void CachePubkey();
 public:
     static secp256k1_context* GetStaticSecp256k1Context();
+    static secp256k1_xonly_pubkey unspendable_base;
 
     explicit ChannelKeys(): m_ctx(GetStaticSecp256k1Context()), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
     explicit ChannelKeys(seckey local_sk): m_ctx(GetStaticSecp256k1Context()), m_local_sk(std::move(local_sk)) { CachePubkey(); }
@@ -62,12 +63,13 @@ public:
     const xonly_pubkey& GetPubKey() const
     { return m_pubkey_agg; }
 
-    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, std::optional<uint256>&& merkle_root);
+    static seckey GetStrongRandomKey(const secp256k1_context* ctx = GetStaticSecp256k1Context()) ;
+    static xonly_pubkey CreateUnspendablePubKey(const seckey& random_factor);
 
-    std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
+    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const uint256& merkle_root);
+    std::pair<xonly_pubkey , uint8_t> AddTapTweak(const uint256& merkle_root) const;
+
     std::pair<ChannelKeys , uint8_t> NewKeyAddTapTweak(std::optional<uint256> merkle_root) const;
-
-    seckey GetStrongRandomKey() const;
 
     signature SignSchnorr(const uint256& data) const;
 

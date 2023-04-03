@@ -280,7 +280,7 @@ TEST_CASE("500 of 1K local")
     };
 
     std::ranges::transform(
-       std::ranges::common_view(std::views::iota(0) | std::views::take(N)),
+       std::views::iota(0) | std::views::take(N),
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
            return std::make_unique<SignerApi> (

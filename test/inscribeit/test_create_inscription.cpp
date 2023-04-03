@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #define CATCH_CONFIG_RUNNER
-
 #include "catch/catch.hpp"
 
 #include "util/translation.h"
@@ -21,30 +20,34 @@ using namespace l15;
 using namespace l15::core;
 using namespace l15::inscribeit;
 
-const std::function<std::string(const char *)> G_TRANSLATION_FUN = nullptr;
+const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 class TestcaseWrapper;
 
 std::string configpath;
-std::unique_ptr <TestcaseWrapper> w;
+std::unique_ptr<TestcaseWrapper> w;
 
-struct TestConfigFactory {
+struct TestConfigFactory
+{
     Config conf;
 
-    explicit TestConfigFactory(const std::string &confpath) {
+    explicit TestConfigFactory(const std::string &confpath)
+    {
         conf.ProcessConfig({"--conf=" + confpath});
     }
 
-    std::string GetBitcoinDataDir() const {
+    std::string GetBitcoinDataDir() const
+    {
         auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
-        if (!datadir_opt->empty())
+        if(!datadir_opt->empty())
             return datadir_opt->as<std::string>();
         else
             return std::string();
     }
 };
 
-struct TestcaseWrapper {
+struct TestcaseWrapper
+{
     TestConfigFactory mConfFactory;
     WalletApi mWallet;
     ChainApi mBtc;
@@ -54,38 +57,47 @@ struct TestcaseWrapper {
     explicit TestcaseWrapper() :
             mConfFactory(configpath),
             mWallet(),
-            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(),
-                 std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
+            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
             mCli("l15node-cli", false),
-            mBtcd("bitcoind", false) {
+            mBtcd("bitcoind", false)
+
+    {
         StartBitcoinNode();
 
-        if (btc().GetChainHeight() < 50) {
+        if(btc().GetChainHeight() < 50)
+        {
             btc().CreateWallet("testwallet");
             btc().GenerateToAddress(btc().GetNewAddress(), "250");
         }
     }
 
-    virtual ~TestcaseWrapper() {
+    virtual ~TestcaseWrapper()
+    {
         StopBitcoinNode();
         std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
     }
 
-    void StartBitcoinNode() {
+    void StartBitcoinNode()
+    {
         StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
     }
 
-    void StopBitcoinNode() {
+    void StopBitcoinNode()
+    {
         StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
     }
 
-    Config &conf() { return mConfFactory.conf; }
+    Config &conf()
+    { return mConfFactory.conf; }
 
-    WalletApi &wallet() { return mWallet; }
+    WalletApi &wallet()
+    { return mWallet; }
 
-    ChainApi &btc() { return mBtc; }
+    ChainApi &btc()
+    { return mBtc; }
 
-    void ResetMemPool() {
+    void ResetMemPool()
+    {
         StopBitcoinNode();
         std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
         StartBitcoinNode();
@@ -93,7 +105,8 @@ struct TestcaseWrapper {
 
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[])
+{
     Catch::Session session;
 
 
@@ -109,16 +122,18 @@ int main(int argc, char *argv[]) {
 
     // Let Catch (using Clara) parse the command line
     int returnCode = session.applyCommandLine(argc, argv);
-    if (returnCode != 0) // Indicates a command line error
+    if(returnCode != 0) // Indicates a command line error
         return returnCode;
 
-    if (configpath.empty()) {
+    if(configpath.empty())
+    {
         std::cerr << "Bitcoin config is not passed!" << std::endl;
         return 1;
     }
 
     std::filesystem::path p(configpath);
-    if (p.is_relative()) {
+    if(p.is_relative())
+    {
         configpath = (std::filesystem::current_path() / p).string();
     }
 
@@ -146,18 +161,15 @@ TEST_CASE("CreateInscriptionBuilder positive scenario")
 
     //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
 
-    std::clog << "Fee rate: " << fee_rate <<
-    std::endl;
+    std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    CHECK_NOTHROW(
-            builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1").
-            Data("text",hex(std::string("test"))).
-            FeeRate(fee_rate).
-            Destination(hex(dest_key.GetLocalPubKey())).
-            Sign(hex(utxo_key.GetLocalPrivKey()))
-    );
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+                         .Data("text", hex(std::string("test")))
+                         .FeeRate(fee_rate)
+                         .Destination(hex(dest_key.GetLocalPubKey()))
+                         .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     std::string ser_data;
     CHECK_NOTHROW(ser_data = builder.Serialize());
@@ -204,7 +216,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
     builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
     builder.SetUtxoNOut(get<0>(prevout).n);
     builder.SetUtxoAmount("1");
-    builder.SetFeeRate(fee_rate);
+    builder.SetMiningFeeRate(fee_rate);
     builder.SetContentType("text");
     builder.SetContent(hex(std::string("test")));
     builder.SetDestinationPubKey(hex(dest_key.GetLocalPubKey()));
@@ -249,17 +261,15 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
 
-    std::clog << "Fee rate: " << fee_rate <<
-    std::endl;
+    std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1").
-                            Data("text", hex(std::string("test"))).
-                            FeeRate(fee_rate).
-                            Destination(hex(dest_key.GetLocalPubKey())).
-                            Sign(hex(utxo_key.GetLocalPrivKey()))
-    );
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+                          .Data("text", hex(std::string("test")))
+                          .FeeRate(fee_rate)
+                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     ChannelKeys rollback_key(w->wallet().Secp256k1Context(), unhex<seckey>(builder.IntermediateTaprootPrivKey()));
 
@@ -283,9 +293,7 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     CScript rollbackpubkeyscript;
     rollbackpubkeyscript << 1;
-    rollbackpubkeyscript << rollback_key.
-
-    GetLocalPubKey();
+    rollbackpubkeyscript << rollback_key.GetLocalPubKey();
 
     CMutableTransaction rollback_tx;
     rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
@@ -294,12 +302,11 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
     rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
 
     size_t rollback_tx_size = GetSerializeSize(rollback_tx, PROTOCOL_VERSION);
-    rollback_tx.vout.front().nValue = l15::inscribeit::CalculateOutputAmount(funding_tx.vout.front().nValue,
-                                                                             ParseAmount(fee_rate),
-                                                                             rollback_tx_size);
+
+    rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx_size);
 
     signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
-    rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector &>(rollback_sig);
+    rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
 
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
 }
