@@ -301,9 +301,7 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
 
-    size_t rollback_tx_size = GetSerializeSize(rollback_tx, PROTOCOL_VERSION);
-
-    rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx_size);
+    rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx);
 
     signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
     rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);

@@ -4,6 +4,7 @@
 #include "random.h"
 #include "univalue.h"
 #include "primitives/transaction.h"
+#include "consensus.h"
 
 #include "common_error.hpp"
 
@@ -69,7 +70,6 @@ CAmount GetOutputAmount(const std::string& txoutstr)
 
 uint32_t GetCsvInBlocks(uint32_t blocks)
 {
-
     if (blocks > CTxIn::SEQUENCE_LOCKTIME_MASK)
     {
         std::ostringstream buf;
@@ -100,9 +100,12 @@ std::string FormatAmount(CAmount amount)
     return str_amount.str();
 }
 
-CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
-    CAmount fee = static_cast<int64_t>(size) * fee_rate / 1024;
+    size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
+    size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size) / WITNESS_SCALE_FACTOR;
+    CAmount fee = static_cast<int64_t>(vsize) * fee_rate / 1024;
     if ((fee + fee) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);

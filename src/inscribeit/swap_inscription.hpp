@@ -11,10 +11,23 @@ namespace l15::inscribeit {
 
 class SwapInscriptionBuilder : public ContractBuilder
 {
-    static const uint32_t m_protocol_version = 1;
+public:
+    enum SwapPhase {
+        OrdTerms,
+        OrdCommitSig,
+        FundsTerms,
+        FundsCommitSig,
+        MarketPayoffTerms,
+        MarketPayoffSig,
+        OrdSwapSig,
+        FundsSwapSig,
+        MarketSwapSig,
+    };
+private:
+    static const uint32_t m_protocol_version;
 
     CAmount m_ord_price;
-    CAmount m_market_fee;
+    std::optional<CAmount> m_market_fee;
 
     std::optional<xonly_pubkey> m_swap_script_pk_A;
     std::optional<xonly_pubkey> m_swap_script_pk_B;
@@ -26,52 +39,89 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<uint32_t> m_ord_nout;
     std::optional<CAmount> m_ord_amount;
 
-    std::optional<xonly_pubkey> m_ord_utxo_pk;
-    std::optional<signature> m_ord_utxo_sig;
+    std::optional<CAmount> m_ord_commit_mining_fee_rate;
+    std::optional<signature> m_ord_commit_sig;
 
     std::optional<seckey> m_funds_unspendable_key_factor;
     std::optional<std::string> m_funds_txid;
     std::optional<uint32_t> m_funds_nout;
     std::optional<CAmount> m_funds_amount;
 
-    std::optional<xonly_pubkey> m_funds_utxo_pk;
-    std::optional<signature> m_funds_utxo_sig;
+    std::optional<signature> m_funds_commit_sig;
+
+    std::optional<signature> m_ord_swap_sig_A;
+    std::optional<signature> m_ord_swap_sig_M;
+
+    std::optional<signature> m_funds_swap_sig_B;
+    std::optional<signature> m_funds_swap_sig_M;
+    std::optional<seckey> m_swap_preimage;
+
+    std::optional<seckey> m_ordpayoff_unspendable_key_factor;
+    std::optional<signature> m_ordpayoff_sig;
+
 
     std::optional<CMutableTransaction> mOrdCommitTx;
-    std::optional<CMutableTransaction> mOrdPayOffTx;
+    std::optional<CMutableTransaction> mOrdPaybackTx;
     std::optional<CMutableTransaction> mFundsCommitTx;
-    std::optional<CMutableTransaction> mFundsPayOffTx;
+    std::optional<CMutableTransaction> mFundsPaybackTx;
+
+    std::optional<CMutableTransaction> mSwapTx;
+    std::optional<CMutableTransaction> mOrdPayoffTx;
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdCommitTapRoot() const;
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTapRoot() const;
+    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdTransferTapRoot() const;
+
+    CMutableTransaction MakeSwapTx(bool with_funds_in);
+
+    const CMutableTransaction& GetOrdCommitTx();
+    const CMutableTransaction& GetFundsCommitTx();
+    const CMutableTransaction& GetSwapTx();
+    const CMutableTransaction& GetPayoffTx();
 
 public:
-    static const std::string name_ord_utxo_txid;
-    static const std::string name_ord_utxo_nout;
-    static const std::string name_ord_utxo_amount;
-    static const std::string name_ord_unspendable_key_factor;
-    static const std::string name_ord_utxo_pk_A;
-    static const std::string name_ord_utxo_sig_A;
+    static const std::string name_ord_price;
+    static const std::string name_market_fee;
 
-    static const std::string name_funds_utxo_txid;
-    static const std::string name_funds_utxo_nout;
-    static const std::string name_funds_utxo_amount;
-    static const std::string name_funds_unspendable_key_factor;
-    static const std::string name_funds_utxo_pk_B;
-    static const std::string name_funds_utxo_sig_B;
-
+    static const std::string name_swap_script_pk_A;
+    static const std::string name_swap_script_pk_B;
     static const std::string name_swap_script_pk_M;
-    static const std::string name_swap_hold_pk_M;
-    static const std::string name_swap_fee_pk_M;
+    static const std::string name_swap_hash;
 
-    SwapInscriptionBuilder() = default;
+    static const std::string name_ord_unspendable_key_factor;
+    static const std::string name_ord_txid;
+    static const std::string name_ord_nout;
+    static const std::string name_ord_amount;
+
+    static const std::string name_ord_commit_mining_fee_rate;
+    static const std::string name_ord_commit_sig;
+
+    static const std::string name_funds_unspendable_key_factor;
+    static const std::string name_funds_txid;
+    static const std::string name_funds_nout;
+    static const std::string name_funds_amount;
+
+    static const std::string name_funds_commit_sig;
+
+    static const std::string name_ord_swap_sig_A;
+    static const std::string name_ord_swap_sig_M;
+
+    static const std::string name_swap_preimage;
+    static const std::string name_funds_swap_sig_B;
+    static const std::string name_funds_swap_sig_M;
+
+    static const std::string name_ordpayoff_unspendable_key_factor;
+    static const std::string name_ordpayoff_sig;
+    
+
+    SwapInscriptionBuilder(): m_ord_price(0), m_market_fee(0) {}
     SwapInscriptionBuilder(const SwapInscriptionBuilder&) = default;
     SwapInscriptionBuilder(SwapInscriptionBuilder&&) noexcept = default;
 
+    explicit SwapInscriptionBuilder(const std::string& chain_mode, const std::string& ord_price, const std::string& market_fee);
+
     SwapInscriptionBuilder& operator=(const SwapInscriptionBuilder& ) = default;
     SwapInscriptionBuilder& operator=(SwapInscriptionBuilder&& ) noexcept = default;
-
-    explicit SwapInscriptionBuilder(const std::string& chain_mode) : ContractBuilder(chain_mode) {};
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
@@ -99,13 +149,14 @@ public:
     std::string GetOrdUnspendableKeyFactor() const { return hex(m_ord_unspendable_key_factor.value()); }
     void SetOrdUnspendableKeyFactor(std::string v) { m_ord_unspendable_key_factor = unhex<seckey>(v); }
 
-    std::string GetOrdUtxoPubKey() const { return hex(m_ord_utxo_pk.value()); }
-    void SetOrdUtxoPubKey(std::string v) { m_ord_utxo_pk = unhex<xonly_pubkey>(v); }
+    std::string GetOrdCommitMiningFeeRate() const { return FormatAmount(m_ord_commit_mining_fee_rate.value()); }
+    void SetOrdCommitMiningFeeRate(std::string v) { m_ord_commit_mining_fee_rate = ParseAmount(v); }
 
-    std::string GetOrdUtxoSig() const { return hex(m_ord_utxo_sig.value()); }
-    void SetOrdUtxoSig(std::string v) { m_ord_utxo_sig = unhex<signature>(v); }
+    std::string GetOrdCommitSig() const { return hex(m_ord_commit_sig.value()); }
+    void SetOrdCommitSig(std::string v) { m_ord_commit_sig = unhex<signature>(v); }
 
     void SignOrdCommitment(std::string sk);
+    void SignOrdSwap(std::string sk);
     void SignOrdPayBack(std::string sk);
 
 
@@ -121,25 +172,29 @@ public:
     std::string GetFundsUnspendableKeyFactor() const { return hex(m_funds_unspendable_key_factor.value()); }
     void SetFundsUnspendableKeyFactor(std::string v) { m_funds_unspendable_key_factor = unhex<seckey>(v); }
 
-    std::string GetFundsFundsUtxoPubKey() const { return hex(m_funds_utxo_pk.value()); }
-    void SetFundsUtxoPubKey(std::string v) { m_funds_utxo_pk = unhex<xonly_pubkey>(v); }
 
-    std::string GetFundsUtxoSig() const { return hex(m_funds_utxo_sig.value()); }
-    void SetFundsUtxoSig(std::string v) { m_funds_utxo_sig = unhex<signature>(v); }
+    std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
+    void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }
 
     void SignFundsCommitment(std::string sk);
+    void SignFundsSwap(std::string sk);
     void SignFundsPayBack(std::string sk);
 
+    void MarketSignOrdPayoffTx(std::string sk);
+    void MarketSignSwap(std::string preimage, std::string sk);
 
-    string Serialize();
+    void CheckContractTerms(SwapPhase phase);
+    string Serialize(SwapPhase phase);
+    void Deserialize(const string& data);
 
-    void Deserialize(string hex_data);
+    string OrdCommitRawTransaction();
+    string OrdPayBackRawTransaction();
 
-    string OrdCommitRawTransaction() const;
-    string OrdPayBackRawTransaction() const;
+    string FundsCommitRawTransaction();
+    string FundsPayBackRawTransaction();
 
-    string FundsCommitRawTransaction() const;
-    string FundsPayBackRawTransaction() const;
+    string OrdSwapRawTransaction();
+    string OrdPayoffRawTransaction();
 };
 
 }
