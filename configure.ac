@@ -173,13 +173,11 @@ if test "$python_module" = "yes"; then
     if test -n "$PYTHON3_CONFIG"; then
         PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
         PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
-        PYTHON_CPPFLAGS=`$PYTHON3_CONFIG --cflags`
     else
         AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
     fi
     AC_SUBST(PYTHON_LIBS)
     AC_SUBST(PYTHON_LDFLAGS)
-    AC_SUBST(PYTHON_CPPFLAGS)
 
     AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
@@ -379,7 +377,7 @@ echo
 echo "  target os        = $host_os"
 echo "  build os         = $build_os"
 echo
-echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS $PYTHON_CPPFLAGS"
+echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS"
 echo "  CXX              = $CXX"
 echo "  CXXFLAGS         = $CXXFLAGS"
 echo "  LDFLAGS          = $LDFLAGS $ZMQ_LDFLAGS"
