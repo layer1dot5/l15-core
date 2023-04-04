@@ -8,7 +8,9 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
- -I$(top_srcdir)/contrib/cex\
+ -I$(top_srcdir)/contrib/cex \
+ -I$(top_srcdir)/src/inscribeit \
+ -I$(top_srcdir)/src/python_binding \
  $(PYTHON_CPPFLAGS)
 
 SWIG_SOURCES_CPP = \
@@ -33,7 +35,7 @@ AM_LDFLAGS = -L$(top_builddir)/node/src \
 lib_LTLIBRARIES = _libl15-core-pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
+_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC -fexceptions
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -lpython3.10 -Wl,--no-undefined
 
 _libl15_core_pybind_la_LIBADD = \

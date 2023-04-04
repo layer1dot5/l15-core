@@ -11,7 +11,7 @@ public:
     explicit Error(std::string&& details) noexcept : m_details(move(details)) {}
     ~Error() override = default;
 
-    const char* what() const noexcept override  = 0;
+    const char* what() const noexcept override = 0;
     virtual const char* details() const noexcept { return m_details.c_str(); }
 };
 
