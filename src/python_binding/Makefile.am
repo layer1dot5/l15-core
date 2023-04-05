@@ -35,7 +35,7 @@ AM_LDFLAGS = -L$(top_builddir)/node/src \
 lib_LTLIBRARIES = _libl15-core-pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC -fexceptions
+_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC -fexceptions -frtti
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -lpython3.10 -Wl,--no-undefined
 
 _libl15_core_pybind_la_LIBADD = \

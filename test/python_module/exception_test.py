@@ -19,7 +19,7 @@ class MyTestCase(unittest.TestCase):
             l15.CreateInscriptionBuilder(network)
             self.fail("exception was not thrown")
         except Exception as e:
-            self.assertEqual(e.args[0], network)
+            self.assertEqual(network, e.args[0])
 
 
 if __name__ == '__main__':

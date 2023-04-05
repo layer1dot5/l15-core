@@ -4,7 +4,7 @@
 
 namespace l15 {
 
-class Error : std::exception {
+class Error : public std::exception {
     const std::string m_details;
 public:
     Error() noexcept = default;
