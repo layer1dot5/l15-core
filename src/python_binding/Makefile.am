@@ -8,13 +8,9 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
- -I$(top_srcdir)/contrib/cex\
+ -I$(top_srcdir)/contrib/cex \
+ -I$(top_srcdir)/src/inscribeit \
  $(PYTHON_CPPFLAGS)
-
-SWIG_SOURCES_CPP = \
- $(top_srcdir)/node/src/support/cleanse.cpp \
- $(top_srcdir)/node/src/bech32.cpp \
- $(top_srcdir)/node/src/primitives/transaction.cpp
 
 SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i
@@ -25,7 +21,7 @@ BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
 EXTRA_DIST = $(SWIG_SOURCES)
 
 $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
-	$(SWIG) -c++ -python -o $@ $<
+	$(SWIG) -I$(top_srcdir)/src/inscribeit -c++ -python -o $@ $<
 
 AM_LDFLAGS = -L$(top_builddir)/node/src \
              -L$(top_builddir)/node/src/crypto
@@ -33,8 +29,9 @@ AM_LDFLAGS = -L$(top_builddir)/node/src \
 lib_LTLIBRARIES = _libl15-core-pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS) -fPIC
-_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -lpython3.10 -Wl,--no-undefined
+_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
+_libl15_core_pybind_la_CPPFLAGS = $(PYTHON_CPPFLAGS)
+_libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -Wl,--no-undefined
 
 _libl15_core_pybind_la_LIBADD = \
     $(top_builddir)/src/core/libl15-core.la \
@@ -43,8 +40,7 @@ _libl15_core_pybind_la_LIBADD = \
     $(top_builddir)/node/src/libbitcoinconsensus.la \
     $(top_builddir)/node/src/libunivalue.la \
     $(top_builddir)/src/inscribeit/libl15-inscribeit.la \
-    $(PYTHON_LIBS) \
-    $(BOOST_FILESYSTEM_LIB)
+    $(PYTHON_LIBS)
 
 install-completed-library:
 	cp $(srcdir)/__init__.py $(top_builddir)/src/python_binding/

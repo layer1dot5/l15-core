@@ -8,7 +8,7 @@
 %template(StringVector) std::vector<std::string>;
 
 %{
-#include "../../src/inscribeit/create_inscription.hpp"
+#include "create_inscription.hpp"
 
 const std::string build_time = __DATE__ " " __TIME__;
 
@@ -17,7 +17,7 @@ const std::string Version() {
 }
 %}
 
-%include "../../src/inscribeit/create_inscription.hpp"
+%include "create_inscription.hpp"
 
 %inline %{
     const std::string Version();

@@ -169,16 +169,6 @@ if test "$python_module" = "yes"; then
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
 
-    AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
-    if test -n "$PYTHON3_CONFIG"; then
-        PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
-        PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
-    else
-        AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
-    fi
-    AC_SUBST(PYTHON_LIBS)
-    AC_SUBST(PYTHON_LDFLAGS)
-
     AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
 
@@ -188,7 +178,6 @@ AC_ARG_ENABLE([debug],
                     [use compiler flags and macros suited for debugging (disabled by default)])],
     [enable_debug=$enableval],
     [enable_debug=no])
-
 
 dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
 dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
