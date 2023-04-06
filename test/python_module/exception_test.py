@@ -15,26 +15,18 @@ class ExceptionsTestCase(unittest.TestCase):
             self.fail("Library cannot be loaded")
 
     def test_std_exception(self):
-        network = "wrongNetwork"
-        try:
-            l15.CreateInscriptionBuilder(network)
-            self.fail("exception was not thrown")
-        except Exception as e:
-            self.assertEqual("wrong chain mode: " + network, e.args[0])
+        networkMode = "wrongNetwork"
+        with self.assertRaisesRegex(Exception, "wrong chain mode: " + networkMode):
+            l15.CreateInscriptionBuilder(networkMode)
 
     def test_l15_exception(self):
-        try:
+        with self.assertRaisesRegex(Exception, "No destination public key is provided"):
             builder = l15.CreateInscriptionBuilder("regtest")
 
             builder.UTXO("abcdefgh", 1, "1").\
                 Data("text", hexlify("content".encode()).decode()).\
                 FeeRate("0.00005").\
                 Sign("34234234")
-
-            self.fail("exception was not thrown")
-        except Exception as e:
-            self.assertEqual("No destination public key is provided", e.args[0])
-
 
 if __name__ == '__main__':
     unittest.main()
