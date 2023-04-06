@@ -1,5 +1,7 @@
 # L15 python module
 
+__TOC__
+
 ## Importing example
 
 ```python
