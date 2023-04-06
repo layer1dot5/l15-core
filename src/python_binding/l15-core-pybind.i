@@ -29,7 +29,6 @@ const std::string Version() {
     try {
         $action
         } catch (std::exception& e) {
-            auto exceptionCopy = std::make_exception_ptr(e);
             PyErr_SetString(PyExc_Exception, e.what());
             SWIG_fail;
         }
