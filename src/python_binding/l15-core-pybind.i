@@ -11,14 +11,12 @@
 
 %template(StringVector) std::vector<std::string>;
 %template(SharedL15Error) std::shared_ptr<l15::Error>;
-%template(SharedError) std::shared_ptr<python_binding::Exception>;
 
 %{
 
 #include "create_inscription.hpp"
 #include "contract_builder.hpp"
 #include "common_error.hpp"
-#include "python_exception.hpp"
 
 const std::string build_time = __DATE__ " " __TIME__;
 
