@@ -9,18 +9,11 @@
 %apply unsigned int { uint32_t }
 %apply unsigned long long { uint64_t }
 
-%include "../../src/common/common_error.hpp"
-
 %template(StringVector) std::vector<std::string>;
 %template(SharedL15Error) std::shared_ptr<l15::Error>;
 %template(SharedError) std::shared_ptr<python_binding::Exception>;
 
 %{
-
-#include <typeinfo>
-#include <iostream>
-
-#include <cxxabi.h>
 
 #include "create_inscription.hpp"
 #include "contract_builder.hpp"
@@ -39,7 +32,6 @@ const std::string Version() {
         $action
         } catch (std::exception& e) {
             auto exceptionCopy = std::make_exception_ptr(e);
-            const std::type_info &t = typeid(e);
             PyErr_SetString(PyExc_Exception, e.what());
             SWIG_fail;
         }

@@ -10,8 +10,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/src/inscribeit \
- -I$(top_srcdir)/src/python_binding \
- $(PYTHON_CPPFLAGS)
+ -I$(top_srcdir)/src/python_binding
 
 SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i
@@ -22,7 +21,7 @@ BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
 EXTRA_DIST = $(SWIG_SOURCES)
 
 $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
-	$(SWIG) -I$(top_srcdir)/src/inscribeit -c++ -python -o $@ $<
+	$(SWIG) -I$(top_srcdir)/src/common -I$(top_srcdir)/src/inscribeit -c++ -python -o $@ $<
 
 AM_LDFLAGS = -L$(top_builddir)/node/src \
              -L$(top_builddir)/node/src/crypto
@@ -31,7 +30,7 @@ lib_LTLIBRARIES = _libl15-core-pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
 _libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
-_libl15_core_pybind_la_CPPFLAGS = $(PYTHON_CPPFLAGS)
+_libl15_core_pybind_la_CPPFLAGS = $(AM_CPPFLAGS) $(PYTHON_CPPFLAGS)
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -Wl,--no-undefined
 
 _libl15_core_pybind_la_LIBADD = \
