@@ -45,7 +45,7 @@ const std::string Version() {
         }
 }
 
-%include "../../src/inscribeit/create_inscription.hpp"
+%include "create_inscription.hpp"
 
 %inline %{
     const std::string Version();
