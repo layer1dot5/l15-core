@@ -23,7 +23,6 @@ constexpr std::array<std::array<char, 2>, 256> CreateByteToHexMap()
 
 }
 
-std::array<std::array<char, 2>, 256> byte_to_hex = CreateByteToHexMap();
-
+const std::array<std::array<char, 2>, 256> byte_to_hex = CreateByteToHexMap();
 
 }

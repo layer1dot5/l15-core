@@ -1,6 +1,10 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "HidingNonVirtualFunction"
+
 #include <vector>
+#include <iterator>
 #include <stdexcept>
 
 namespace cex {
@@ -33,12 +37,10 @@ private:
     template <typename T>
     T&& check_resize(T&& b) noexcept {
         if (b.size() != SIZE) b.resize(SIZE);
-        return std::move(b);
+        return std::forward<T>(b);
     }
 
 public:
-
-
     fixsize_vector() noexcept : base(SIZE) {}
     explicit fixsize_vector(const allocator_type& a) noexcept : base(SIZE, a) {}
     explicit fixsize_vector(const value_type& v) noexcept : base(SIZE, v) {}
@@ -53,18 +55,28 @@ public:
     fixsize_vector(const fixsize_vector& v, const allocator_type& a) : base(v, a) {}
     fixsize_vector(fixsize_vector&& v, const allocator_type& a) : base(std::move(v), a) {}
 
-    fixsize_vector(std::initializer_list<value_type> l, const allocator_type& a = allocator_type()) : base(check_size(l)) {}
+    fixsize_vector(std::initializer_list<value_type> l, const allocator_type& a = allocator_type()) : base(check_size(l), a) {}
 
-    template<typename I, typename = std::_RequireInputIter<I>>
+    template<std::input_iterator I>
     fixsize_vector(I f, I l, const allocator_type& a = allocator_type()) : base(SIZE, a)
     { assign(f, l); }
 
     ~fixsize_vector() noexcept = default;
 
     fixsize_vector& operator=(const fixsize_vector& x) { base::operator=(x); return *this; }
+
+    template<typename AllocX>
+    fixsize_vector& operator=(const fixsize_vector<value_type, SIZE, AllocX>& x)
+    { assign(x.cbegin(), x.cend()); return *this; }
+
     fixsize_vector& operator=(fixsize_vector&& x) noexcept { base::operator=(std::move(x)); return *this; }
 
     fixsize_vector& operator=(const base& x) { base::operator=(check_size(x)); return *this; }
+
+    template<typename AllocX>
+    fixsize_vector& operator=(const std::vector<value_type, AllocX>& x)
+    { assign(x.cbegin(), x.cend()); return *this; }
+
     fixsize_vector& operator=(base&& x) noexcept { base::operator=(check_resize(std::move(x))); return *this; }
 
     fixsize_vector& operator=(std::initializer_list<value_type> l) { base::operator=(check_size(l)); return *this; }
@@ -72,16 +84,20 @@ public:
     void assign(const value_type& v) { assign(SIZE, v); }
     void assign(std::initializer_list<value_type> l) { base::assign(check_size(l)); }
 
-    template<typename I, typename = std::_RequireInputIter<I>>
+    template<std::input_iterator I>
     void assign(I f, I l)
     {
         if (std::distance(f, l) != SIZE) throw std::out_of_range("Wrong size");
         base::assign(f, l);
     }
 
+    base& as_vector() { return reinterpret_cast<base&>(*this); }
+    const base& as_vector() const { return reinterpret_cast<base&>(*this); }
+
     void swap(base& x) { base::swap(check_size(x)); }
 
-    operator std::vector<value_type, allocator_type>&(){ return reinterpret_cast<std::vector<value_type, allocator_type>&>(*this); }
+    void reserve(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
+    void resize(size_type n) { if (n != SIZE) throw std::out_of_range("Wrong size"); }
 
     using base::begin;
     using base::cbegin;
@@ -128,3 +144,5 @@ STREAM& operator >> (STREAM& s, fixsize_vector<T, SIZE, Alloc>& x)
 { return s.read(x.data(), SIZE); }
 
 }
+
+#pragma clang diagnostic pop

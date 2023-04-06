@@ -14,12 +14,14 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/tools \
  -I$(top_srcdir)/src/api \
- -I$(top_srcdir)/src/core
+ -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/src/inscribeit
 
 
 AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto
 
 L15_LIBS = \
+$(top_builddir)/src/inscribeit/libl15-inscribeit.la \
 $(top_builddir)/src/api/libl15-api.la \
 $(top_builddir)/src/core/libl15-core.la \
 $(top_builddir)/src/tools/libl15-tools.la \
@@ -29,29 +31,16 @@ $(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_avx2.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_x86_shani.la \
 $(top_builddir)/node/src/crypto/libbitcoin_crypto_sse41.la \
-$(top_builddir)/contrib/secp256k1/libsecp256k1.la \
+$(top_builddir)/node/src/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_threshold_sign test_taptree test_taproot test_node
-#test_ptlc
+bin_PROGRAMS = test_create_inscription test_swap_inscription
 
 
-test_taptree_SOURCES = test_taptree.cpp
-test_taptree_LDADD = $(L15_LIBS)
+test_create_inscription_SOURCES = test_create_inscription.cpp
+test_create_inscription_LDADD = $(L15_LIBS)
 
-
-test_taproot_SOURCES = test_taproot.cpp
-test_taproot_LDADD = $(L15_LIBS)
-
-
-#test_ptlc_SOURCES = test_ptlc.cpp
-#test_ptlc_LIBADD = $(L15_LIBS)
-
-
-test_node_SOURCES = test_node.cpp
-test_node_LDADD = $(L15_LIBS)
-
-test_threshold_sign_SOURCES = test_threshold_sign.cpp
-test_threshold_sign_LDADD = $(L15_LIBS) $(ZMQ_LDFLAGS) $(ZMQ_LIBS)
+test_swap_inscription_SOURCES = test_swap_inscription.cpp
+test_swap_inscription_LDADD = $(L15_LIBS)
 

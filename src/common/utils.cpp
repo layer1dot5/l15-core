@@ -5,6 +5,8 @@
 #include "univalue.h"
 #include "primitives/transaction.h"
 
+#include "common_error.hpp"
+
 #include <iostream>
 
 namespace l15 {
@@ -80,5 +82,33 @@ uint32_t GetCsvInBlocks(uint32_t blocks)
     return blocks;
 }
 
+CAmount ParseAmount(const std::string& amountstr)
+{
+    CAmount amount;
+    if (!ParseFixedPoint(amountstr, 8, &amount)) {
+        throw TransactionError(std::string("Error parsing amount: ") + amountstr);
+    }
+    return amount;
+}
+
+std::string FormatAmount(CAmount amount)
+{
+    std::ostringstream str_amount;
+    str_amount << (amount / COIN);
+    CAmount rem = amount % COIN;
+    if (rem) str_amount << '.' << rem;
+    return str_amount.str();
+}
+
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
+{
+    CAmount fee = static_cast<int64_t>(size) * fee_rate / 1024;
+    if ((fee + fee) >= input_amount) {
+        std::ostringstream buf;
+        buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
+        throw TransactionError(buf.str());
+    }
+    return input_amount - fee;
+}
 
 }

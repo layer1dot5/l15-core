@@ -8,6 +8,8 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include "util/translation.h"
+
 #include "CLI11.hpp"
 #include "common.hpp"
 #include "version.hpp"
@@ -21,6 +23,9 @@
 
 using namespace l15;
 using namespace l15::core;
+
+
+const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 const char * const CONF = "--config";
 const char * const SKEY = "--seckey,-k";

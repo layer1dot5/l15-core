@@ -1,7 +1,7 @@
 AC_PREREQ([2.69])
 
 AC_INIT([L15 Core], [m4_esyscmd_s([./version.sh])], [l2xl@protonmail.com])
-AC_CONFIG_SRCDIR([src/core/chain_api.cpp])
+AC_CONFIG_SRCDIR([src/core/channel_keys.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
@@ -16,6 +16,12 @@ else
   CXXFLAGS_overridden=
 fi
 
+if test "x${CFLAGS}" != "x"; then
+  CFLAGS_overridden=yes
+else
+  CFLAGS_overridden=
+fi
+
 if test "x${CPPFLAGS}" != "x"; then
   CPPFLAGS_overridden=yes
 else
@@ -28,6 +34,13 @@ else
   LDFLAGS_overridden=
 fi
 
+compiler_name=`basename "$CC"`
+if test "x$compiler_name" = "xemcc"; then
+    WITH_EMSCRIPTEN=yes
+else
+    WITH_EMSCRIPTEN=no
+fi
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
@@ -36,52 +49,151 @@ AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
-dnl Eneble PyBind11 integrations
-AC_ARG_WITH([pybind11],
-            [AS_HELP_STRING([--with-pybind],[with python integration module])],
-            [with_pybind=yes],
-            [with_pybind=no])
+build_tools=yes
+build_services=yes
+build_apis=yes
+build_inscribeit=no
 
-if test "$with_pybind" = "yes"; then
-    AC_CHECK_PROGS(PYTHON, [python3 python], [])
-    if test "x$PYTHON" = "x"; then
-        AC_MSG_ERROR([python is required to build with python bindings])
+dnl Enable Python integrations
+AC_ARG_ENABLE([python-module],
+            [AS_HELP_STRING([--enable-python-module],[Enable API binding module for python (disabled by default)])],
+            [
+                if test "$enableval" = "yes"; then
+                    if test "x$WITH_EMSCRIPTEN" = "xyes"; then
+                        AC_MSG_ERROR([python binding cannot be built with emscripten])
+                    fi
+                    build_inscribeit=yes
+                    python_module=yes
+                else
+                    python_module=no
+                fi
+            ],
+            [python_module=no])
+
+AC_ARG_ENABLE([wasm-module],
+              [AS_HELP_STRING([--enable-wasm-module], [Enable plugin API binding for WebAssembly (disabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    wasm_module=yes
+                    plugin_api=yes
+                    build_tools=no
+                    build_services=no
+                    build_apis=no
+                fi
+              ],
+              [wasm_module=no])
+
+if test "$python_module" = "yes" "$wasm_module" = "yes"; then
+    AC_MSG_ERROR([Webassembly module and Python module cannot be build simultaneously])
+fi
+
+AC_ARG_ENABLE([plugin-api],
+              [AS_HELP_STRING([--enable-plugin-api], [Enable plugin API build (disabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    plugin_api=yes
+                    build_tools=no
+                    build_services=no
+                    build_apis=no
+                fi
+              ],
+              [
+                if test "$wasm_module" = "yes" -o "$python_module" = "yes" ; then
+                  AC_MSG_ERROR([Wasm module and Python module cannot be build with disabled plugin-api])
+                fi
+                plugin_api=no
+              ])
+
+AC_ARG_ENABLE([build-tools],
+              [AS_HELP_STRING([--enable-build-tools], [Enable tools build (enabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    build_tools=yes
+                    build_services=yes
+                    build_apis=yes
+                fi
+              ],
+              [])
+
+AC_ARG_ENABLE([build-services],
+              [AS_HELP_STRING([--enable-build-services], [Enable services build (enabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    build_services=yes
+                    build_apis=yes
+                else
+                    build_services=no
+                    build_tools=no
+                fi
+              ],
+              [])
+
+AC_ARG_ENABLE([build-apis],
+              [AS_HELP_STRING([--enable-build-apis], [Enable APIs build (enabled by default)])],
+              [
+                if test "$enableval" = "yes"; then
+                    build_apis=yes
+                else
+                    build_apis=no
+                    build_services=no
+                    build_tools=no
+                fi
+              ],
+              [])
+
+AC_ARG_ENABLE([build-inscribeit],
+              [AS_HELP_STRING([--enable-build-inscribeit], [Enable inscribeit API build (disabled by default)])],
+              [build_inscribeit=yes]
+              [])
+
+
+if test "$plugin_api" = "yes"; then
+    if test "$build_apis" = "yes"; then
+        AC_MSG_ERROR([Cannot enable plugin API with general APIs])
     fi
+fi
 
+AM_CONDITIONAL([BUILD_APIS], [test "$build_apis" = "yes"])
+AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
+AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
+AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
+AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
+AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$python_module" = "yes"])
+AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$wasm_module" = "yes"])
+
+if test "$python_module" = "yes"; then
+    AM_PATH_PYTHON([3])
     AC_MSG_NOTICE([python is $PYTHON])
 
-    PYBIND_CPPFLAGS=`$PYTHON -m pybind11 --includes`
+    AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
+    AX_PYTHON_DEVEL
+    AX_SWIG_PYTHON
 
-    AC_MSG_NOTICE([PYBIND_CPPFLAGS = $PYBIND_CPPFLAGS])
-
-    ax_check_pybind_cppflags=$CPPFLAGS
-
-    AC_LANG_SAVE
-    AC_LANG([C++])
-
-    CPPFLAGS="$CPPFLAGS $PYBIND_CPPFLAGS"
-    AC_CHECK_HEADER([pybind11/pybind11.h], [], [AC_MSG_ERROR([PyBind11 C++ header are required but not found])])
-    CPPFLAGS=$ax_check_pybind_cppflags
-
-    AC_LANG_RESTORE
-
-    AC_SUBST(PYBIND_CPPFLAGS)
+    AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
-                    [use compiler flags and macros suited for debugging (default is no)])],
+                    [use compiler flags and macros suited for debugging (disabled by default)])],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
+dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
+dnl with "-O0 -g3 -g -O2".
+if test "$CXXFLAGS_overridden" != "yes"; then
+      CXXFLAGS=""
+fi
+if test "$CFLAGS_overridden" != "yes"; then
+      CFLAGS=""
+fi
+if test "$LDLAGS_overridden" != "yes"; then
+      LDLAGS=""
+fi
+
+
 if test "$enable_debug" = "yes"; then
-  dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
-  dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
-  dnl with "-O0 -g3 -g -O2".
-  if test "$CXXFLAGS_overridden" != "yes"; then
-  CXXFLAGS=""
-  fi
 
   dnl Disable all optimizations
   AX_CHECK_COMPILE_FLAG([-O0], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"], [], [$CXXFLAG_WERROR])
@@ -95,23 +207,33 @@ if test "$enable_debug" = "yes"; then
 
   AX_CHECK_PREPROC_FLAG([-DDEBUG], [DEBUG_CPPFLAGS="$DEBUG_CPPFLAGS -DDEBUG"], [], [$CXXFLAG_WERROR])
   AX_CHECK_COMPILE_FLAG([-ftrapv], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -ftrapv"], [], [$CXXFLAG_WERROR])
+
 fi
 
 # Checks for libraries.
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
-AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
-CC="$PTHREAD_CC"
-CXX="$PTHREAD_CXX"
-LIBS="$PTHREAD_LIBS $LIBS"
-CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
-CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
-CXXFLAGS="$DEBUG_CXXFLAGS $PTHREAD_CFLAGS $CXXFLAGS"
+if test "$wasm_module" = "yes"; then
+  CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
+  CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
+  LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
+else
+  AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
-AX_TBB
-AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
+  CC="$PTHREAD_CC"
+  CXX="$PTHREAD_CXX"
+  LIBS="$PTHREAD_LIBS $LIBS"
+  CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
+  CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
+  CXXFLAGS="$DEBUG_CXXFLAGS $PTHREAD_CFLAGS $CXXFLAGS"
 
+  AX_TBB
+fi
+
+if test "$plugin_api" = "no"; then
+  AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
+fi
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT32_T
@@ -126,17 +248,29 @@ AC_CHECK_FUNCS([dup2 memset pow sqrt strtoul strtoull])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/common/Makefile
-                 src/tools/Makefile
                  src/core/Makefile
-                 src/service/Makefile
-                 src/app/Makefile
                  test/Makefile
-                 test/core/Makefile
                  test/p2p/Makefile
-                 test/service/Makefile
-                 contrib/Makefile
-                 pybind/Makefile])
+                 contrib/Makefile])
 
+if test "$build_tools" = "yes"; then
+    AC_CONFIG_FILES([src/tools/Makefile])
+fi
+
+if test "$build_services" = "yes"; then
+    AC_CONFIG_FILES([src/service/Makefile test/service/Makefile])
+fi
+
+if test "$build_apis" = "yes"; then
+    AC_CONFIG_FILES([src/api/Makefile test/core/Makefile])
+fi
+
+if test "$build_inscribeit" = "yes"; then
+    AC_CONFIG_FILES([src/inscribeit/Makefile])
+    if test "$build_tools" = "yes"; then
+        AC_CONFIG_FILES([test/inscribeit/Makefile])
+    fi
+fi
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
 dnl result, they leak into subdir's configure and crazy things may happen.
@@ -167,13 +301,38 @@ dnl so that is the reason to use more flexible AX_SUBDIRS_CONFIGURE.
 dnl Unfortunately AX_SUBDIRS_CONFIGURE does not allow 'autoreconf' be called recursively for all subprojects (just does it for 'configure' script only)
 dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh', placed at the source tree root.
 
+if test "$plugin_api" = "yes"; then
 AX_SUBDIRS_CONFIGURE(
     [node],
-    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
+    [[--disable-shared], [--enable-c++20],
+     [--with-libs], [--without-sqlite], [--without-bdb], [--without-miniupnpc], [--without-natpmp],
+     [--without-qrencode], [--without-libmultiprocess], [--without-mpgen],
+     [--without-zmq], [--without-utils], [--without-daemon], [--without-gui],
+     [--without-experimental-kernel-lib],
+     [--disable-wallet], [--disable-usdt], [--disable-upnp-default], [--disable-natpmp-default],
+     [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
+     [--disable-fuzz], [--disable-fuzz-binary], [--disable-asm], [--disable-multiprocess], [--disable-external-signer],
+     [--disable-experimental-util-chainstate], [--disable-hardening]],
+    [[--disable-tests], [--disable-bench], [--with-pic]],
+    [[--disable-examples]],
+    [])
+
+AX_SUBDIRS_CONFIGURE(
+    [contrib/secp256k1],
+    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-schnorrsig]],
+    [[--disable-tests], [--disable-benchmark], [--disable-examples], [--with-pic]],
+    [],
+    [[--disable-bench]])
+
+
+else
+
+AX_SUBDIRS_CONFIGURE(
+    [node],
+    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-hardening], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
     [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
     [],
     [])
-
 
 AX_SUBDIRS_CONFIGURE(
     [contrib/secp256k1],
@@ -182,24 +341,36 @@ AX_SUBDIRS_CONFIGURE(
     [],
     [[--disable-bench]])
 
+fi
+
+
+
 AC_OUTPUT
 
 echo
 echo "  ==============================================================================================================="
 echo "  L15 config result:"
-echo "  build version   = $VERSION"
+echo "  build version    = $VERSION"
 echo
-echo "  debug enabled   = $enable_debug"
-echo "  werror          = $enable_werror"
+echo "  debug enabled    = $enable_debug"
+echo "  werror           = $enable_werror"
 echo
-echo "  target os       = $host_os"
-echo "  build os        = $build_os"
+echo "  build tools      = $build_tools"
+echo "  build services   = $build_services"
+echo "  build apis       = $build_apis"
+echo "  build inscribeit = $build_inscribeit"
+echo "  plugin api       = $plugin_api"
+echo "  python module    = $python_module"
+echo "  wasm module      = $wasm_module"
 echo
-echo "  CPPFLAGS        = $CPPFLAGS $ZMQ_CPPFLAGS $PYBIND_CPPFLAGS"
-echo "  CXX             = $CXX"
-echo "  CXXFLAGS        = $CXXFLAGS"
-echo "  LDFLAGS         = $LDFLAGS $ZMQ_LDFLAGS"
-echo "  LIBS            = $LIBS $ZMQ_LIBS"
-echo "  ARFLAGS         = $ARFLAGS"
+echo "  target os        = $host_os"
+echo "  build os         = $build_os"
+echo
+echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS"
+echo "  CXX              = $CXX"
+echo "  CXXFLAGS         = $CXXFLAGS"
+echo "  LDFLAGS          = $LDFLAGS $ZMQ_LDFLAGS"
+echo "  LIBS             = $LIBS $ZMQ_LIBS"
+echo "  ARFLAGS          = $ARFLAGS"
 echo "  ==============================================================================================================="
 echo

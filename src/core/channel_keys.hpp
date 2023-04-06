@@ -4,11 +4,14 @@
 #include "secp256k1_extrakeys.h"
 
 #include "random.h"
+#include "interpreter.h"
 
 #include "common.hpp"
 #include "common_error.hpp"
 
 #include <optional>
+
+#include "interpreter.h"
 
 namespace l15::core {
 
@@ -24,12 +27,15 @@ class ChannelKeys
 
     void CachePubkey();
 public:
+    static secp256k1_context* GetStaticSecp256k1Context();
+    static secp256k1_xonly_pubkey unspendable_base;
+
+    explicit ChannelKeys(): m_ctx(GetStaticSecp256k1Context()), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
+    explicit ChannelKeys(seckey local_sk): m_ctx(GetStaticSecp256k1Context()), m_local_sk(std::move(local_sk)) { CachePubkey(); }
     explicit ChannelKeys(const secp256k1_context* secp256k1_ctx): m_ctx(secp256k1_ctx), m_local_sk(GetStrongRandomKey()) { CachePubkey(); }
-    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx, seckey&& local_sk): m_ctx(secp256k1_ctx), m_local_sk(std::move(local_sk)) { CachePubkey(); }
+    explicit ChannelKeys(const secp256k1_context* secp256k1_ctx, seckey local_sk): m_ctx(secp256k1_ctx), m_local_sk(std::move(local_sk)) { CachePubkey(); }
 
-    ChannelKeys(const ChannelKeys& other): m_ctx(other.m_ctx), m_local_sk(other.m_local_sk), m_local_pk(other.m_local_pk), m_pubkey_agg(other.m_pubkey_agg)
-    {}
-
+    ChannelKeys(const ChannelKeys&) = default;
     ChannelKeys(ChannelKeys &&old) noexcept: m_ctx(old.m_ctx), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
     {}
 
@@ -57,9 +63,18 @@ public:
     const xonly_pubkey& GetPubKey() const
     { return m_pubkey_agg; }
 
-    std::pair<xonly_pubkey , uint8_t> AddTapTweak(std::optional<uint256>&& merkle_root) const;
+    static seckey GetStrongRandomKey(const secp256k1_context* ctx = GetStaticSecp256k1Context()) ;
+    static xonly_pubkey CreateUnspendablePubKey(const seckey& random_factor);
 
-    seckey GetStrongRandomKey();
+    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const uint256& merkle_root);
+    std::pair<xonly_pubkey , uint8_t> AddTapTweak(const uint256& merkle_root) const;
+
+    std::pair<ChannelKeys , uint8_t> NewKeyAddTapTweak(std::optional<uint256> merkle_root) const;
+
+    signature SignSchnorr(const uint256& data) const;
+
+    signature SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> &&spent_outputs,
+                             const CScript &spend_script, int hashtype = SIGHASH_DEFAULT) const;
 };
 
 bool pubkey_less(const xonly_pubkey &, const xonly_pubkey &);

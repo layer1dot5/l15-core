@@ -1,2 +1,21 @@
-SUBDIRS = common service core app tools
+SUBDIRS = common core
 
+if BUILD_APIS
+SUBDIRS += api
+endif
+
+if BUILD_SERVICES
+SUBDIRS += service
+endif
+
+if BUILD_TOOLS
+SUBDIRS += tools
+endif
+
+if BUILD_INSCRIBEIT
+SUBDIRS += inscribeit
+endif
+
+if BUILD_PYTHON_MODULE
+SUBDIRS += python_binding
+endif
