@@ -247,7 +247,6 @@ void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
 
     auto commit_taproot = OrdCommitTapRoot();
 
-    auto commit_pubkeyscript = CScript() << 1 << get<0>(commit_taproot);
     auto payoff_pubkeyscript = CScript() << 1 << *m_swap_script_pk_A;
 
     xonly_pubkey internal_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_ord_unspendable_key_factor);
