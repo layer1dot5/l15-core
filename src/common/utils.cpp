@@ -9,6 +9,8 @@
 #include "common_error.hpp"
 
 #include <iostream>
+#include <string>
+
 
 namespace l15 {
 
@@ -93,11 +95,31 @@ CAmount ParseAmount(const std::string& amountstr)
 
 std::string FormatAmount(CAmount amount)
 {
-    std::ostringstream str_amount;
-    str_amount << (amount / COIN);
-    CAmount rem = amount % COIN;
-    if (rem) str_amount << '.' << rem;
-    return str_amount.str();
+    if (!amount) return "0";
+    static const size_t digits = std::to_string(COIN).length() - 1;
+    std::string str_amount =  std::to_string(amount);
+    std::ostringstream buf;
+    if (amount < COIN) {
+        buf << "0.";
+        for (size_t i = 0; i < (digits - str_amount.length()); ++i) buf << '0';
+        size_t print_digits = str_amount.length();
+        for (;!(amount % 10);amount /= 10) {
+            --print_digits;
+        }
+        buf << str_amount.substr(0, print_digits);
+        return buf.str();
+    }
+    else {
+        buf << str_amount.substr(0, str_amount.length() - digits) << '.' << str_amount.substr(str_amount.length() - digits);
+    }
+
+    std::string res = buf.str();
+
+    size_t cut_zeroes = 0;
+    for (auto i = res.rbegin(); i != res.rend() && *i == '0'; ++i, ++cut_zeroes) ;
+    if (res[res.length() - cut_zeroes - 1] == '.') ++cut_zeroes;
+
+    return res.substr(0, res.length() - cut_zeroes);
 }
 
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
