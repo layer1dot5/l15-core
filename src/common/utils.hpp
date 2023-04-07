@@ -16,7 +16,7 @@ namespace l15 {
 
 CAmount ParseAmount(const std::string& amountstr);
 std::string FormatAmount(CAmount amount);
-CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size);
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction&);
 
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();

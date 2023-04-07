@@ -4,10 +4,13 @@
 #include "random.h"
 #include "univalue.h"
 #include "primitives/transaction.h"
+#include "consensus.h"
 
 #include "common_error.hpp"
 
 #include <iostream>
+#include <string>
+
 
 namespace l15 {
 
@@ -69,7 +72,6 @@ CAmount GetOutputAmount(const std::string& txoutstr)
 
 uint32_t GetCsvInBlocks(uint32_t blocks)
 {
-
     if (blocks > CTxIn::SEQUENCE_LOCKTIME_MASK)
     {
         std::ostringstream buf;
@@ -93,16 +95,39 @@ CAmount ParseAmount(const std::string& amountstr)
 
 std::string FormatAmount(CAmount amount)
 {
-    std::ostringstream str_amount;
-    str_amount << (amount / COIN);
-    CAmount rem = amount % COIN;
-    if (rem) str_amount << '.' << rem;
-    return str_amount.str();
+    if (!amount) return "0";
+    static const size_t digits = std::to_string(COIN).length() - 1;
+    std::string str_amount =  std::to_string(amount);
+    std::ostringstream buf;
+    if (amount < COIN) {
+        buf << "0.";
+        for (size_t i = 0; i < (digits - str_amount.length()); ++i) buf << '0';
+        size_t print_digits = str_amount.length();
+        for (;!(amount % 10);amount /= 10) {
+            --print_digits;
+        }
+        buf << str_amount.substr(0, print_digits);
+        return buf.str();
+    }
+    else {
+        buf << str_amount.substr(0, str_amount.length() - digits) << '.' << str_amount.substr(str_amount.length() - digits);
+    }
+
+    std::string res = buf.str();
+
+    size_t cut_zeroes = 0;
+    for (auto i = res.rbegin(); i != res.rend() && *i == '0'; ++i, ++cut_zeroes) ;
+    if (res[res.length() - cut_zeroes - 1] == '.') ++cut_zeroes;
+
+    return res.substr(0, res.length() - cut_zeroes);
 }
 
-CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, size_t size)
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
-    CAmount fee = static_cast<int64_t>(size) * fee_rate / 1024;
+    size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
+    size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size) / WITNESS_SCALE_FACTOR;
+    CAmount fee = static_cast<int64_t>(vsize) * fee_rate / 1024;
     if ((fee + fee) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);

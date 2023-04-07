@@ -3,7 +3,6 @@
 
 #include "univalue.h"
 
-#include "version.h"
 #include "serialize.h"
 #include "interpreter.h"
 #include "core_io.h"
@@ -28,8 +27,6 @@ const bytevector one_tag {'\1'};
 
 
 CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data) {
-    size_t chunks = data.size() / chunk_size;
-
     CScript script;
     script << pk;
     script << OP_CHECKSIG;
@@ -55,6 +52,8 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
 
 }
 
+const uint32_t CreateInscriptionBuilder::m_protocol_version = 1;
+
 const std::string CreateInscriptionBuilder::name_utxo_txid = "utxo_txid";
 const std::string CreateInscriptionBuilder::name_utxo_nout = "utxo_nout";
 const std::string CreateInscriptionBuilder::name_utxo_amount = "utxo_amount";
@@ -66,8 +65,6 @@ const std::string CreateInscriptionBuilder::name_inscribe_script_pk = "inscribe_
 const std::string CreateInscriptionBuilder::name_inscribe_int_pk = "inscribe_int_pk";
 const std::string CreateInscriptionBuilder::name_inscribe_sig = "inscribe_sig";
 const std::string CreateInscriptionBuilder::name_destination_pk = "destination_pk";
-const std::string CreateInscriptionBuilder::name_contract_type = "contract_type";
-const std::string CreateInscriptionBuilder::name_params = "params";
 
 
 CreateInscriptionBuilder &l15::inscribeit::CreateInscriptionBuilder::UTXO(const string &txid, uint32_t nout, const std::string& amount)
@@ -198,9 +195,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
     funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
     funding_tx.vin.front().scriptWitness.stack.emplace_back(64); // Empty value is needed to obtain correct tx size
 
-    size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
-
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx_size);
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
 
     m_utxo_sig = utxo_key.SignTaprootTx(
                 funding_tx, 0,
@@ -223,14 +218,10 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
     control_block.insert(control_block.end(), inscribe_internal_key.GetLocalPubKey().begin(), inscribe_internal_key.GetLocalPubKey().end());
 
     for(uint256 &branch_hash : genesis_scriptpath)
-    {
         control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
-    }
 
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
-
-    size_t genesis_tx_size = GetSerializeSize(genesis_tx, PROTOCOL_VERSION);
-    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx_size);
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
 
     m_inscribe_script_sig = inscribe_script_key.SignTaprootTx(
             genesis_tx, 0,
@@ -288,13 +279,13 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
     dataRoot.read(data);
 
     if (dataRoot[name_contract_type].get_str() != val_create_inscription) {
-        throw std::invalid_argument("Contract type does not match");
+        throw ContractProtocolError("SwapInscription contract does not match " + dataRoot[name_contract_type].getValStr());
     }
 
     UniValue contract = dataRoot[name_params];
 
     if (contract[name_version].getInt<uint32_t>() != m_protocol_version) {
-        throw std::invalid_argument("Wrong CreateInscription contract version: " + contract[name_version].getValStr());
+        throw ContractProtocolError("Wrong SwapInscription contract version: " + contract[name_version].getValStr());
     }
 
     CheckRestoreArgs(contract);
@@ -342,12 +333,9 @@ void CreateInscriptionBuilder::RestoreTransactions()
 
     CMutableTransaction funding_tx;
     funding_tx.vin = {CTxIn(COutPoint(uint256S(*m_txid), *m_nout))};
-    funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
     funding_tx.vin.front().scriptWitness.stack.push_back(m_utxo_sig.value());
-
-    size_t funding_tx_size = GetSerializeSize(funding_tx, PROTOCOL_VERSION);
-
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx_size);
+    funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
 
     CMutableTransaction genesis_tx;
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
@@ -363,15 +351,10 @@ void CreateInscriptionBuilder::RestoreTransactions()
     control_block.insert(control_block.end(), m_inscribe_int_pk->begin(), m_inscribe_int_pk->end());
 
     for(uint256 &branch_hash : genesis_scriptpath)
-    {
         control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
-    }
 
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
-
-    size_t genesis_tx_size = GetSerializeSize(genesis_tx, PROTOCOL_VERSION);
-
-    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx_size);
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
 
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));

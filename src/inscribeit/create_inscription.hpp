@@ -15,7 +15,7 @@ namespace l15::inscribeit {
 
 class CreateInscriptionBuilder: public ContractBuilder
 {
-    static const uint32_t m_protocol_version = 1;
+    static const uint32_t m_protocol_version;
 
     std::optional<std::string> m_txid;
     std::optional<uint32_t> m_nout;
@@ -56,8 +56,6 @@ public:
     static const std::string name_inscribe_int_pk;
     static const std::string name_inscribe_sig;
     static const std::string name_destination_pk;
-    static const std::string name_contract_type;
-    static const std::string name_params;
 
     CreateInscriptionBuilder() = default;
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
