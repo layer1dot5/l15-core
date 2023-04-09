@@ -16,6 +16,6 @@ if BUILD_INSCRIBEIT
 SUBDIRS += inscribeit
 endif
 
-if BUILD_PYTHON_PLUGIN
+if BUILD_PYTHON_MODULE
 SUBDIRS += python_binding
 endif

@@ -49,133 +49,122 @@ AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
-build_tools=yes
-build_services=yes
-build_apis=yes
-build_inscribeit=no
+default_build_tools=yes
+default_build_services=yes
+default_build_apis=yes
+default_build_inscribeit=no
+default_plugin_api=no
 
 dnl Enable Python integrations
-AC_ARG_ENABLE([pybind],
-            [AS_HELP_STRING([--enable-pybind],[with python integration module])],
-            [
-                if test "$enableval" = "yes"; then
-                    if test "x$WITH_EMSCRIPTEN" = "xyes"; then
-                        AC_MSG_ERROR([python binding cannot be built with emscripten])
-                    fi
-                    build_inscribeit=yes
-                    with_pybind=yes
-                else
-                    with_pybind=no
-                fi
-            ],
-            [with_pybind=no])
-
-AC_ARG_ENABLE([wasm-bind],
-              [AS_HELP_STRING([--enable-wasm-bind], [Enable plugin API binding for WebAssembly (disabled by default)])],
+AC_ARG_ENABLE([python-module],
+              [AS_HELP_STRING([--enable-python-module],[Enable API binding module for python (disabled by default)])],
               [
-                if test "$enableval" = "yes"; then
-                    wasm_bind=yes
-                    plugin_api=yes
-                    build_tools=no
-                    build_services=no
-                    build_apis=no
+                if test $enableval != no; then
+                    default_plugin_api=yes
                 fi
               ],
-              [wasm_bind=no])
+              [enable_python_module=no])
+
+AC_ARG_ENABLE([wasm-module],
+              [AS_HELP_STRING([--enable-wasm-module], [Enable plugin API binding for WebAssembly (disabled by default)])],
+              [
+                if test $enableval != no; then
+                    default_plugin_api=yes
+                fi
+              ],
+              [enable_wasm_module=no])
+
+if test "$enable_python_module" = "yes" "$enable_wasm_module" = "yes"; then
+    AC_MSG_ERROR([WebAssembly and Python modules cannot be build simultaneously])
+fi
 
 AC_ARG_ENABLE([plugin-api],
               [AS_HELP_STRING([--enable-plugin-api], [Enable plugin API build (disabled by default)])],
               [
-                if test "$enableval" = "yes"; then
-                    plugin_api=yes
-                    build_tools=no
-                    build_services=no
-                    build_apis=no
+                if test $enableval != no; then
+                    default_build_tools=no
+                    default_build_services=no
+                    default_build_apis=no
+                    default_build_inscribeit=yes
                 fi
               ],
               [
-                if test "$wasm_bind" = "yes"; then
-                  AC_MSG_ERROR([wasm-bind cannot be build with disabled plugin-api])
+                if test $default_plugin_api != no; then
+                    default_build_tools=no
+                    default_build_services=no
+                    default_build_apis=no
+                    default_build_inscribeit=yes
+                    AC_MSG_NOTICE([default_build_inscribeit: $default_build_inscribeit])
                 fi
-                plugin_api=no
+                enable_plugin_api=$default_plugin_api
               ])
-
-AC_ARG_ENABLE([build-tools],
-              [AS_HELP_STRING([--enable-build-tools], [Enable tools build (enabled by default)])],
-              [
-                if test "$enableval" = "yes"; then
-                    build_tools=yes
-                    build_services=yes
-                    build_apis=yes
-                fi
-              ],
-              [])
-
-AC_ARG_ENABLE([build-services],
-              [AS_HELP_STRING([--enable-build-services], [Enable services build (enabled by default)])],
-              [
-                if test "$enableval" = "yes"; then
-                    build_services=yes
-                    build_apis=yes
-                else
-                    build_services=no
-                    build_tools=no
-                fi
-              ],
-              [])
 
 AC_ARG_ENABLE([build-apis],
               [AS_HELP_STRING([--enable-build-apis], [Enable APIs build (enabled by default)])],
               [
-                if test "$enableval" = "yes"; then
-                    build_apis=yes
-                else
-                    build_apis=no
-                    build_services=no
-                    build_tools=no
+                if test $enableval = no; then
+                    default_build_services=no
+                    default_build_tools=no
                 fi
               ],
-              [])
+              [enable_build_apis=$default_build_apis])
+
+AC_ARG_ENABLE([build-services],
+              [AS_HELP_STRING([--enable-build-services], [Enable services build (enabled by default)])],
+              [
+                if test $enableval = no; then
+                    default_build_tools=no
+                fi
+              ],
+              [enable_build_services=$default_build_services])
+
+AC_ARG_ENABLE([build-tools],
+              [AS_HELP_STRING([--enable-build-tools], [Enable tools build (enabled by default)])],
+              [],
+              [enable_build_tools=$default_build_tools])
+
 
 AC_ARG_ENABLE([build-inscribeit],
               [AS_HELP_STRING([--enable-build-inscribeit], [Enable inscribeit API build (disabled by default)])],
-              [build_inscribeit=yes]
-              [])
+              [],
+              [
+                enable_build_inscribeit=$default_build_inscribeit
+              ])
 
 
-if test "$plugin_api" = "yes"; then
-    if test $build_apis = "yes"; then
+if test "$enable_plugin_api" = "yes"; then
+    if test "$enable_build_apis" = "yes"; then
         AC_MSG_ERROR([Cannot enable plugin API with general APIs])
     fi
 fi
 
-AM_CONDITIONAL([BUILD_APIS], [test "$build_apis" = "yes"])
-AM_CONDITIONAL([BUILD_PYTHON_PLUGIN], [test "$with_pybind" = "yes"])
-AM_CONDITIONAL([BUILD_SERVICES], [test "$build_services" = "yes"])
-AM_CONDITIONAL([BUILD_TOOLS], [test "$build_tools" = "yes"])
-AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$build_inscribeit" = "yes"])
-AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$plugin_api" = "yes"])
-AM_CONDITIONAL([WASM_BIND], [test "$wasm_bind" = "yes"])
+if test "$enable_build_services" != "yes"; then
+    if test "$enable_build_tools" = "yes"; then
+        AC_MSG_ERROR([Cannot build tools without services])
+    fi
+fi
 
-if test "$with_pybind" = "yes"; then
+if test "$enable_build_apis" != "yes"; then
+    if test "$enable_build_services" = "yes"; then
+        AC_MSG_ERROR([Cannot build services without general APIs])
+    fi
+fi
+
+AM_CONDITIONAL([BUILD_APIS], [test "$enable_build_apis" = "yes"])
+AM_CONDITIONAL([BUILD_SERVICES], [test "$enable_build_services" = "yes"])
+AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
+AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$enable_build_inscribeit" = "yes"])
+AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
+AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$enable_python_module" = "yes"])
+AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$enable_wasm_module" = "yes"])
+
+if test "$enable_python_module" = "yes"; then
     AM_PATH_PYTHON([3])
-
     AC_MSG_NOTICE([python is $PYTHON])
 
-    PKG_CHECK_MODULES([PYTHON], [python3], [], [AC_MSG_ERROR([Python 3 is required])])
     AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
-
-    AC_CHECK_PROGS([PYTHON3_CONFIG], [python3-config python-config])
-    if test -n "$PYTHON3_CONFIG"; then
-        PYTHON_LIBS=`$PYTHON3_CONFIG --libs`
-        PYTHON_LDFLAGS=`$PYTHON3_CONFIG --ldflags`
-    else
-        AC_MSG_ERROR([python3-config not found. Please install the python3-dev or python3-devel package.])
-    fi
-    AC_SUBST(PYTHON_LIBS)
-    AC_SUBST(PYTHON_LDFLAGS)
 
     AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
@@ -184,9 +173,8 @@ dnl Enable debug
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
                     [use compiler flags and macros suited for debugging (disabled by default)])],
-    [enable_debug=$enableval],
+    [],
     [enable_debug=no])
-
 
 dnl If debugging is enabled, and the user hasn't overridden CXXFLAGS, clear
 dnl them, to prevent autoconfs "-g -O2" being added. Otherwise we'd end up
@@ -223,7 +211,7 @@ fi
 AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
 
-if test "$wasm_bind" = "yes"; then
+if test "$enable_wasm_module" = "yes"; then
   CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
   CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
   LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
@@ -240,7 +228,7 @@ else
   AX_TBB
 fi
 
-if test "$plugin_api" = "no"; then
+if test "$enable_plugin_api" != "yes"; then
   AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
 fi
 
@@ -262,21 +250,21 @@ AC_CONFIG_FILES([Makefile
                  test/p2p/Makefile
                  contrib/Makefile])
 
-if test "$build_tools" = "yes"; then
+if test "$enable_build_tools" = "yes"; then
     AC_CONFIG_FILES([src/tools/Makefile])
 fi
 
-if test "$build_services" = "yes"; then
+if test "$enable_build_services" = "yes"; then
     AC_CONFIG_FILES([src/service/Makefile test/service/Makefile])
 fi
 
-if test "$build_apis" = "yes"; then
+if test "$enable_build_apis" = "yes"; then
     AC_CONFIG_FILES([src/api/Makefile test/core/Makefile])
 fi
 
-if test "$build_inscribeit" = "yes"; then
+if test "$enable_build_inscribeit" = "yes"; then
     AC_CONFIG_FILES([src/inscribeit/Makefile])
-    if test "$build_tools" = "yes"; then
+    if test "$enable_build_tools" = "yes"; then
         AC_CONFIG_FILES([test/inscribeit/Makefile])
     fi
 fi
@@ -310,7 +298,7 @@ dnl so that is the reason to use more flexible AX_SUBDIRS_CONFIGURE.
 dnl Unfortunately AX_SUBDIRS_CONFIGURE does not allow 'autoreconf' be called recursively for all subprojects (just does it for 'configure' script only)
 dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh', placed at the source tree root.
 
-if test "$plugin_api" = "yes"; then
+if test "$enable_plugin_api" = "yes"; then
 AX_SUBDIRS_CONFIGURE(
     [node],
     [[--disable-shared], [--enable-c++20],
@@ -352,8 +340,6 @@ AX_SUBDIRS_CONFIGURE(
 
 fi
 
-
-
 AC_OUTPUT
 
 echo
@@ -362,19 +348,19 @@ echo "  L15 config result:"
 echo "  build version    = $VERSION"
 echo
 echo "  debug enabled    = $enable_debug"
-echo "  werror           = $enable_werror"
 echo
-echo "  build tools      = $build_tools"
-echo "  build services   = $build_services"
-echo "  build apis       = $build_apis"
-echo "  build inscribeit = $build_inscribeit"
-echo "  plugin api       = $plugin_api"
-echo "  python api       = $with_pybind"
+echo "  build tools      = $enable_build_tools"
+echo "  build services   = $enable_build_services"
+echo "  build apis       = $enable_build_apis"
+echo "  build inscribeit = $enable_build_inscribeit"
+echo "  plugin api       = $enable_plugin_api"
+echo "  python module    = $enable_python_module"
+echo "  wasm module      = $enable_wasm_module"
 echo
 echo "  target os        = $host_os"
 echo "  build os         = $build_os"
 echo
-echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS $PYBIND_CPPFLAGS"
+echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS"
 echo "  CXX              = $CXX"
 echo "  CXXFLAGS         = $CXXFLAGS"
 echo "  LDFLAGS          = $LDFLAGS $ZMQ_LDFLAGS"

@@ -172,6 +172,9 @@ public:
     std::string GetFundsUnspendableKeyFactor() const { return hex(m_funds_unspendable_key_factor.value()); }
     void SetFundsUnspendableKeyFactor(std::string v) { m_funds_unspendable_key_factor = unhex<seckey>(v); }
 
+    std::string GetOrdPayoffUnspendableKeyFactor() const { return hex(m_ordpayoff_unspendable_key_factor.value()); }
+    void SetOrdPayoffUnspendableKeyFactor(std::string v) { m_ordpayoff_unspendable_key_factor = unhex<seckey>(v); }
+
 
     std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
     void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }

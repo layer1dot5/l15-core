@@ -64,9 +64,9 @@ l15_cli_LDADD = $(L15_LIBS)
 
 endif
 
-if WASM_BIND
+if BUILD_WASM_MODULE
 
-AM_CPPFLAGS += -DWASM_BIND
+AM_CPPFLAGS += -DWASM_MODULE
 
 bin_PROGRAMS = inscribeit.js
 

@@ -67,7 +67,7 @@ public:
             m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::REGTEST>>();
         }
         else {
-            throw std::invalid_argument(chain_mode);
+            throw std::invalid_argument(std::string("wrong chain mode: ") + chain_mode);
         }
     }
 

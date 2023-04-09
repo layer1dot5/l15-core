@@ -57,7 +57,7 @@ RUN cd /l15/l15-core && ./autogen.sh
 RUN mkdir /l15/l15-core/build
 WORKDIR /l15/l15-core/build
 RUN cd /l15/l15-core/build && \
-      ../configure --enable-pybind=yes --enable-plugin-api --enable-build-inscribeit
+      ../configure --enable-python-module=yes --enable-plugin-api --enable-build-inscribeit
 
 RUN make -j4
 WORKDIR /l15/l15-core/build/src/python_binding
