@@ -34,11 +34,8 @@ CAmount FeeCalculator::getFee(const std::string &miningFeeRate,
 
 namespace fees {
 
-std::string samplePubKey = "03e52e1c15ed350d42f7cda2e0a96b3ee8cb86b9e9d5f6a5e5c8c6b5f222a97de6";
-std::string samplePrivKey = "9d6f1f1686e5c5f2b6a752a6f97b135c5a6a8a6d9bbd421ec58dfc1dc85d68a6";
 uint32_t sampleNOutput = 0;
-std::string sampleOutput = "1JzTLxWJL9Axy4QbYcZm3a8KjFCDNXmzS4";
-int sampleFundOut;
+std::string sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
 
 CAmount OrdinalTransactions::Calculate(TransactionKind kind, const std::string &miningFeeRate) {
     auto rate = ParseAmount(miningFeeRate);
@@ -76,14 +73,14 @@ void OrdinalTransactions::createTransactions() {
     builder.SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
     builder.SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
 
-    builder.SetOrdUtxoTxId(hex(sampleOutput));
+    builder.SetOrdUtxoTxId(sampleOutput);
     builder.SetOrdUtxoNOut(sampleNOutput);
     builder.SetOrdUtxoAmount("1");
 
     builder.SignOrdCommitment(hex(m_ordUtxoKey.GetLocalPrivKey()));
     builder.SignOrdSwap(hex(m_swapScriptKeyA.GetLocalPrivKey()));
 
-    builder.SetFundsUtxoTxId(hex(sampleOutput));
+    builder.SetFundsUtxoTxId(sampleOutput);
     builder.SetFundsUtxoNOut(sampleNOutput);
     builder.SetFundsUtxoAmount("1");
 
