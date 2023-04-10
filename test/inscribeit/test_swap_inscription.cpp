@@ -256,7 +256,6 @@ TEST_CASE("FundsPayBack")
 
 }
 
-
 TEST_CASE("FullSwap")
 {
     const std::string funds_amount = "0.11005";

@@ -122,12 +122,17 @@ std::string FormatAmount(CAmount amount)
     return res.substr(0, res.length() - cut_zeroes);
 }
 
-CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
+CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
 {
     size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
     size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size) / WITNESS_SCALE_FACTOR;
-    CAmount fee = static_cast<int64_t>(vsize) * fee_rate / 1024;
+    return static_cast<int64_t>(vsize) * fee_rate / 1024;
+}
+
+CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
+{
+    auto fee = CalculateTxFee(fee_rate, tx);
     if ((fee + fee) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
