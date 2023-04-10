@@ -1,9 +1,12 @@
 #pragma once
 
 #include <optional>
+
 #include "amount.h"
 #include "primitives/transaction.h"
+
 #include "common_error.hpp"
+#include "channel_keys.hpp"
 
 namespace l15::inscribeit {
 
@@ -22,52 +25,68 @@ public:
 
     virtual ~TransactionFee() = default;
 
-    CAmount operator() (const std::string &miningFeeRate) {
+    CAmount operator() (TransactionKind kind, const std::string &miningFeeRate) {
         if (m_isTransactionObligatory) {
-            throw TransactionError("No transaction specified for mining fee calculator, but it is strongly required for this type of transactions");
+            throw TransactionError("No transaction specified for mining fee calculator, but it is required for this type of transactions");
         }
-        return Calculate(miningFeeRate);
+        return Calculate(kind, miningFeeRate);
     }
 
-    CAmount operator() (const std::string &miningFeeRate, const CTransaction &tx) {
-        return Calculate(miningFeeRate, tx);
+    CAmount operator() (TransactionKind kind, const std::string &miningFeeRate, const CTransaction &tx) {
+        return Calculate(kind, miningFeeRate, tx);
     }
 protected:
     CAmount getFeeRate() const { return m_feeRate; }
-    virtual CAmount Calculate(const std::string &miningFeeRate);
-    virtual CAmount Calculate(const std::string &miningFeeRate, const CTransaction &tx) {
-        return Calculate(miningFeeRate);
+    virtual CAmount Calculate(TransactionKind kind, const std::string &miningFeeRate);
+    virtual CAmount Calculate(TransactionKind kind, const std::string &miningFeeRate, const CTransaction &tx) {
+        return Calculate(kind, miningFeeRate);
     }
     virtual std::optional<TransactionError> Check(const CTransaction &tx) const {return {}; };
 
-    virtual CAmount GetFee() = 0;
+    virtual CAmount GetFee(TransactionKind kind) = 0;
 
     CAmount m_cachedFee = 0;
+    CAmount m_feeRate = 0;
 private:
     bool m_isTransactionObligatory = false;
-    CAmount m_feeRate = 0;
 };
 
 namespace fees {
 
-class FundsCommit : public TransactionFee {
+class OrdinalTransactions : public TransactionFee {
 public:
-    FundsCommit(): TransactionFee(false) {}
-    FundsCommit(const FundsCommit &other) = default;
-    FundsCommit(FundsCommit &&other) = default;
+    OrdinalTransactions(): TransactionFee(false) {
+        createTransactions();
+    }
+    OrdinalTransactions(const OrdinalTransactions &other) = default;
+    OrdinalTransactions(OrdinalTransactions &&other) = default;
 
-    ~FundsCommit() override = default;
+    ~OrdinalTransactions() override = default;
+
+    CAmount GetFee(TransactionKind kind) override;
 protected:
-    CAmount GetFee() override;
+    CAmount Calculate(TransactionKind kind, const std::string &miningFeeRate) override;
+
+private:
+    void createTransactions();
+
+    l15::core::ChannelKeys m_swapScriptKeyA;
+    l15::core::ChannelKeys m_swapScriptKeyB;
+    l15::core::ChannelKeys m_swapScriptKeyM;
+    l15::core::ChannelKeys m_ordUtxoKey;
+    l15::core::ChannelKeys m_fundsUtxoKey;
+
+    CMutableTransaction m_fundsCommit;
+    CMutableTransaction m_ordCommit;
+    CMutableTransaction m_ordSwap;
+    CMutableTransaction m_ordTransfer;
 };
 
 }
 
 class FeeCalculator {
 public:
-    FeeCalculator() {
-        m_transactionFees.insert({TransactionKind::FundsCommit, std::make_shared<fees::FundsCommit>()});
-    };
+    FeeCalculator();
     FeeCalculator(const FeeCalculator &calculator) = default;
     FeeCalculator(FeeCalculator &&calculator) = default;
 

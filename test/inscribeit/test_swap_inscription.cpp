@@ -258,7 +258,7 @@ TEST_CASE("FundsPayBack")
 
 TEST_CASE("FullSwap")
 {
-    const std::string funds_amount = "0.11005";
+    const std::string funds_amount = "0.11000720";
     ChannelKeys swap_script_key_A;
     ChannelKeys swap_script_key_B;
     ChannelKeys swap_script_key_M;

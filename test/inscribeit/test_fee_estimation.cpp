@@ -64,19 +64,19 @@ struct TestcaseWrapper
             mBtcd("bitcoind", false)
 
     {
-        StartBitcoinNode();
+        /*StartBitcoinNode();
 
         if(btc().GetChainHeight() < 50)
         {
             btc().CreateWallet("testwallet");
             btc().GenerateToAddress(btc().GetNewAddress(), "150");
-        }
+        }*/
     }
 
     virtual ~TestcaseWrapper()
     {
-        StopBitcoinNode();
-        std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
+        //StopBitcoinNode();
+        //std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
     }
 
     void StartBitcoinNode()
@@ -100,9 +100,9 @@ struct TestcaseWrapper
 
     void ResetMemPool()
     {
-        StopBitcoinNode();
+        /*StopBitcoinNode();
         std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
-        StartBitcoinNode();
+        StartBitcoinNode();*/
     }
 
 };
@@ -147,9 +147,19 @@ int main(int argc, char* argv[])
 TEST_CASE("FeeCalculatorInitialization")
 {
     l15::inscribeit::FeeCalculator feeCalculator;
+
     CAmount fee;
     REQUIRE_NOTHROW(fee = feeCalculator.getFee("0.000015", l15::inscribeit::TransactionKind::FundsCommit));
     CHECK(fee == 162);
+
+    REQUIRE_NOTHROW(fee = feeCalculator.getFee("0.000015", l15::inscribeit::TransactionKind::OrdinalCommit));
+    CHECK(fee == 162);
+
+    REQUIRE_NOTHROW(fee = feeCalculator.getFee("0.000015", l15::inscribeit::TransactionKind::OrdinalTransfer));
+    CHECK(fee == 162);
+
+    REQUIRE_NOTHROW(fee = feeCalculator.getFee("0.000015", l15::inscribeit::TransactionKind::OrdinalSwap));
+    CHECK(fee == 544);
 }
 
 TEST_CASE("FeeCalculatorNotImplemented")

@@ -2,19 +2,26 @@
 
 #include "consensus.h"
 
-#include "channel_keys.hpp"
 #include "swap_inscription.hpp"
 
 namespace l15::inscribeit {
 
-CAmount TransactionFee::Calculate(const std::string &miningFeeRate) {
+CAmount TransactionFee::Calculate(TransactionKind kind, const std::string &miningFeeRate) {
     auto rate = ParseAmount(miningFeeRate);
     if (rate != m_feeRate) {
         m_feeRate = rate;
-        m_cachedFee = GetFee();
+        m_cachedFee = GetFee(kind);
     }
-    return m_cachedFee;
+    return GetFee(kind);
 }
+
+FeeCalculator::FeeCalculator() {
+    auto ptr = std::make_shared<fees::OrdinalTransactions>();
+    m_transactionFees.insert({TransactionKind::FundsCommit, ptr});
+    m_transactionFees.insert({TransactionKind::OrdinalCommit, ptr});
+    m_transactionFees.insert({TransactionKind::OrdinalSwap, ptr});
+    m_transactionFees.insert({TransactionKind::OrdinalTransfer, ptr});
+};
 
 CAmount FeeCalculator::getFee(const std::string &miningFeeRate,
                               const l15::inscribeit::TransactionKind kind) {
@@ -22,7 +29,7 @@ CAmount FeeCalculator::getFee(const std::string &miningFeeRate,
     if (!fee) {
         throw l15::TransactionError("undefined transaction kind for fee estimation");
     }
-    return (*fee)(miningFeeRate);
+    return (*fee)(kind, miningFeeRate);
 }
 
 namespace fees {
@@ -33,46 +40,64 @@ uint32_t sampleNOutput = 0;
 std::string sampleOutput = "1JzTLxWJL9Axy4QbYcZm3a8KjFCDNXmzS4";
 int sampleFundOut;
 
-CAmount FundsCommit::GetFee() {
+CAmount OrdinalTransactions::Calculate(TransactionKind kind, const std::string &miningFeeRate) {
+    auto rate = ParseAmount(miningFeeRate);
+    if (rate != m_feeRate) {
+        m_feeRate = rate;
+    }
+    return GetFee(kind);
+}
+
+CAmount OrdinalTransactions::GetFee(TransactionKind kind) {
     auto fee_rate = getFeeRate();
 
-    SwapInscriptionBuilder builder("regtest", "0.1", "0.01");
+    switch(kind) {
+        case TransactionKind::FundsCommit: return CalculateTxFee(fee_rate, m_fundsCommit);
+        case TransactionKind::OrdinalCommit: return CalculateTxFee(fee_rate, m_ordCommit);
+        case TransactionKind::OrdinalSwap: return CalculateTxFee(fee_rate, m_ordSwap);
+        case TransactionKind::OrdinalTransfer: return CalculateTxFee(fee_rate, m_ordTransfer);
+    }
 
-    l15::core::ChannelKeys swap_script_key_A;
-    l15::core::ChannelKeys swap_script_key_B;
-    l15::core::ChannelKeys swap_script_key_M;
-    l15::core::ChannelKeys ord_utxo_key;
-    l15::core::ChannelKeys funds_utxo_key;
+    throw l15::TransactionError("unknown transaction type for estimation");
+}
+
+void OrdinalTransactions::createTransactions() {
+    SwapInscriptionBuilder builder("regtest", "0.1", "0.01");
 
     seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
     bytevector swap_hash(32);
     CHash256().Write(preimage).Finalize(swap_hash);
 
-    builder.SetOrdCommitMiningFeeRate(fee_rate);
-    builder.SetMiningFeeRate(fee_rate);
+    builder.SetOrdCommitMiningFeeRate("0.00001");
+    builder.SetMiningFeeRate("0.00001");
 
     builder.SetSwapHash(hex(swap_hash));
-    builder.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
-    builder.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
-    builder.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
+    builder.SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
+    builder.SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
+    builder.SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
 
     builder.SetOrdUtxoTxId(hex(sampleOutput));
     builder.SetOrdUtxoNOut(sampleNOutput);
     builder.SetOrdUtxoAmount("1");
 
-    builder.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey()));
-    builder.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey()));
+    builder.SignOrdCommitment(hex(m_ordUtxoKey.GetLocalPrivKey()));
+    builder.SignOrdSwap(hex(m_swapScriptKeyA.GetLocalPrivKey()));
 
     builder.SetFundsUtxoTxId(hex(sampleOutput));
     builder.SetFundsUtxoNOut(sampleNOutput);
     builder.SetFundsUtxoAmount("1");
 
-    builder.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey()));
+    builder.SignFundsCommitment(hex(m_fundsUtxoKey.GetLocalPrivKey()));
 
-    builder.CheckContractTerms(SwapInscriptionBuilder::FundsCommitSig);
-    auto tx = builder.GetFundsCommitTx();
+    m_fundsCommit = builder.GetFundsCommitTx();
+    m_ordCommit = builder.GetOrdCommitTx();
 
-    return CalculateTxFee(fee_rate, tx);
+    builder.MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
+    builder.SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
+    builder.MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
+
+    m_ordSwap = builder.GetSwapTx();
+    m_ordTransfer = builder.GetPayoffTx();
 }
 
 } // namespace l15::inscribeit::fees
