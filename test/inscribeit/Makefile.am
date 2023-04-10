@@ -35,7 +35,7 @@ $(top_builddir)/node/src/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_create_inscription test_swap_inscription
+bin_PROGRAMS = test_create_inscription test_swap_inscription test_fee_estimation
 
 
 test_create_inscription_SOURCES = test_create_inscription.cpp
@@ -43,4 +43,7 @@ test_create_inscription_LDADD = $(L15_LIBS)
 
 test_swap_inscription_SOURCES = test_swap_inscription.cpp
 test_swap_inscription_LDADD = $(L15_LIBS)
+
+test_fee_estimation_SOURCES = test_fee_estimation.cpp
+test_fee_estimation_LDADD = $(L15_LIBS)
 
