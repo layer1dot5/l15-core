@@ -11,28 +11,7 @@
 namespace l15::inscribeit {
 
 class SwapInscriptionBuilder;
-/*
-template<>
-class FeeCalculator<SwapInscriptionBuilder> {
-public:
-    FeeCalculator<SwapInscriptionBuilder>(std::string, std::string, std::string) {
-        this->init();
-    }
 
-    void init();
-
-    CAmount getFundsCommit() const { return m_fundsCommit; }
-    CAmount getOrdinalCommit() const { return m_ordinalCommit; }
-    CAmount getOrdinalSwap() const { return m_ordinalSwap; }
-    CAmount getOrdinalTransfer() const { return m_ordinalTransfer; }
-
-private:
-    CAmount m_fundsCommit;
-    CAmount m_ordinalCommit;
-    CAmount m_ordinalSwap;
-    CAmount m_ordinalTransfer;
-};
-*/
 template<> class FeeCalculator<SwapInscriptionBuilder>;
 
 class SwapInscriptionBuilder : public ContractBuilder

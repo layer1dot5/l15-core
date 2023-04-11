@@ -26,17 +26,17 @@ TEST_CASE("FeeCalculatorCalculation")
     REQUIRE_NOTHROW(fee = feeCalculator.getFundsCommit(feeRate));
     CHECK(fee == 162);
     sumFee += fee;
-/*
-    REQUIRE_NOTHROW(fee = feeCalculator.getFee(feeRate, l15::inscribeit::TransactionKind::OrdinalCommit));
+
+    REQUIRE_NOTHROW(fee = feeCalculator.getOrdinalCommit(feeRate));
     CHECK(fee == 162);
     sumFee += fee;
 
-    REQUIRE_NOTHROW(fee = feeCalculator.getFee(feeRate, l15::inscribeit::TransactionKind::OrdinalTransfer));
+    REQUIRE_NOTHROW(fee = feeCalculator.getOrdinalTransfer(feeRate));
     CHECK(fee == 162);
     sumFee += fee;
 
-    REQUIRE_NOTHROW(fee = feeCalculator.getFee(feeRate, l15::inscribeit::TransactionKind::OrdinalSwap));
+    REQUIRE_NOTHROW(fee = feeCalculator.getOrdinalSwap(feeRate));
     CHECK(fee == 544);
     sumFee += fee;
-    std::cout << sumFee << std::endl;*/
+    std::cout << sumFee << std::endl;
 }
