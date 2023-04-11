@@ -9,6 +9,81 @@
 #include "channel_keys.hpp"
 
 namespace l15::inscribeit {
+/*
+template <typename T, uint8_t recursion = 2>
+class WithDummy;
+*/
+template <typename T>
+class Dummy {
+public:
+    typedef std::shared_ptr<Dummy<T>> Ptr;
+
+    template<typename... _Args>
+    static Ptr Make(_Args&&... args) {
+        return std::make_shared<Dummy<T>>(args...);
+    }
+
+    template<typename... _Args>
+    explicit Dummy(_Args&&... args) {
+        m_dummyObjPtr = std::make_shared<T>(args...);
+    }
+
+    Dummy(const Dummy<T> &other) = default;
+    Dummy(Dummy<T> &&other) = default;
+
+    virtual ~Dummy() = default;
+
+    std::shared_ptr<T> getDummy() const {
+        return m_dummyObjPtr;
+    }
+private:
+    std::shared_ptr<T> m_dummyObjPtr;
+};
+
+template <typename T>
+class FeeCalculator: public Dummy<T> {
+public:
+    typedef std::shared_ptr<FeeCalculator<T>> Ptr;
+
+    template<typename... _Args>
+    static Ptr Make(_Args&&... args) {
+        return std::make_shared<FeeCalculator<T>>(args...);
+    }
+
+    FeeCalculator(const FeeCalculator<T> &other) = default;
+    FeeCalculator(FeeCalculator<T> &&other) = default;
+
+    virtual ~FeeCalculator() = default;
+    std::shared_ptr<T> getDummy() const {
+        return Dummy<T>::getDummy();
+    }
+protected:
+    virtual CAmount getFee(const CMutableTransaction& tx) const { return 0; }
+
+    virtual CAmount getFee(const CMutableTransaction& sampleTx, const CMutableTransaction& actualTx) { return 0; }
+};
+
+/*
+template <typename T, uint8_t recursion>
+class WithDummy {
+public:
+    template<typename... _Args>
+    WithDummy(_Args&&... args): m_dummy() {
+        //initDummy(args...);
+    }
+
+    template<uint8_t newRecursion = recursion - 1, typename... _Args>
+    void initDummy(_Args&&... args) {
+        if (recursion > 0) {
+            m_dummy = std::make_shared<Dummy<T, newRecursion - 1>>(args...);
+            m_dummy->fillDummySettings();
+        }
+    }
+protected:
+    Dummy<T>::Ptr getDummy() { return m_dummy; }
+private:
+    Dummy<T, recursion-1>::Ptr m_dummy;
+};
 
 enum class TransactionKind {
     NotImplemented,
@@ -83,7 +158,7 @@ private:
 };
 
 }
-
+/*
 class FeeCalculator {
 public:
     FeeCalculator();
@@ -95,6 +170,6 @@ public:
 private:
     std::map<TransactionKind, TransactionFee::Ptr> m_transactionFees;
 };
-
+*/
 
 } // namespace l15::inscribeit

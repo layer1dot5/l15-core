@@ -86,9 +86,10 @@ const std::string SwapInscriptionBuilder::name_funds_swap_sig_M = "funds_swap_si
 const std::string SwapInscriptionBuilder::name_ordpayoff_unspendable_key_factor = "ordpayoff_unspendable_key_factor";
 const std::string SwapInscriptionBuilder::name_ordpayoff_sig = "ordpayoff_sig";
 
-
 SwapInscriptionBuilder::SwapInscriptionBuilder(const string &chain_mode, const string &ord_price, const string &market_fee)
-        : ContractBuilder(chain_mode), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {};
+        : ContractBuilder(chain_mode), m_calculator(std::make_shared<FeeCalculator<SwapInscriptionBuilder>>("regtest", "0.000015", "0.0000015")),
+          m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {
+};
 
 
 std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::OrdCommitTapRoot() const

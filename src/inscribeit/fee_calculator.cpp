@@ -5,7 +5,7 @@
 #include "swap_inscription.hpp"
 
 namespace l15::inscribeit {
-
+/*
 CAmount TransactionFee::Calculate(TransactionKind kind, const std::string &miningFeeRate) {
     auto rate = ParseAmount(miningFeeRate);
     if (rate != m_feeRate) {
@@ -98,5 +98,5 @@ void OrdinalTransactions::createTransactions() {
 }
 
 } // namespace l15::inscribeit::fees
-
+*/
 } // namespace l15::inscribeit
