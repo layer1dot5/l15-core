@@ -211,7 +211,7 @@ template<>
 class FeeCalculator<SwapInscriptionBuilder>: public Dummy<SwapInscriptionBuilder> {
 public:
     template<typename... _Args>
-    FeeCalculator(_Args&&... args): Dummy<SwapInscriptionBuilder>(args...) {
+    FeeCalculator(_Args&&... args): Dummy<SwapInscriptionBuilder>(args...), m_initialized(false) {
         init();
     };
 
@@ -248,7 +248,7 @@ public:
 
         builder->SetFundsUtxoTxId(sampleOutput);
         builder->SetFundsUtxoNOut(sampleNOutput);
-        builder->SetFundsUtxoAmount("1");
+        builder->SetFundsUtxoAmount("2");
 
         builder->SignFundsCommitment(hex(m_fundsUtxoKey.GetLocalPrivKey()));
 
@@ -261,6 +261,7 @@ public:
 
         m_ordSwap = builder->GetSwapTx();
         m_ordTransfer = builder->GetPayoffTx();
+        m_initialized = true;
     }
 
     CAmount getFundsCommit(CAmount fee_rate) const { return getFee(fee_rate, m_fundsCommit); }
@@ -268,11 +269,21 @@ public:
     CAmount getOrdinalSwap(CAmount fee_rate) const { return getFee(fee_rate, m_ordSwap); }
     CAmount getOrdinalTransfer(CAmount fee_rate) const { return getFee(fee_rate, m_ordTransfer); }
 
+    CAmount getWholeFee(CAmount fee_rate) const {
+        if(!m_initialized) {
+            return 0;
+        }
+        auto txs = {&m_fundsCommit, &m_ordCommit, &m_ordSwap, &m_ordTransfer};
+        return std::accumulate(txs.begin(), txs.end(), CAmount(0), [this, fee_rate](CAmount sum, const CMutableTransaction* tx) -> CAmount {
+            return sum += getFee(fee_rate, *tx);
+        });
+    }
 private:
     CMutableTransaction m_fundsCommit;
     CMutableTransaction m_ordCommit;
     CMutableTransaction m_ordSwap;
     CMutableTransaction m_ordTransfer;
+    bool m_initialized = false;
 };
 
 }

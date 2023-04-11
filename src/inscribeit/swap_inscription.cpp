@@ -277,22 +277,35 @@ void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
     mOrdPaybackTx = move(payback_tx);
 }
 
-void SwapInscriptionBuilder::SignFundsCommitment(std::string sk)
-{
+void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     CheckContractTerms(FundsTerms);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
-    const xonly_pubkey& funds_utxo_pk = keypair.GetLocalPubKey();
+    const xonly_pubkey &funds_utxo_pk = keypair.GetLocalPubKey();
     m_funds_unspendable_key_factor = core::ChannelKeys::GetStrongRandomKey(keypair.Secp256k1Context());
 
     auto utxo_pubkeyscript = CScript() << 1 << funds_utxo_pk;
     auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
 
+    CAmount sumToCommit = m_ord_price + m_market_fee.value();
+    if (m_calculator){
+        sumToCommit += SwapInscriptionBuilder::m_calculator->getWholeFee(m_mining_fee_rate.value());
+    }
+    if(m_funds_amount.value() <= sumToCommit) {
+        throw l15::TransactionError("funds amount is too small");
+    }
+
+    CAmount amountRemained = m_funds_amount.value() - sumToCommit;
+
     CMutableTransaction commit_tx;
     commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
     commit_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    commit_tx.vout = {CTxOut(m_funds_amount.value(), commit_pubkeyscript)};
-    commit_tx.vout.front().nValue = CalculateOutputAmount(*m_funds_amount, *m_mining_fee_rate, commit_tx);
+
+    commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
+    commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
+
+    commit_tx.vout.push_back({CTxOut(amountRemained, commit_pubkeyscript)});
+    commit_tx.vout.front().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
     m_funds_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_funds_amount, utxo_pubkeyscript)}, {});
     commit_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(*m_funds_commit_sig);
