@@ -51,6 +51,7 @@ public:
     };
 private:
     static const uint32_t m_protocol_version;
+    static std::shared_ptr<FeeCalculator<SwapInscriptionBuilder>> m_calculator;
 
     CAmount m_ord_price;
     std::optional<CAmount> m_market_fee;
@@ -100,7 +101,6 @@ private:
 
     CMutableTransaction MakeSwapTx(bool with_funds_in);
 
-    std::shared_ptr<FeeCalculator<SwapInscriptionBuilder>> m_calculator;
 public:
     const CMutableTransaction& GetOrdCommitTx();
     const CMutableTransaction& GetFundsCommitTx();
@@ -140,8 +140,7 @@ public:
     static const std::string name_ordpayoff_unspendable_key_factor;
     static const std::string name_ordpayoff_sig;
 
-    explicit SwapInscriptionBuilder(): m_ord_price(0), m_market_fee(0),
-    m_calculator(std::make_shared<FeeCalculator<SwapInscriptionBuilder>>("regtest", "0.000015", "0.0000015")) { }
+    explicit SwapInscriptionBuilder(): m_ord_price(0), m_market_fee(0) {}
 
     SwapInscriptionBuilder(const SwapInscriptionBuilder&) = default;
     SwapInscriptionBuilder(SwapInscriptionBuilder&&) noexcept = default;
@@ -229,77 +228,72 @@ public:
     string OrdPayoffRawTransaction();
 };
 
-    template<>
-    class FeeCalculator<SwapInscriptionBuilder>: public Dummy<SwapInscriptionBuilder> {
-    public:
-        template<typename... _Args>
-        FeeCalculator(_Args&&... args): Dummy<SwapInscriptionBuilder>(args...) {
-            init();
-        };
-
-        void init() {
-            uint32_t sampleNOutput = 0;
-            std::string sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
-
-            l15::core::ChannelKeys m_swapScriptKeyA;
-            l15::core::ChannelKeys m_swapScriptKeyB;
-            l15::core::ChannelKeys m_swapScriptKeyM;
-            l15::core::ChannelKeys m_ordUtxoKey;
-            l15::core::ChannelKeys m_fundsUtxoKey;
-
-            CMutableTransaction m_fundsCommit;
-            CMutableTransaction m_ordCommit;
-            CMutableTransaction m_ordSwap;
-            CMutableTransaction m_ordTransfer;
-
-            auto builder = getDummy();
-
-            seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
-            bytevector swap_hash(32);
-            CHash256().Write(preimage).Finalize(swap_hash);
-
-            builder->SetOrdCommitMiningFeeRate("0.00001");
-            builder->SetMiningFeeRate("0.00001");
-
-            builder->SetSwapHash(hex(swap_hash));
-            builder->SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
-            builder->SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
-            builder->SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
-
-            builder->SetOrdUtxoTxId(sampleOutput);
-            builder->SetOrdUtxoNOut(sampleNOutput);
-            builder->SetOrdUtxoAmount("1");
-
-            builder->SignOrdCommitment(hex(m_ordUtxoKey.GetLocalPrivKey()));
-            builder->SignOrdSwap(hex(m_swapScriptKeyA.GetLocalPrivKey()));
-
-            builder->SetFundsUtxoTxId(sampleOutput);
-            builder->SetFundsUtxoNOut(sampleNOutput);
-            builder->SetFundsUtxoAmount("1");
-
-            builder->SignFundsCommitment(hex(m_fundsUtxoKey.GetLocalPrivKey()));
-
-            m_fundsCommit = builder->GetFundsCommitTx();
-            m_ordCommit = builder->GetOrdCommitTx();
-
-            builder->MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
-            builder->SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
-            builder->MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
-
-            m_ordSwap = builder->GetSwapTx();
-            m_ordTransfer = builder->GetPayoffTx();
-        }
-
-        CAmount getFundsCommit() const { return m_fundsCommit; }
-        CAmount getOrdinalCommit() const { return m_ordinalCommit; }
-        CAmount getOrdinalSwap() const { return m_ordinalSwap; }
-        CAmount getOrdinalTransfer() const { return m_ordinalTransfer; }
-
-    private:
-        CAmount m_fundsCommit;
-        CAmount m_ordinalCommit;
-        CAmount m_ordinalSwap;
-        CAmount m_ordinalTransfer;
+template<>
+class FeeCalculator<SwapInscriptionBuilder>: public Dummy<SwapInscriptionBuilder> {
+public:
+    template<typename... _Args>
+    FeeCalculator(_Args&&... args): Dummy<SwapInscriptionBuilder>(args...) {
+        init();
     };
+
+    void init() {
+        uint32_t sampleNOutput = 0;
+        std::string sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        l15::core::ChannelKeys m_swapScriptKeyA;
+        l15::core::ChannelKeys m_swapScriptKeyB;
+        l15::core::ChannelKeys m_swapScriptKeyM;
+        l15::core::ChannelKeys m_ordUtxoKey;
+        l15::core::ChannelKeys m_fundsUtxoKey;
+
+        auto builder = getDummy();
+
+        seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
+        bytevector swap_hash(32);
+        CHash256().Write(preimage).Finalize(swap_hash);
+
+        builder->SetOrdCommitMiningFeeRate("0.00001");
+        builder->SetMiningFeeRate("0.00001");
+
+        builder->SetSwapHash(hex(swap_hash));
+        builder->SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
+        builder->SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
+        builder->SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
+
+        builder->SetOrdUtxoTxId(sampleOutput);
+        builder->SetOrdUtxoNOut(sampleNOutput);
+        builder->SetOrdUtxoAmount("1");
+
+        builder->SignOrdCommitment(hex(m_ordUtxoKey.GetLocalPrivKey()));
+        builder->SignOrdSwap(hex(m_swapScriptKeyA.GetLocalPrivKey()));
+
+        builder->SetFundsUtxoTxId(sampleOutput);
+        builder->SetFundsUtxoNOut(sampleNOutput);
+        builder->SetFundsUtxoAmount("1");
+
+        builder->SignFundsCommitment(hex(m_fundsUtxoKey.GetLocalPrivKey()));
+
+        m_fundsCommit = builder->GetFundsCommitTx();
+        m_ordCommit = builder->GetOrdCommitTx();
+
+        builder->MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
+        builder->SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
+        builder->MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
+
+        m_ordSwap = builder->GetSwapTx();
+        m_ordTransfer = builder->GetPayoffTx();
+    }
+
+    CAmount getFundsCommit(CAmount fee_rate) const { return getFee(fee_rate, m_fundsCommit); }
+    CAmount getOrdinalCommit(CAmount fee_rate) const { return getFee(fee_rate, m_ordCommit); }
+    CAmount getOrdinalSwap(CAmount fee_rate) const { return getFee(fee_rate, m_ordSwap); }
+    CAmount getOrdinalTransfer(CAmount fee_rate) const { return getFee(fee_rate, m_ordTransfer); }
+
+private:
+    CMutableTransaction m_fundsCommit;
+    CMutableTransaction m_ordCommit;
+    CMutableTransaction m_ordSwap;
+    CMutableTransaction m_ordTransfer;
+};
 
 }

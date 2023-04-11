@@ -10,18 +10,20 @@
 #include "nodehelper.hpp"
 #include "fee_calculator.hpp"
 #include "swap_inscription.hpp"
+#include "utils.hpp"
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
-const std::string feeRate = "0.000015";
+const std::string sFeeRate = "0.000015";
 
 TEST_CASE("FeeCalculatorCalculation")
 {
+    l15::inscribeit::FeeCalculator<l15::inscribeit::SwapInscriptionBuilder> feeCalculator("regtest", sFeeRate, sFeeRate);
 
-    l15::inscribeit::FeeCalculator<l15::inscribeit::SwapInscriptionBuilder> feeCalculator("","","");
+    auto feeRate = l15::ParseAmount(sFeeRate);
 
     CAmount fee, sumFee = 0;
-    REQUIRE_NOTHROW(fee = feeCalculator.getFundsCommit());
+    REQUIRE_NOTHROW(fee = feeCalculator.getFundsCommit(feeRate));
     CHECK(fee == 162);
     sumFee += fee;
 /*

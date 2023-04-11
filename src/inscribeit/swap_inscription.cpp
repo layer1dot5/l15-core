@@ -53,7 +53,9 @@ CScript MakeOrdPayOffScript(const bytevector& hash, const xonly_pubkey& pk)
 }
 
 const uint32_t SwapInscriptionBuilder::m_protocol_version = 1;
-
+std::shared_ptr<FeeCalculator<SwapInscriptionBuilder>> SwapInscriptionBuilder::m_calculator(
+        std::make_shared<FeeCalculator<SwapInscriptionBuilder>>("regtest", "0.000015", "0.0000015")
+);
 const std::string SwapInscriptionBuilder::name_ord_price = "ord_price";
 const std::string SwapInscriptionBuilder::name_market_fee = "market_fee";
 
@@ -87,7 +89,7 @@ const std::string SwapInscriptionBuilder::name_ordpayoff_unspendable_key_factor 
 const std::string SwapInscriptionBuilder::name_ordpayoff_sig = "ordpayoff_sig";
 
 SwapInscriptionBuilder::SwapInscriptionBuilder(const string &chain_mode, const string &ord_price, const string &market_fee)
-        : ContractBuilder(chain_mode), m_calculator(std::make_shared<FeeCalculator<SwapInscriptionBuilder>>("regtest", "0.000015", "0.0000015")),
+        : ContractBuilder(chain_mode),
           m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {
 };
 
