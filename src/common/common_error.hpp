@@ -51,4 +51,14 @@ public:
 
 };
 
+class IllegalArgumentError : public Error {
+public:
+    explicit IllegalArgumentError(std::string&& details) : Error(move(details)) {}
+    ~IllegalArgumentError() override = default;
+
+    const char* what() const noexcept override
+    { return "IllegalArgumentError"; }
+
+};
+
 }

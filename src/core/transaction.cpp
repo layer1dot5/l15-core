@@ -4,6 +4,7 @@
 
 #include "common.hpp"
 #include "common_error.hpp"
+#include "utils.hpp"
 #include "transaction.hpp"
 
 #undef VERSION
@@ -68,6 +69,25 @@ std::string GetTaprootPubKey(const CTxOut &out)
         throw TransactionError("Wrong SegWit version: " + std::to_string(witversion));
     }
     return hex(witnessprogram);
+}
+
+std::string GetTaprootAddress(const std::string& chain_mode, const std::string pubkey)
+{
+    if (chain_mode == "testnet") {
+        Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET> bech32;
+        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+    }
+    else if (chain_mode == "mainnet") {
+        Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET> bech32;
+        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+    }
+    else if (chain_mode == "regtest") {
+        Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST> bech32;
+        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+    }
+    else {
+        throw IllegalArgumentError(std::string(chain_mode));
+    }
 }
 
 } // core
