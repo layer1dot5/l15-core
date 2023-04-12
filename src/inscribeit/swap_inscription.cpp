@@ -757,8 +757,22 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
         CMutableTransaction commit_tx;
         commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
         commit_tx.vin.front().scriptWitness.stack.emplace_back(*m_funds_commit_sig);
-        commit_tx.vout = {CTxOut(m_funds_amount.value(), commit_pubkeyscript)};
-        commit_tx.vout.front().nValue = CalculateOutputAmount(*m_funds_amount, *m_mining_fee_rate, commit_tx);
+
+        CAmount sumToCommit = m_ord_price + m_market_fee.value();
+        if (m_calculator){
+            sumToCommit += SwapInscriptionBuilder::m_calculator->getWholeFee(m_mining_fee_rate.value());
+        }
+        if(m_funds_amount.value() <= sumToCommit) {
+            throw l15::TransactionError("funds amount is too small");
+        }
+
+        CAmount amountRemained = m_funds_amount.value() - sumToCommit;
+
+        commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
+        commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
+
+        commit_tx.vout.push_back({CTxOut(amountRemained, commit_pubkeyscript)});
+        commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
         mFundsCommitTx = move(commit_tx);
     }
@@ -808,14 +822,9 @@ void FeeCalculator<SwapInscriptionBuilder>::init() {
 
     auto builder = getDummy();
 
-    seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
-    bytevector swap_hash(32);
-    CHash256().Write(preimage).Finalize(swap_hash);
-
     builder->SetOrdCommitMiningFeeRate("0.00001");
     builder->SetMiningFeeRate("0.00001");
 
-    builder->SetSwapHash(hex(swap_hash));
     builder->SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
     builder->SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
     builder->SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
@@ -838,7 +847,7 @@ void FeeCalculator<SwapInscriptionBuilder>::init() {
 
     builder->MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
     builder->SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
-    builder->MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
+    builder->MarketSignSwap(hex(m_swapScriptKeyM.GetLocalPrivKey()));
 
     m_ordSwap = builder->GetSwapTx();
     m_ordTransfer = builder->GetPayoffTx();
@@ -854,4 +863,5 @@ CAmount FeeCalculator<SwapInscriptionBuilder>::getWholeFee(CAmount fee_rate) con
         return sum += getFee(fee_rate, *tx);
     });
 }
-}
+
+} // namespace l15::inscribeit

@@ -455,7 +455,6 @@ TEST_CASE("FullSwapNoChange")
     // FUNDS side terms
     //--------------------------------------------------------------------------
 
-    builderMarket.SetSwapHash(hex(swap_hash));
     //builderMarket.SetMiningFeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
