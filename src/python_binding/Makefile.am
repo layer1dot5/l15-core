@@ -25,7 +25,7 @@ $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
 	$(SWIG) -I$(top_srcdir)/src/common  -I$(top_srcdir)/src/core -I$(top_srcdir)/src/inscribeit -I$(top_srcdir)/node/src -I$(top_srcdir)/node/src/primitives -I$(top_srcdir)/node/src/script -c++ -python -o $@ $<
 
 
-lib_LTLIBRARIES = _libl15-core-pybind.la
+lib_LTLIBRARIES = _libl15_core_pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -Wl,--no-undefined
@@ -41,5 +41,5 @@ _libl15_core_pybind_la_LIBADD = \
 
 install-completed-library:
 	cp $(srcdir)/__init__.py $(top_builddir)/src/python_binding/
-	cp $(top_builddir)/src/python_binding/.libs/_libl15-core-pybind.so $(top_builddir)/src/python_binding/_libl15_core_pybind.so
+	cp $(top_builddir)/src/python_binding/.libs/_libl15_core_pybind.so $(top_builddir)/src/python_binding/_libl15_core_pybind.so
 

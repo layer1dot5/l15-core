@@ -71,7 +71,7 @@ std::string GetTaprootPubKey(const CTxOut &out)
     return hex(witnessprogram);
 }
 
-std::string GetTaprootAddress(const std::string& chain_mode, const std::string pubkey)
+std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey)
 {
     if (chain_mode == "testnet") {
         Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET> bech32;
