@@ -32,7 +32,6 @@ private:
     std::optional<xonly_pubkey> m_swap_script_pk_A;
     std::optional<xonly_pubkey> m_swap_script_pk_B;
     std::optional<xonly_pubkey> m_swap_script_pk_M;
-    std::optional<bytevector> m_swap_hash;
 
     std::optional<seckey> m_ord_unspendable_key_factor;
     std::optional<std::string> m_ord_txid;
@@ -54,9 +53,7 @@ private:
 
     std::optional<signature> m_funds_swap_sig_B;
     std::optional<signature> m_funds_swap_sig_M;
-    std::optional<seckey> m_swap_preimage;
 
-    std::optional<seckey> m_ordpayoff_unspendable_key_factor;
     std::optional<signature> m_ordpayoff_sig;
 
 
@@ -70,7 +67,6 @@ private:
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdCommitTapRoot() const;
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTapRoot() const;
-    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdTransferTapRoot() const;
 
     CMutableTransaction MakeSwapTx(bool with_funds_in);
 
@@ -86,7 +82,6 @@ public:
     static const std::string name_swap_script_pk_A;
     static const std::string name_swap_script_pk_B;
     static const std::string name_swap_script_pk_M;
-    static const std::string name_swap_hash;
 
     static const std::string name_ord_unspendable_key_factor;
     static const std::string name_ord_txid;
@@ -106,7 +101,6 @@ public:
     static const std::string name_ord_swap_sig_A;
     static const std::string name_ord_swap_sig_M;
 
-    static const std::string name_swap_preimage;
     static const std::string name_funds_swap_sig_B;
     static const std::string name_funds_swap_sig_M;
 
@@ -133,9 +127,6 @@ public:
 
     std::string GetSwapScriptPubKeyM() const { return hex(m_swap_script_pk_M.value()); }
     void SetSwapScriptPubKeyM(std::string v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
-
-    std::string GetSwapHash() const { return hex(m_swap_hash.value()); }
-    void SetSwapHash(std::string v) { m_swap_hash = unhex<bytevector>(v); }
 
     std::string GetOrdUtxoTxId() const { return m_ord_txid.value(); }
     void SetOrdUtxoTxId(std::string v) { m_ord_txid = v; }
@@ -173,9 +164,6 @@ public:
     std::string GetFundsUnspendableKeyFactor() const { return hex(m_funds_unspendable_key_factor.value()); }
     void SetFundsUnspendableKeyFactor(std::string v) { m_funds_unspendable_key_factor = unhex<seckey>(v); }
 
-    std::string GetOrdPayoffUnspendableKeyFactor() const { return hex(m_ordpayoff_unspendable_key_factor.value()); }
-    void SetOrdPayoffUnspendableKeyFactor(std::string v) { m_ordpayoff_unspendable_key_factor = unhex<seckey>(v); }
-
 
     std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
     void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }
@@ -185,7 +173,7 @@ public:
     void SignFundsPayBack(std::string sk);
 
     void MarketSignOrdPayoffTx(std::string sk);
-    void MarketSignSwap(std::string preimage, std::string sk);
+    void MarketSignSwap(std::string sk);
 
     void CheckContractTerms(SwapPhase phase);
     string Serialize(SwapPhase phase);

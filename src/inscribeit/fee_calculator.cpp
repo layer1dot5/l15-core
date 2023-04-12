@@ -61,14 +61,10 @@ CAmount OrdinalTransactions::GetFee(TransactionKind kind) {
 void OrdinalTransactions::createTransactions() {
     SwapInscriptionBuilder builder("regtest", "0.1", "0.01");
 
-    seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
-    bytevector swap_hash(32);
-    CHash256().Write(preimage).Finalize(swap_hash);
 
     builder.SetOrdCommitMiningFeeRate("0.00001");
     builder.SetMiningFeeRate("0.00001");
 
-    builder.SetSwapHash(hex(swap_hash));
     builder.SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
     builder.SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
     builder.SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
@@ -91,7 +87,6 @@ void OrdinalTransactions::createTransactions() {
 
     builder.MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
     builder.SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
-    builder.MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
 
     m_ordSwap = builder.GetSwapTx();
     m_ordTransfer = builder.GetPayoffTx();
