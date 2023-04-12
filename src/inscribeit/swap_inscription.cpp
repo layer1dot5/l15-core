@@ -305,7 +305,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
     commit_tx.vout.push_back({CTxOut(amountRemained, commit_pubkeyscript)});
-    commit_tx.vout.front().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+    commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
     m_funds_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_funds_amount, utxo_pubkeyscript)}, {});
     commit_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(*m_funds_commit_sig);

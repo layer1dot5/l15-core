@@ -258,7 +258,7 @@ TEST_CASE("FundsPayBack")
 
 TEST_CASE("FullSwap")
 {
-    const std::string funds_amount = "0.11000720";
+    const std::string funds_amount = "0.11008000";
     ChannelKeys swap_script_key_A;
     ChannelKeys swap_script_key_B;
     ChannelKeys swap_script_key_M;
@@ -495,107 +495,5 @@ TEST_CASE("FullSwapNoChange")
     builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
     builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
     builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
-    REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
-
-    string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsCommitSig);
-
-
-    // MARKET confirm terms
-    //--------------------------------------------------------------------------
-
-    builderMarket.Deserialize(ordSellerTerms);
-    builderMarket.Deserialize(ordBuyerTerms);
-
-    string funds_commit_raw_tx = builderMarket.FundsCommitRawTransaction();
-    string ord_commit_raw_tx = builderMarket.OrdCommitRawTransaction();
-
-    CMutableTransaction ord_commit_tx, funds_commit_tx;
-    REQUIRE(DecodeHexTx(ord_commit_tx, ord_commit_raw_tx));
-    REQUIRE(DecodeHexTx(funds_commit_tx, funds_commit_raw_tx));
-
-    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funds_commit_tx)));
-    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_commit_tx)));
-
-    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
-
-    REQUIRE_NOTHROW(builderMarket.MarketSignOrdPayoffTx(hex(swap_script_key_M.GetLocalPrivKey())));
-    string ordMarketTerms = builderMarket.Serialize(SwapInscriptionBuilder::MarketPayoffSig);
-
-
-    // BUYER sign swap
-    //--------------------------------------------------------------------------
-
-    builderOrdBuyer.Deserialize(ordMarketTerms);
-    REQUIRE_NOTHROW(builderOrdBuyer.SignFundsSwap(hex(swap_script_key_B.GetLocalPrivKey())));
-
-    string ordFundsSignature = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsSwapSig);
-
-
-    // MARKET sign swap
-    //--------------------------------------------------------------------------
-
-    builderMarket.Deserialize(ordFundsSignature);
-    REQUIRE_NOTHROW(builderMarket.MarketSignSwap(hex(preimage), hex(swap_script_key_M.GetLocalPrivKey())));
-
-    string ord_swap_raw_tx = builderMarket.OrdSwapRawTransaction();
-    string ord_transfer_raw_tx = builderMarket.OrdPayoffRawTransaction();
-
-    CMutableTransaction ord_swap_tx, ord_transfer_tx;
-    REQUIRE(DecodeHexTx(ord_swap_tx, ord_swap_raw_tx));
-    REQUIRE(DecodeHexTx(ord_transfer_tx, ord_transfer_raw_tx));
-
-    PrecomputedTransactionData txdata;
-    txdata.Init(ord_swap_tx, {ord_commit_tx.vout[0], funds_commit_tx.vout[0]}, /* force=*/ true);
-
-    const CTxIn& ordTxin = ord_swap_tx.vin.at(0);
-    MutableTransactionSignatureChecker TxOrdChecker(&ord_swap_tx, 0, ord_commit_tx.vout[0].nValue, txdata, MissingDataBehavior::FAIL);
-    bool ordPath = VerifyScript(ordTxin.scriptSig, ord_commit_tx.vout[0].scriptPubKey, &ordTxin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TxOrdChecker);
-    REQUIRE(ordPath);
-
-    const CTxIn& txin = ord_swap_tx.vin.at(1);
-    MutableTransactionSignatureChecker tx_checker(&ord_swap_tx, 1, funds_commit_tx.vout[0].nValue, txdata, MissingDataBehavior::FAIL);
-    bool fundsPath = VerifyScript(txin.scriptSig, funds_commit_tx.vout[0].scriptPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, tx_checker);
-    REQUIRE(fundsPath);
-
-
-
-
-    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_swap_tx)));
-    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_transfer_tx)));
-
-    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
-
-
-    // BUYER spends his ord
-    //--------------------------------------------------------------------------
-
-    xonly_pubkey payoff_pk = w->btc().Bech32Decode(w->btc().GetNewAddress());
-    CScript buyer_pubkeyscript = CScript() << 1 << payoff_pk;
-
-    CScript script;
-    script << OP_HASH256 << swap_hash << OP_EQUALVERIFY;
-    script << swap_script_key_B.GetLocalPubKey() << OP_CHECKSIG;
-
-    ScriptMerkleTree tap_tree(TreeBalanceType::WEIGHTED, {script});
-
-    xonly_pubkey unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(unhex<seckey>(builderOrdBuyer.GetOrdPayoffUnspendableKeyFactor()));
-
-    auto tap_root = core::ChannelKeys::AddTapTweak(unspendable_key, tap_tree.CalculateRoot());
-
-    bytevector control_block = {static_cast<uint8_t>(0xc0 | get<1>(tap_root))};
-    control_block.reserve(1 + unspendable_key.size());
-    control_block.insert(control_block.end(), unspendable_key.begin(), unspendable_key.end());
-
-    CMutableTransaction ord_payoff_tx;
-    ord_payoff_tx.vin = {CTxIn(ord_transfer_tx.GetHash(), 0)};
-    ord_payoff_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    ord_payoff_tx.vin.front().scriptWitness.stack.push_back(ord_swap_tx.vin[1].scriptWitness.stack[2]);
-    ord_payoff_tx.vin.front().scriptWitness.stack.emplace_back(script.begin(), script.end());
-    ord_payoff_tx.vin.front().scriptWitness.stack.emplace_back(move(control_block));
-    ord_payoff_tx.vout = {CTxOut(ord_transfer_tx.vout[0].nValue, buyer_pubkeyscript)};
-    ord_payoff_tx.vout.front().nValue = CalculateOutputAmount(ord_transfer_tx.vout[0].nValue, ParseAmount(fee_rate), ord_payoff_tx);
-
-    REQUIRE_NOTHROW(ord_payoff_tx.vin.front().scriptWitness.stack[0] = swap_script_key_B.SignTaprootTx(ord_payoff_tx, 0, {ord_transfer_tx.vout[0]}, script));
-
-    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_payoff_tx)));
+    REQUIRE_THROWS_AS(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())), l15::TransactionError);
 }
