@@ -39,10 +39,8 @@ const std::string Version() {
     obj = PyDict_New();
 
     {
-        PyObject *name_txid = PyUnicode_FromString("txid");
         PyObject *txid = PyUnicode_FromString($1.GetHash().GetHex().c_str());
-        PyDict_SetItem(obj, name_txid, txid);
-        Py_XDECREF(name_txid);
+        PyDict_SetItemString(obj, "txid", txid);
         Py_XDECREF(txid);
     }
 
@@ -52,29 +50,20 @@ const std::string Version() {
             PyObject *in = PyDict_New();
 
             {
-                PyObject *name_hash = PyUnicode_FromString("txid");
-                PyObject *hash = PyUnicode_FromString($1.vin[i].prevout.hash.GetHex().c_str());
-                PyDict_SetItem(in, name_hash, hash);
-                Py_XDECREF(name_hash);
+                PyObject *hash = PyString_FromString($1.vin[i].prevout.hash.GetHex().c_str());
+                PyDict_SetItemString(in, "txid", hash);
                 Py_XDECREF(hash);
             }
 
             {
-                PyObject *name_n = PyUnicode_FromString("vout");
                 PyObject *n = PyInt_FromLong($1.vin[i].prevout.n);
-                PyDict_SetItem(in, name_n, n);
-                Py_XDECREF(name_n);
+                PyDict_SetItemString(in, "vout", n);
                 Py_XDECREF(n);
             }
 
-            PyList_SetItem(inputs, i, in);
-            Py_XDECREF(in);
+            PyList_SET_ITEM(inputs, i, in);
         }
-        {
-            PyObject *name_vin = PyUnicode_FromString("vin");
-            PyDict_SetItem(obj, name_vin, inputs);
-            Py_XDECREF(name_vin);
-        }
+        PyDict_SetItemString(obj, "vin", inputs);
         Py_XDECREF(inputs);
     }
 
@@ -84,37 +73,26 @@ const std::string Version() {
             PyObject* out = PyDict_New();
 
             {
-                PyObject* name_val = PyUnicode_FromString("value");
                 PyObject* val = PyLong_FromLongLong($1.vout[i].nValue);
-                PyDict_SetItem(out, name_val, val);
-                Py_XDECREF(name_val);
+                PyDict_SetItemString(out, "value", val);
                 Py_XDECREF(val);
             }
 
             {
-                PyObject* name_n = PyUnicode_FromString("n");
                 PyObject* n = PyInt_FromLong(i);
-                PyDict_SetItem(out, name_n, n);
-                Py_XDECREF(name_n);
+                PyDict_SetItemString(out, "n", n);
                 Py_XDECREF(n);
             }
 
             if (l15::core::IsTaproot($1.vout[i])) {
-                PyObject *name_scriptpubkey = PyUnicode_FromString("pubKey");
-                PyObject *scriptpubkey = PyUnicode_FromString(l15::core::GetTaprootPubKey($1.vout[i]).c_str());
-                PyDict_SetItem(out, name_scriptpubkey, scriptpubkey);
-                Py_XDECREF(name_scriptpubkey);
+                PyObject *scriptpubkey = PyString_FromString(l15::core::GetTaprootPubKey($1.vout[i]).c_str());
+                PyDict_SetItemString(out, "pubKey", scriptpubkey);
                 Py_XDECREF(scriptpubkey);
             }
 
-            PyList_SetItem(outputs, i, out);
-            Py_XDECREF(out);
+            PyList_SET_ITEM(outputs, i, out);
         }
-        {
-            PyObject* name_vout = PyUnicode_FromString("vout");
-            PyDict_SetItem(obj, name_vout, outputs);
-            Py_XDECREF(name_vout);
-        }
+        PyDict_SetItemString(obj, "vout", outputs);
         Py_XDECREF(outputs);
     }
 
