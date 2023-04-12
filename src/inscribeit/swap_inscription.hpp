@@ -215,69 +215,15 @@ public:
         init();
     };
 
-    void init() {
-        uint32_t sampleNOutput = 0;
-        std::string sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
-
-        l15::core::ChannelKeys m_swapScriptKeyA;
-        l15::core::ChannelKeys m_swapScriptKeyB;
-        l15::core::ChannelKeys m_swapScriptKeyM;
-        l15::core::ChannelKeys m_ordUtxoKey;
-        l15::core::ChannelKeys m_fundsUtxoKey;
-
-        auto builder = getDummy();
-
-        seckey preimage = l15::core::ChannelKeys::GetStrongRandomKey();
-        bytevector swap_hash(32);
-        CHash256().Write(preimage).Finalize(swap_hash);
-
-        builder->SetOrdCommitMiningFeeRate("0.00001");
-        builder->SetMiningFeeRate("0.00001");
-
-        builder->SetSwapHash(hex(swap_hash));
-        builder->SetSwapScriptPubKeyB(hex(m_swapScriptKeyB.GetLocalPubKey()));
-        builder->SetSwapScriptPubKeyM(hex(m_swapScriptKeyM.GetLocalPubKey()));
-        builder->SetSwapScriptPubKeyA(hex(m_swapScriptKeyA.GetLocalPubKey()));
-
-        builder->SetOrdUtxoTxId(sampleOutput);
-        builder->SetOrdUtxoNOut(sampleNOutput);
-        builder->SetOrdUtxoAmount("1");
-
-        builder->SignOrdCommitment(hex(m_ordUtxoKey.GetLocalPrivKey()));
-        builder->SignOrdSwap(hex(m_swapScriptKeyA.GetLocalPrivKey()));
-
-        builder->SetFundsUtxoTxId(sampleOutput);
-        builder->SetFundsUtxoNOut(sampleNOutput);
-        builder->SetFundsUtxoAmount("2");
-
-        builder->SignFundsCommitment(hex(m_fundsUtxoKey.GetLocalPrivKey()));
-
-        m_fundsCommit = builder->GetFundsCommitTx();
-        m_ordCommit = builder->GetOrdCommitTx();
-
-        builder->MarketSignOrdPayoffTx(hex(m_swapScriptKeyM.GetLocalPrivKey()));
-        builder->SignFundsSwap(hex(m_swapScriptKeyB.GetLocalPrivKey()));
-        builder->MarketSignSwap(hex(preimage), hex(m_swapScriptKeyM.GetLocalPrivKey()));
-
-        m_ordSwap = builder->GetSwapTx();
-        m_ordTransfer = builder->GetPayoffTx();
-        m_initialized = true;
-    }
+    void init();
 
     CAmount getFundsCommit(CAmount fee_rate) const { return getFee(fee_rate, m_fundsCommit); }
     CAmount getOrdinalCommit(CAmount fee_rate) const { return getFee(fee_rate, m_ordCommit); }
     CAmount getOrdinalSwap(CAmount fee_rate) const { return getFee(fee_rate, m_ordSwap); }
     CAmount getOrdinalTransfer(CAmount fee_rate) const { return getFee(fee_rate, m_ordTransfer); }
 
-    CAmount getWholeFee(CAmount fee_rate) const {
-        if(!m_initialized) {
-            return 0;
-        }
-        auto txs = {&m_fundsCommit, &m_ordCommit, &m_ordSwap, &m_ordTransfer};
-        return std::accumulate(txs.begin(), txs.end(), CAmount(0), [this, fee_rate](CAmount sum, const CMutableTransaction* tx) -> CAmount {
-            return sum += getFee(fee_rate, *tx);
-        });
-    }
+    CAmount getWholeFee(CAmount fee_rate) const;
+
 private:
     CMutableTransaction m_fundsCommit;
     CMutableTransaction m_ordCommit;
