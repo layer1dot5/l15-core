@@ -67,7 +67,7 @@ const std::string CreateInscriptionBuilder::name_inscribe_sig = "inscribe_sig";
 const std::string CreateInscriptionBuilder::name_destination_pk = "destination_pk";
 
 
-CreateInscriptionBuilder &l15::inscribeit::CreateInscriptionBuilder::UTXO(const string &txid, uint32_t nout, const std::string& amount)
+CreateInscriptionBuilder &CreateInscriptionBuilder::UTXO(const string &txid, uint32_t nout, const std::string& amount)
 {
     m_txid = txid;
     m_nout = nout;
