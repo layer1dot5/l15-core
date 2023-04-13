@@ -4,7 +4,6 @@
 
 #include "utils.hpp"
 #include "common_error.hpp"
-#include "fee_calculator.hpp"
 
 namespace l15::inscribeit {
 
