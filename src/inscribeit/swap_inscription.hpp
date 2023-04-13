@@ -148,7 +148,6 @@ public:
 
     std::string GetOrdCommitMiningFeeRate() const { return FormatAmount(m_ord_commit_mining_fee_rate.value()); }
     void SetOrdCommitMiningFeeRate(std::string v) { m_ord_commit_mining_fee_rate = ParseAmount(v); }
-    void SetOrdCommitMiningFeeRate(CAmount v) { m_ord_commit_mining_fee_rate = v; }
 
     std::string GetOrdCommitSig() const { return hex(m_ord_commit_sig.value()); }
     void SetOrdCommitSig(std::string v) { m_ord_commit_sig = unhex<signature>(v); }

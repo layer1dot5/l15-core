@@ -75,7 +75,6 @@ public:
 
     std::string GetMiningFeeRate() const { return FormatAmount(m_mining_fee_rate.value()); }
     void SetMiningFeeRate(std::string v) { m_mining_fee_rate = ParseAmount(v); }
-    void SetMiningFeeRate(CAmount v) { m_mining_fee_rate = v; }
 
 
 };

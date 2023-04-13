@@ -1,6 +1,7 @@
 #include "common.hpp"
 
 #include "script/script.h"
+#include "secp256k1_schnorrsig.h"
 
 namespace l15 {
 
@@ -24,5 +25,12 @@ constexpr std::array<std::array<char, 2>, 256> CreateByteToHexMap()
 }
 
 const std::array<std::array<char, 2>, 256> byte_to_hex = CreateByteToHexMap();
+
+
+bool xonly_pubkey::verify(const secp256k1_context *ctx, const signature& sig, const uint256 &msg)
+{
+    secp256k1_xonly_pubkey pk = get(ctx);
+    return secp256k1_schnorrsig_verify(ctx, sig.data(), msg.data(), msg.size(), &pk);
+}
 
 }

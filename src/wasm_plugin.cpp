@@ -74,7 +74,7 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
             .function("Sign", &l15::inscribeit::CreateInscriptionBuilder::Sign)
             .function("Serialize", &l15::inscribeit::CreateInscriptionBuilder::Serialize)
 
-            .property("intermediate_taproot_pk", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
+            .property("intermediate_taproot_sk", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
             ;
 
     emscripten::enum_<l15::inscribeit::SwapInscriptionBuilder::SwapPhase>("SwapPhase")
@@ -97,7 +97,6 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
             .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_A.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyA, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyA)
             .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_B.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyB, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyB)
             .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_M.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyM, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyM)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_hash.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapHash, &l15::inscribeit::SwapInscriptionBuilder::SetSwapHash)
             .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_txid.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoTxId, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoTxId)
             .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_nout.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoNOut, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoNOut)
             .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_amount.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoAmount, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoAmount)
