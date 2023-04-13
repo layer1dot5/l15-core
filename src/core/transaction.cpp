@@ -23,33 +23,6 @@ CMutableTransaction Deserialize(const std::string &hex)
     return tx;
 }
 
-//std::string Transaction::Serialize()
-//{
-//    return EncodeHexTx(CTransaction(m_tx));
-//}
-
-//std::string Transaction::FormatPubKeyScript(const CScript &script)
-//{
-//    UniValue out(UniValue::VOBJ);
-//    CTxDestination address;
-//    std::vector<bytevector> solns;
-//    const TxoutType type{Solver(script, solns)};
-//
-////    if (ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
-////        out.pushKV("address", EncodeDestination(address));
-////    }
-//    out.pushKV("type", GetTxnOutputType(type));
-//
-//    if (type == TxoutType::WITNESS_V1_TAPROOT) {
-//        out.pushKV("pubkey", hex(solns.front()));
-//    }
-//    if (type == TxoutType::WITNESS_V0_KEYHASH) {
-//        out.pushKV("pubkeyhash", hex(solns.front()));
-//    }
-//
-//    return out.write(2);
-//}
-
 bool IsTaproot(const CTxOut &out)
 {
     int witversion;
