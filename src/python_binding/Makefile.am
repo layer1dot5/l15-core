@@ -2,15 +2,16 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/node/src \
  -I$(top_srcdir)/node/src/univalue/include \
  -I$(top_srcdir)/node/src/consensus \
+ -I$(top_srcdir)/node/src/primitives \
  -I$(top_srcdir)/node/src/script \
  -I$(top_srcdir)/node/src/support \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/src/common \
- -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
  -I$(top_srcdir)/contrib/cex \
  -I$(top_srcdir)/src/inscribeit \
- -I$(top_srcdir)/src/python_binding
+ -I$(top_srcdir)/src/python_binding \
+$(PYTHON_CPPFLAGS) $(PYTHON_INCLUDES)
 
 SWIG_FLAGS = -stdstl
 SWIG_SOURCES = l15-core-pybind.i
@@ -21,16 +22,12 @@ BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
 EXTRA_DIST = $(SWIG_SOURCES)
 
 $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES)
-	$(SWIG) -I$(top_srcdir)/src/common -I$(top_srcdir)/src/inscribeit -c++ -python -o $@ $<
+	$(SWIG) -I$(top_srcdir)/src/common  -I$(top_srcdir)/src/core -I$(top_srcdir)/src/inscribeit -I$(top_srcdir)/node/src -I$(top_srcdir)/node/src/primitives -I$(top_srcdir)/node/src/script -c++ -python -o $@ $<
 
-AM_LDFLAGS = -L$(top_builddir)/node/src \
-             -L$(top_builddir)/node/src/crypto
 
-lib_LTLIBRARIES = _libl15-core-pybind.la
+lib_LTLIBRARIES = _libl15_core_pybind.la
 
 _libl15_core_pybind_la_SOURCES = $(SWIG_PYTHON_MODULE) $(SWIG_SOURCES_CPP)
-_libl15_core_pybind_la_CXXFLAGS = $(PYTHON_INCLUDES) $(PYTHON_CPPFLAGS)
-_libl15_core_pybind_la_CPPFLAGS = $(AM_CPPFLAGS) $(PYTHON_CPPFLAGS)
 _libl15_core_pybind_la_LDFLAGS = -shared -module -avoid-version $(PYTHON_LDFLAGS) -Wl,--no-undefined
 
 _libl15_core_pybind_la_LIBADD = \
@@ -44,5 +41,5 @@ _libl15_core_pybind_la_LIBADD = \
 
 install-completed-library:
 	cp $(srcdir)/__init__.py $(top_builddir)/src/python_binding/
-	cp $(top_builddir)/src/python_binding/.libs/_libl15-core-pybind.so $(top_builddir)/src/python_binding/_libl15_core_pybind.so
+	cp $(top_builddir)/src/python_binding/.libs/_libl15_core_pybind.so $(top_builddir)/src/python_binding/_libl15_core_pybind.so
 
