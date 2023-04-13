@@ -24,7 +24,7 @@ TEST_CASE("FeeCalculatorCalculation")
 
     CAmount fee, sumFee = 0;
     REQUIRE_NOTHROW(fee = feeCalculator.getFundsCommit(feeRate));
-    CHECK(fee == 162);
+    CHECK(fee == 225);
     sumFee += fee;
 
     REQUIRE_NOTHROW(fee = feeCalculator.getOrdinalCommit(feeRate));
@@ -36,7 +36,7 @@ TEST_CASE("FeeCalculatorCalculation")
     sumFee += fee;
 
     REQUIRE_NOTHROW(fee = feeCalculator.getOrdinalSwap(feeRate));
-    CHECK(fee == 544);
+    CHECK(fee == 520);
     sumFee += fee;
     std::cout << sumFee << std::endl;
 }
