@@ -32,6 +32,10 @@ using std::move;
 typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;
 
+class signature: public bytevector {
+public:
+    signature() : bytevector(65) { resize(64); }
+};
 
 typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<unsigned char>> seckey;
 typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
@@ -79,6 +83,8 @@ public:
         }
     }
 
+    bool verify(const secp256k1_context *ctx, const signature& sig, const uint256 &msg);
+
 };
 
 CScript& operator<<(CScript& script, const xonly_pubkey& pk);
@@ -91,10 +97,6 @@ template <class STREAM>
 STREAM& operator >> (STREAM& s, xonly_pubkey& x)
 { return operator>>(s, reinterpret_cast<xonly_pubkey::base&>(x)); }
 
-class signature: public bytevector {
-public:
-    signature() : bytevector(65) { resize(64); }
-};
 
 typedef std::unique_ptr<CMutableTransaction> transaction_ptr;
 typedef std::tuple<CMutableTransaction, bytevector> transaction_psig_t;

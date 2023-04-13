@@ -12,22 +12,10 @@ bool IsTaproot(const CTxOut& out);
 std::string GetTaprootPubKey(const CTxOut& out);
 std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey);
 
+bool VerifySchnorr(const std::string& pk, const std::string& sig, const std::string msg);
 
 
-//class Transaction
-//{
-//
-//    static bool IsTaproot(const CTxOut& out);
-//    static std::string GetTaprootPubKey(const CTxOut& out);
-//public:
-//    CMutableTransaction m_tx;
-//    void Deserialize(const std::string& hex);
-//    std::string Serialize();
-////
-////    std::
-//
-//
-//};
+
 
 } // l15::core
 
