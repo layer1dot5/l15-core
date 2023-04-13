@@ -4,6 +4,7 @@
 
 #include "utils.hpp"
 #include "common_error.hpp"
+#include "fee_calculator.hpp"
 
 namespace l15::inscribeit {
 
@@ -75,8 +76,6 @@ public:
 
     std::string GetMiningFeeRate() const { return FormatAmount(m_mining_fee_rate.value()); }
     void SetMiningFeeRate(std::string v) { m_mining_fee_rate = ParseAmount(v); }
-
-
 };
 
 } // inscribeit

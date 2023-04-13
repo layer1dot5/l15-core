@@ -10,10 +10,39 @@
 
 #include "common.hpp"
 #include "contract_builder.hpp"
+#include "fee_calculator.hpp"
 
 namespace l15::inscribeit {
 
-class CreateInscriptionBuilder: public ContractBuilder
+class CreateInscriptionBuilder;
+
+template<>
+class FeeCalculator<CreateInscriptionBuilder>: public DummyContainer<CreateInscriptionBuilder> {
+public:
+    template<typename... _Args>
+    FeeCalculator(_Args&&... args): DummyContainer<CreateInscriptionBuilder>(args...), m_initialized(false) {
+        init();
+    };
+
+    void init();
+
+    CAmount getWholeFee(const std::string &content_type, const bytevector &content, CAmount fee_rate);
+
+private:
+    void updateContent(const std::string &content_type, const bytevector &content);
+
+    uint32_t m_sampleNOutput = 0;
+    std::string m_sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    l15::core::ChannelKeys m_utxoKey;
+    l15::core::ChannelKeys m_destKey;
+
+    CMutableTransaction m_funding;
+    CMutableTransaction m_genesis;
+    bool m_initialized = false;
+};
+
+class CreateInscriptionBuilder: public ContractBuilder, public CanBeDummy
 {
     static const uint32_t m_protocol_version;
 
@@ -38,8 +67,10 @@ class CreateInscriptionBuilder: public ContractBuilder
     std::optional<CMutableTransaction> mFundingTx;
     std::optional<CMutableTransaction> mGenesisTx;
 
+private:
     void CheckBuildArgs() const;
     void CheckRestoreArgs(const UniValue& params) const;
+    void CheckTransactionsExistence() const;
 
     void RestoreTransactions();
 
@@ -64,9 +95,12 @@ public:
     CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;
 
-    explicit CreateInscriptionBuilder(const std::string& chain_mode) : ContractBuilder(chain_mode) {};
+    explicit CreateInscriptionBuilder(const std::string& chain_mode) : ContractBuilder(chain_mode) { };
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
+
+    const CMutableTransaction GetFundingTx() const;
+    const CMutableTransaction GetGenesisTx() const;
 
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }

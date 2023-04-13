@@ -308,3 +308,32 @@ TEST_CASE("CreateInscriptionBuilder spend funding tx back")
 
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
 }
+
+TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
+{
+    //get key pair
+    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
+    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+
+    //create address from key pair
+    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+
+    //send to the address
+    string txid = w->btc().SendToAddress(addr, "1");
+
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    std::string fee_rate = "0.00005";
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    CreateInscriptionBuilder builder("regtest");
+
+    REQUIRE_THROWS_AS(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "0.000001")
+                          .Data("text", hex(std::string("test")))
+                          .FeeRate(fee_rate)
+                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
+}

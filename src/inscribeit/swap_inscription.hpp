@@ -14,7 +14,7 @@ class SwapInscriptionBuilder;
 
 template<> class FeeCalculator<SwapInscriptionBuilder>;
 
-class SwapInscriptionBuilder : public ContractBuilder
+class SwapInscriptionBuilder : public ContractBuilder, public CanBeDummy
 {
 public:
     enum SwapPhase {
@@ -195,10 +195,10 @@ public:
 };
 
 template<>
-class FeeCalculator<SwapInscriptionBuilder>: public Dummy<SwapInscriptionBuilder> {
+class FeeCalculator<SwapInscriptionBuilder>: public DummyContainer<SwapInscriptionBuilder> {
 public:
     template<typename... _Args>
-    FeeCalculator(_Args&&... args): Dummy<SwapInscriptionBuilder>(args...), m_initialized(false) {
+    FeeCalculator(_Args&&... args): DummyContainer<SwapInscriptionBuilder>(args...), m_initialized(false) {
         init();
     };
 
