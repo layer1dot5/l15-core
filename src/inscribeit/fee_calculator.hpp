@@ -13,8 +13,8 @@ namespace l15::inscribeit {
 
 class CanBeDummy {
 public:
-    CanBeDummy(bool isDummy = false) {m_isDummy = isDummy; }
-    bool isDummy() const {return m_isDummy; }
+    CanBeDummy(bool isDummy = false) { m_isDummy = isDummy; }
+    bool isDummy() const { return m_isDummy; }
     void setIsDummy(bool isDummy) { m_isDummy = isDummy; }
 private:
     bool m_isDummy;

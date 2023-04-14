@@ -30,7 +30,7 @@ RUN cd /l15 && git clone https://github.com/zeromq/libzmq.git
 RUN cd libzmq/ && \
       ./autogen.sh && \
       ./configure --without-docs --enable-drafts && \
-      make -j4 && \
+      make -j8 && \
       make install && \
       cd /l15
 
@@ -38,7 +38,7 @@ RUN git clone https://github.com/swig/swig.git && \
       cd swig && \
       ./autogen.sh && \
       ./configure && \
-      make -j4 && \
+      make -j8 && \
       make install && \
       cd /l15
 
@@ -47,7 +47,7 @@ RUN git clone https://github.com/zeromq/cppzmq.git && \
       mkdir build && \
       cd build && \
       cmake .. && \
-      make -j4 && \
+      make -j8 && \
       make install && \
       cd /l15
 
@@ -59,7 +59,7 @@ WORKDIR /l15/l15-core/build
 RUN cd /l15/l15-core/build && \
       ../configure --enable-python-module=yes --enable-plugin-api --enable-build-inscribeit
 
-RUN make -j4
+RUN make -j8
 WORKDIR /l15/l15-core/build/src/python_binding
 RUN cd /l15/l15-core/build/src/python_binding && \
       make install-completed-library

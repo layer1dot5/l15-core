@@ -217,7 +217,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 
     CMutableTransaction genesis_tx;
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
-    genesis_tx.vout = {CTxOut(*m_amount, genesis_pubkeyscript)};
+    genesis_tx.vout = {CTxOut(funding_tx.vout.front().nValue, genesis_pubkeyscript)};
 
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(64);  // Empty value is needed to obtain correct tx size
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(genesis_script.begin(), genesis_script.end());
@@ -248,7 +248,6 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));
-
 }
 
 std::vector<std::string> CreateInscriptionBuilder::RawTransactions() const
@@ -330,8 +329,14 @@ void CreateInscriptionBuilder::RestoreTransactions()
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
 
-    CAmount wholeFee = calculator ? calculator->getWholeFee(*m_content_type, *m_content, *m_mining_fee_rate) : 0;
+    CAmount wholeFee = 0;
 
+    if (!isDummy()) {
+        wholeFee = calculator->getWholeFee(*m_content_type, *m_content, *m_mining_fee_rate);
+        if (*m_amount < wholeFee) {
+            throw l15::TransactionError("not enough amount to create inscription transactions");
+        }
+    }
     auto inscribe_taproot = core::ChannelKeys::AddTapTweak(m_inscribe_int_pk.value(), root);
     xonly_pubkey inscribe_taproot_pk = inscribe_taproot.first;
     uint8_t inscribe_taproot_parity = inscribe_taproot.second;
@@ -353,7 +358,11 @@ void CreateInscriptionBuilder::RestoreTransactions()
     funding_tx.vin.front().scriptWitness.stack.push_back(m_utxo_sig.value());
 
     funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
+    if (!isDummy()) {
+        funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
+    } else {
+        funding_tx.vout.front().nValue = 0;
+    }
 
     CMutableTransaction genesis_tx;
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
@@ -392,6 +401,51 @@ void CreateInscriptionBuilder::CheckTransactionsExistence() const {
     if(!mFundingTx || !mGenesisTx) {
         throw TransactionError("funding or genesis transaction was no properly created");
     }
+}
+
+CMutableTransaction CreateInscriptionBuilder::CreateFundingTxTemplate() const {
+    CScript script;
+    script << 1;
+    script << xonly_pubkey();
+
+    CMutableTransaction result;
+    result.vin = {CTxIn(COutPoint(uint256S(0), 0))};
+    result.vin.front().scriptWitness.stack.push_back(signature());
+
+    result.vout = {CTxOut(0, script)};
+    result.vout.front().nValue = 0;
+    return result;
+}
+
+CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
+    CMutableTransaction result;
+    auto emptyKey = xonly_pubkey();
+
+    CScript pubKeyScript;
+    pubKeyScript << 1;
+    pubKeyScript << emptyKey;
+
+    CScript genesis_script = MakeInscriptionScript(emptyKey, "type", {0,0,0,0});
+
+    result.vin = {CTxIn(COutPoint(uint256S(0), 0))};
+    result.vout = {CTxOut(*m_amount, pubKeyScript)};
+
+    result.vin.front().scriptWitness.stack.push_back(signature());
+    result.vin.front().scriptWitness.stack.emplace_back(genesis_script.begin(), genesis_script.end());
+
+    std::vector<uint256> genesis_scriptpath = {uint256(0),uint256(0)};
+
+    bytevector control_block = {static_cast<uint8_t>(0xc0 | 0)};
+    control_block.reserve(1 + emptyKey.size() + genesis_scriptpath.size() * uint256::size());
+    control_block.insert(control_block.end(), emptyKey.begin(), emptyKey.end());
+
+    for(uint256 &branch_hash : genesis_scriptpath)
+        control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
+
+    result.vin.front().scriptWitness.stack.emplace_back(control_block);
+    result.vout.front().nValue = 0;
+
+    return result;
 }
 
 void FeeCalculator<CreateInscriptionBuilder>::init() {

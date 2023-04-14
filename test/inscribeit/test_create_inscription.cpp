@@ -27,6 +27,21 @@ class TestcaseWrapper;
 std::string configpath;
 std::unique_ptr<TestcaseWrapper> w;
 
+std::string GenRandomString(const int len) {
+    static const char alphanum[] =
+            "0123456789"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+    std::string tmp_s;
+    tmp_s.reserve(len);
+
+    for (int i = 0; i < len; ++i) {
+        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+
+    return tmp_s;
+}
+
 struct TestConfigFactory
 {
     Config conf;
@@ -166,7 +181,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario")
     CreateInscriptionBuilder builder("regtest");
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
-                         .Data("text", hex(std::string("test")))
+                         .Data("text", hex(GenRandomString(1024 * 10)))
                          .FeeRate(fee_rate)
                          .Destination(hex(dest_key.GetLocalPubKey()))
                          .Sign(hex(utxo_key.GetLocalPrivKey())));
@@ -218,7 +233,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
     builder.SetUtxoAmount("1");
     builder.SetMiningFeeRate(fee_rate);
     builder.SetContentType("text");
-    builder.SetContent(hex(std::string("test")));
+    builder.SetContent(hex(GenRandomString(1024 * 10)));
     builder.SetDestinationPubKey(hex(dest_key.GetLocalPubKey()));
 
     CHECK_NOTHROW(builder.Sign(hex(utxo_key.GetLocalPrivKey())));
@@ -332,7 +347,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
     CreateInscriptionBuilder builder("regtest");
 
     REQUIRE_THROWS_AS(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "0.000001")
-                          .Data("text", hex(std::string("test")))
+                          .Data("text", hex(GenRandomString(1024 * 10)))
                           .FeeRate(fee_rate)
                           .Destination(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);

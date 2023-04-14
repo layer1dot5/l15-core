@@ -102,6 +102,9 @@ public:
     const CMutableTransaction GetFundingTx() const;
     const CMutableTransaction GetGenesisTx() const;
 
+    CMutableTransaction CreateFundingTxTemplate() const;
+    CMutableTransaction CreateGenesisTxTemplate() const;
+
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }
 
