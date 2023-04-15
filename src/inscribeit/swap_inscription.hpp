@@ -6,8 +6,6 @@
 
 #include "contract_builder.hpp"
 
-#include "fee_calculator.hpp"
-
 namespace l15::inscribeit {
 
 class SwapInscriptionBuilder;
@@ -28,9 +26,9 @@ public:
     };
 private:
     CAmount m_whole_fee = 0;
+    CAmount m_last_fee_rate = 0;
 
     static const uint32_t m_protocol_version;
-    static std::shared_ptr<FeeCalculator<SwapInscriptionBuilder>> m_calculator;
 
     CAmount m_ord_price;
     std::optional<CAmount> m_market_fee;
@@ -77,12 +75,13 @@ private:
     CMutableTransaction MakeSwapTx(bool with_funds_in);
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> TemplateTapRoot() const;
+
+public:
     CMutableTransaction CreatePayoffTxTemplate();
     CMutableTransaction CreateSwapTxTemplate();
     CMutableTransaction CreateOrdCommitTxTemplate();
     CMutableTransaction CreateFundsCommitTxTemplate();
 
-public:
     const CMutableTransaction& GetOrdCommitTx();
     const CMutableTransaction& GetFundsCommitTx();
     const CMutableTransaction& GetSwapTx();

@@ -368,23 +368,7 @@ void CreateInscriptionBuilder::RestoreTransactions()
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));
 }
-/*
-const CMutableTransaction CreateInscriptionBuilder::GetFundingTx() const {
-    CheckTransactionsExistence();
-    return *mFundingTx;
-}
 
-const CMutableTransaction CreateInscriptionBuilder::GetGenesisTx() const {
-    CheckTransactionsExistence();
-    return *mGenesisTx;
-}
-
-void CreateInscriptionBuilder::CheckTransactionsExistence() const {
-    if(!mFundingTx || !mGenesisTx) {
-        throw TransactionError("funding or genesis transaction was no properly created");
-    }
-}
-    */
 CMutableTransaction CreateInscriptionBuilder::CreateFundingTxTemplate() const {
     CScript script;
     script << 1;
@@ -408,14 +392,15 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std:
     pubKeyScript << emptyKey;
 
     CScript genesis_script = MakeInscriptionScript(emptyKey, content_type, content);
+    ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
 
     result.vin = {CTxIn(COutPoint(uint256(0), 0))};
-    result.vout = {CTxOut(*m_amount, pubKeyScript)};
+    result.vout = {CTxOut(0, pubKeyScript)};
 
     result.vin.front().scriptWitness.stack.emplace_back(64);
     result.vin.front().scriptWitness.stack.emplace_back(genesis_script.begin(), genesis_script.end());
 
-    std::vector<uint256> genesis_scriptpath = {uint256(0),uint256(0)};
+    std::vector<uint256> genesis_scriptpath = genesis_tap_tree.CalculateScriptPath(genesis_script);
 
     bytevector control_block = {static_cast<uint8_t>(0xc0 | 0)};
     control_block.reserve(1 + emptyKey.size() + genesis_scriptpath.size() * uint256::size());
@@ -432,6 +417,28 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std:
 
 std::vector<CMutableTransaction> CreateInscriptionBuilder::getTransactions() {
     return { CreateFundingTxTemplate(), CreateGenesisTxTemplate(*m_content_type, *m_content) };
+}
+
+CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, const string &hex_content, CAmount fee_rate) {
+    if(fee_rate == 0 && !m_mining_fee_rate) {
+        throw TransactionError("fee rate was not set to some value > 0");
+    }
+    CAmount current_fee_rate = fee_rate;
+    if(current_fee_rate == 0) {
+        current_fee_rate = *m_mining_fee_rate;
+    }
+    auto old_content_type = std::move(*m_content_type);
+    auto old_content = std::move(*m_content);
+
+    m_content_type = content_type;
+    m_content = unhex<bytevector>(hex_content);
+
+    auto result = getWholeFee(current_fee_rate);
+
+    m_content_type = std::move(old_content_type);
+    m_content = std::move(old_content);
+
+    return result;
 }
 
 }

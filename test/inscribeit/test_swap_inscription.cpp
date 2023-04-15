@@ -469,3 +469,143 @@ TEST_CASE("FullSwapNoChange")
     builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
     REQUIRE_THROWS_AS(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())), l15::TransactionError);
 }
+
+TEST_CASE("FullSwapFee")
+{
+    const std::string funds_amount = "0.11008000";
+    ChannelKeys swap_script_key_A;
+    ChannelKeys swap_script_key_B;
+    ChannelKeys swap_script_key_M;
+    //get key pair
+    ChannelKeys ord_utxo_key;
+    ChannelKeys funds_utxo_key;
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+    std::string fee_rate = "0.000015";
+    //std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    // ORD side terms
+    //--------------------------------------------------------------------------
+
+    SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
+    builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
+    builderMarket.SetMiningFeeRate(fee_rate);
+    builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
+
+    string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
+
+    SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
+    builderOrdSeller.Deserialize(marketOrdConditions);
+
+    builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
+
+    //Create ord utxo
+    string ord_addr = w->btc().Bech32Encode(ord_utxo_key.GetLocalPubKey());
+    string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
+    auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
+
+    builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
+    builderOrdSeller.SetOrdUtxoTxId(get<0>(ord_prevout).hash.GetHex());
+    builderOrdSeller.SetOrdUtxoNOut(get<0>(ord_prevout).n);
+    builderOrdSeller.SetOrdUtxoAmount("0.000025");
+
+    REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
+    REQUIRE_NOTHROW(builderOrdSeller.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey())));
+
+    string ordSellerTerms = builderOrdSeller.Serialize(SwapInscriptionBuilder::OrdSwapSig);
+
+
+    // FUNDS side terms
+    //--------------------------------------------------------------------------
+
+    //builderMarket.SetMiningFeeRate(fee_rate);
+    string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
+
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
+    builderOrdBuyer.Deserialize(marketFundsConditions);
+
+    //Create funds utxo
+    string funds_addr = w->btc().Bech32Encode(funds_utxo_key.GetLocalPubKey());
+    string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
+    auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
+
+    builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
+    builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
+    builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
+    builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
+    REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
+
+    string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsCommitSig);
+
+
+    // MARKET confirm terms
+    //--------------------------------------------------------------------------
+
+    builderMarket.Deserialize(ordSellerTerms);
+    builderMarket.Deserialize(ordBuyerTerms);
+
+    string funds_commit_raw_tx = builderMarket.FundsCommitRawTransaction();
+    string ord_commit_raw_tx = builderMarket.OrdCommitRawTransaction();
+
+    CMutableTransaction ord_commit_tx, funds_commit_tx;
+    REQUIRE(DecodeHexTx(ord_commit_tx, ord_commit_raw_tx));
+    REQUIRE(DecodeHexTx(funds_commit_tx, funds_commit_raw_tx));
+
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funds_commit_tx)));
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_commit_tx)));
+
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
+
+    REQUIRE_NOTHROW(builderMarket.MarketSignOrdPayoffTx(hex(swap_script_key_M.GetLocalPrivKey())));
+    string ordMarketTerms = builderMarket.Serialize(SwapInscriptionBuilder::MarketPayoffSig);
+
+
+    // BUYER sign swap
+    //--------------------------------------------------------------------------
+
+    builderOrdBuyer.Deserialize(ordMarketTerms);
+    REQUIRE_NOTHROW(builderOrdBuyer.SignFundsSwap(hex(swap_script_key_B.GetLocalPrivKey())));
+
+    string ordFundsSignature = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsSwapSig);
+
+
+    // MARKET sign swap
+    //--------------------------------------------------------------------------
+
+    builderMarket.Deserialize(ordFundsSignature);
+    REQUIRE_NOTHROW(builderMarket.MarketSignSwap(hex(swap_script_key_M.GetLocalPrivKey())));
+
+    string ord_swap_raw_tx = builderMarket.OrdSwapRawTransaction();
+    string ord_transfer_raw_tx = builderMarket.OrdPayoffRawTransaction();
+
+    CMutableTransaction ord_swap_tx, ord_transfer_tx;
+    REQUIRE(DecodeHexTx(ord_swap_tx, ord_swap_raw_tx));
+    REQUIRE(DecodeHexTx(ord_transfer_tx, ord_transfer_raw_tx));
+
+    PrecomputedTransactionData txdata;
+    txdata.Init(ord_swap_tx, {ord_commit_tx.vout[0], funds_commit_tx.vout[0]}, /* force=*/ true);
+
+    const CTxIn& ordTxin = ord_swap_tx.vin.at(0);
+    MutableTransactionSignatureChecker TxOrdChecker(&ord_swap_tx, 0, ord_commit_tx.vout[0].nValue, txdata, MissingDataBehavior::FAIL);
+    bool ordPath = VerifyScript(ordTxin.scriptSig, ord_commit_tx.vout[0].scriptPubKey, &ordTxin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TxOrdChecker);
+    REQUIRE(ordPath);
+
+    const CTxIn& txin = ord_swap_tx.vin.at(1);
+    MutableTransactionSignatureChecker tx_checker(&ord_swap_tx, 1, funds_commit_tx.vout[0].nValue, txdata, MissingDataBehavior::FAIL);
+    bool fundsPath = VerifyScript(txin.scriptSig, funds_commit_tx.vout[0].scriptPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, tx_checker);
+    REQUIRE(fundsPath);
+
+    CAmount fee_rate_amount = ParseAmount(fee_rate);
+
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateFundsCommitTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateOrdCommitTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateSwapTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreatePayoffTxTemplate()));
+
+    CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) +
+                      l15::CalculateTxFee(fee_rate_amount, ord_commit_tx) +
+                      l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) +
+                      l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx);
+
+    REQUIRE(realFee == builderMarket.getWholeFee(fee_rate_amount));
+}

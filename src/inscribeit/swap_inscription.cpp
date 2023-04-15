@@ -799,7 +799,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
 
         CMutableTransaction swap_tx(MakeSwapTx(true));
 
-        CMutableTransaction transfer_tx = CreatePayoffTxTemplate();
+        CMutableTransaction transfer_tx;// = CreatePayoffTxTemplate();
 
         transfer_tx.vin = {CTxIn(swap_tx.GetHash(), 0)};
         transfer_tx.vin.front().scriptWitness.stack.push_back(*m_ordpayoff_sig);
@@ -816,8 +816,9 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     }
 
     CAmount SwapInscriptionBuilder::getWholeFee(CAmount fee_rate) {
-        if (m_whole_fee == 0) {
+        if (m_last_fee_rate != fee_rate) {
             m_whole_fee = ContractBuilder::getWholeFee(fee_rate);
+            m_last_fee_rate = fee_rate;
         }
         return m_whole_fee;
     }
@@ -873,14 +874,14 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         for(uint256 &branch_hash : ord_scriptpath)
             ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-        CMutableTransaction swap_tx;
-        swap_tx.vin = {CTxIn(uint256(0), 0)};
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(64);
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(65);
+        //CMutableTransaction swap_tx;
+        result.vin = {CTxIn(uint256(0), 0)};
+        result.vin.front().scriptWitness.stack.push_back(signature());
+        result.vin.front().scriptWitness.stack.push_back(signature());
 
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
-        swap_tx.vout = {CTxOut(0, pubKeyScript),
+        result.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
+        result.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
+        result.vout = {CTxOut(0, pubKeyScript),
                         CTxOut(0, pubKeyScript),
                         CTxOut(0, pubKeyScript)};
 
@@ -897,12 +898,12 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         for(uint256 &branch_hash : funds_scriptpath)
             funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-        swap_tx.vin.emplace_back(uint256(0), 0);
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
+        result.vin.emplace_back(uint256(0), 0);
+        result.vin.back().scriptWitness.stack.push_back(signature());
+        result.vin.back().scriptWitness.stack.push_back(signature());
 
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
+        result.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
+        result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
 
         return result;
     }

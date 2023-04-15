@@ -78,6 +78,8 @@ public:
     CMutableTransaction CreateFundingTxTemplate() const;
     CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const bytevector &content) const;
 
+    CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content, CAmount fee_rate);
+
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }
 

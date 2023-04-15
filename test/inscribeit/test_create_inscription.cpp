@@ -352,3 +352,62 @@ TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
                           .Destination(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
 }
+
+TEST_CASE("CreateInscriptionBuilder fee estimation")
+{
+    //get key pair
+    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
+    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+
+    //create address from key pair
+    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+
+    //send to the address
+    string txid = w->btc().SendToAddress(addr, "1");
+
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    std::string fee_rate = "0.00005";
+
+    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    CreateInscriptionBuilder builder("regtest");
+
+    std::string content_type = "text";
+    auto content = hex(GenRandomString(1024 * 10));
+
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+                          .Data(content_type, content)
+                          .FeeRate(fee_rate)
+                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .Sign(hex(utxo_key.GetLocalPrivKey())));
+
+    std::string ser_data;
+    CHECK_NOTHROW(ser_data = builder.Serialize());
+
+    std::clog << ser_data << std::endl;
+
+    CreateInscriptionBuilder builder2("regtest");
+
+    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+
+    stringvector rawtx;
+    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+
+    CMutableTransaction funding_tx, genesis_tx;
+    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
+    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
+
+    CAmount fee_rate_amount = ParseAmount(fee_rate);
+
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, funding_tx) == l15::CalculateTxFee(fee_rate_amount, builder.CreateFundingTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, genesis_tx) == l15::CalculateTxFee(fee_rate_amount, builder.CreateGenesisTxTemplate(content_type, unhex<bytevector>(content))));
+
+    CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funding_tx) +
+                      l15::CalculateTxFee(fee_rate_amount, genesis_tx);
+
+    REQUIRE(realFee == builder.getWholeFee(fee_rate_amount));
+    REQUIRE(realFee == builder.GetFeeForContent(content_type, content, fee_rate_amount));
+}
