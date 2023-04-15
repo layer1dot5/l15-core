@@ -76,7 +76,7 @@ public:
     //const CMutableTransaction GetGenesisTx() const;
 
     CMutableTransaction CreateFundingTxTemplate() const;
-    CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const bytevector &content) const;
+    CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const l15::bytevector &content) const;
 
     CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content, CAmount fee_rate);
 
