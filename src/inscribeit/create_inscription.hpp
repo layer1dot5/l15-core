@@ -72,9 +72,6 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
-    //const CMutableTransaction GetFundingTx() const;
-    //const CMutableTransaction GetGenesisTx() const;
-
     CMutableTransaction CreateFundingTxTemplate() const;
     CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const l15::bytevector &content) const;
 

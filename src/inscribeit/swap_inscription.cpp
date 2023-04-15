@@ -76,8 +76,7 @@ const std::string SwapInscriptionBuilder::name_ordpayoff_unspendable_key_factor 
 const std::string SwapInscriptionBuilder::name_ordpayoff_sig = "ordpayoff_sig";
 
 SwapInscriptionBuilder::SwapInscriptionBuilder(const string &chain_mode, const string &ord_price, const string &market_fee)
-        : ContractBuilder(chain_mode),
-          m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {
+        : ContractBuilder(chain_mode), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {
 };
 
 
@@ -823,7 +822,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         return m_whole_fee;
     }
 
-    CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() {
+    CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
         CMutableTransaction result;
 
         CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
@@ -836,12 +835,11 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         return result;
     }
 
-    CMutableTransaction SwapInscriptionBuilder::CreateOrdCommitTxTemplate() {
+    CMutableTransaction SwapInscriptionBuilder::CreateOrdCommitTxTemplate() const {
         return CreatePayoffTxTemplate();
     }
 
-    CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate()
-    {
+    CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const {
         auto pubKeyScript = CScript() << 1 << xonly_pubkey();
 
         CMutableTransaction result;
@@ -857,7 +855,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         return result;
     }
 
-    CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() {
+    CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() const {
         CMutableTransaction result;
 
         CScript pubKeyScript = CScript() << 1 << xonly_pubkey();

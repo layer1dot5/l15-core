@@ -77,10 +77,10 @@ private:
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> TemplateTapRoot() const;
 
 public:
-    CMutableTransaction CreatePayoffTxTemplate();
-    CMutableTransaction CreateSwapTxTemplate();
-    CMutableTransaction CreateOrdCommitTxTemplate();
-    CMutableTransaction CreateFundsCommitTxTemplate();
+    CMutableTransaction CreatePayoffTxTemplate() const;
+    CMutableTransaction CreateSwapTxTemplate() const;
+    CMutableTransaction CreateOrdCommitTxTemplate() const;
+    CMutableTransaction CreateFundsCommitTxTemplate() const;
 
     const CMutableTransaction& GetOrdCommitTx();
     const CMutableTransaction& GetFundsCommitTx();
