@@ -40,3 +40,4 @@ TEST_CASE("FeeCalculatorCalculation")
     sumFee += fee;
     std::cout << sumFee << std::endl;
 }
+

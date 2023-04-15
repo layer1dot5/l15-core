@@ -55,6 +55,9 @@ public:
     ContractBuilder& operator=(const ContractBuilder& ) = default;
     ContractBuilder& operator=(ContractBuilder&& ) noexcept = default;
 
+    virtual std::vector<CMutableTransaction> getTransactions() = 0;
+    virtual CAmount getWholeFee(CAmount fee_rate);
+
     explicit ContractBuilder(const std::string& chain_mode)
     {
         if (chain_mode == "mainnet") {

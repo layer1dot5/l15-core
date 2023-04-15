@@ -24,8 +24,6 @@ const size_t chunk_size = 520;
 const bytevector ord_tag {'o', 'r', 'd'};
 const bytevector one_tag {'\1'};
 
-std::optional<FeeCalculator<CreateInscriptionBuilder>> calculator = FeeCalculator<CreateInscriptionBuilder>("regtest");
-
 CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data) {
     CScript script;
     script << pk;
@@ -162,12 +160,9 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 {
     CheckBuildArgs();
 
-    CAmount wholeFee = 0;
-    if (!isDummy()) {
-        wholeFee = calculator->getWholeFee(*m_content_type, *m_content, *m_mining_fee_rate);
-        if (*m_amount < wholeFee) {
-            throw l15::TransactionError("not enough amount to create inscription transactions");
-        }
+    CAmount wholeFee = getWholeFee(*m_mining_fee_rate);
+    if (*m_amount < wholeFee) {
+        throw l15::TransactionError("not enough amount to create inscription transactions");
     }
 
     core::ChannelKeys utxo_key(unhex<seckey>(utxo_sk));
@@ -198,24 +193,20 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
     genesis_pubkeyscript << 1;
     genesis_pubkeyscript << *m_destination_pk;
 
-    CMutableTransaction funding_tx;
+    CMutableTransaction funding_tx = CreateFundingTxTemplate();
     funding_tx.vin = {CTxIn(COutPoint(uint256S(*m_txid), *m_nout))};
     funding_tx.vin.front().scriptWitness.stack.emplace_back(64); // Empty value is needed to obtain correct tx size
 
     funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
-    if (!isDummy()) {
-        funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
-    } else {
-        funding_tx.vout.front().nValue = 0;
-    }
-
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
+    
     m_utxo_sig = utxo_key.SignTaprootTx(
                 funding_tx, 0,
                 {CTxOut(*m_amount, utxo_pubkeyscript)}, {});
 
     funding_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(*m_utxo_sig);
 
-    CMutableTransaction genesis_tx;
+    CMutableTransaction genesis_tx = CreateGenesisTxTemplate(*m_content_type, *m_content);
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
     genesis_tx.vout = {CTxOut(funding_tx.vout.front().nValue, genesis_pubkeyscript)};
 
@@ -232,11 +223,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
         control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
 
     genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
-    if (!isDummy()) {
-        genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
-    } else {
-        genesis_tx.vout.front().nValue = 0;
-    }
+    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
 
     m_inscribe_script_sig = inscribe_script_key.SignTaprootTx(
             genesis_tx, 0,
@@ -331,12 +318,11 @@ void CreateInscriptionBuilder::RestoreTransactions()
 
     CAmount wholeFee = 0;
 
-    if (!isDummy()) {
-        wholeFee = calculator->getWholeFee(*m_content_type, *m_content, *m_mining_fee_rate);
-        if (*m_amount < wholeFee) {
-            throw l15::TransactionError("not enough amount to create inscription transactions");
-        }
+    wholeFee = getWholeFee(*m_mining_fee_rate);
+    if (*m_amount < wholeFee) {
+        throw l15::TransactionError("not enough amount to create inscription transactions");
     }
+
     auto inscribe_taproot = core::ChannelKeys::AddTapTweak(m_inscribe_int_pk.value(), root);
     xonly_pubkey inscribe_taproot_pk = inscribe_taproot.first;
     uint8_t inscribe_taproot_parity = inscribe_taproot.second;
@@ -353,18 +339,14 @@ void CreateInscriptionBuilder::RestoreTransactions()
     genesis_pubkeyscript << 1;
     genesis_pubkeyscript << m_destination_pk.value();
 
-    CMutableTransaction funding_tx;
+    CMutableTransaction funding_tx = CreateFundingTxTemplate();
     funding_tx.vin = {CTxIn(COutPoint(uint256S(*m_txid), *m_nout))};
     funding_tx.vin.front().scriptWitness.stack.push_back(m_utxo_sig.value());
 
     funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
-    if (!isDummy()) {
-        funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
-    } else {
-        funding_tx.vout.front().nValue = 0;
-    }
+    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
 
-    CMutableTransaction genesis_tx;
+    CMutableTransaction genesis_tx = CreateGenesisTxTemplate(*m_content_type, *m_content);
     genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
     genesis_tx.vout = {CTxOut(*m_amount, genesis_pubkeyscript)};
 
@@ -386,7 +368,7 @@ void CreateInscriptionBuilder::RestoreTransactions()
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));
 }
-
+/*
 const CMutableTransaction CreateInscriptionBuilder::GetFundingTx() const {
     CheckTransactionsExistence();
     return *mFundingTx;
@@ -402,14 +384,14 @@ void CreateInscriptionBuilder::CheckTransactionsExistence() const {
         throw TransactionError("funding or genesis transaction was no properly created");
     }
 }
-
+    */
 CMutableTransaction CreateInscriptionBuilder::CreateFundingTxTemplate() const {
     CScript script;
     script << 1;
     script << xonly_pubkey();
 
     CMutableTransaction result;
-    result.vin = {CTxIn(COutPoint(uint256S(0), 0))};
+    result.vin = {CTxIn(COutPoint(uint256(0), 0))};
     result.vin.front().scriptWitness.stack.push_back(signature());
 
     result.vout = {CTxOut(0, script)};
@@ -417,7 +399,7 @@ CMutableTransaction CreateInscriptionBuilder::CreateFundingTxTemplate() const {
     return result;
 }
 
-CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
+CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std::string &content_type, const bytevector &content) const {
     CMutableTransaction result;
     auto emptyKey = xonly_pubkey();
 
@@ -425,12 +407,12 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
     pubKeyScript << 1;
     pubKeyScript << emptyKey;
 
-    CScript genesis_script = MakeInscriptionScript(emptyKey, "type", {0,0,0,0});
+    CScript genesis_script = MakeInscriptionScript(emptyKey, content_type, content);
 
-    result.vin = {CTxIn(COutPoint(uint256S(0), 0))};
+    result.vin = {CTxIn(COutPoint(uint256(0), 0))};
     result.vout = {CTxOut(*m_amount, pubKeyScript)};
 
-    result.vin.front().scriptWitness.stack.push_back(signature());
+    result.vin.front().scriptWitness.stack.emplace_back(64);
     result.vin.front().scriptWitness.stack.emplace_back(genesis_script.begin(), genesis_script.end());
 
     std::vector<uint256> genesis_scriptpath = {uint256(0),uint256(0)};
@@ -448,39 +430,8 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
     return result;
 }
 
-void FeeCalculator<CreateInscriptionBuilder>::init() {
-    auto builder = getDummy();
-
-    builder->SetUtxoTxId(m_sampleOutput);
-    builder->SetUtxoNOut(m_sampleNOutput);
-    builder->SetUtxoAmount("1");
-    builder->SetMiningFeeRate("0.00001");
-    //builder->SetContentType(" ");
-    //builder->SetContent(hex(std::string(" ")));
-    builder->SetDestinationPubKey(hex(m_utxoKey.GetLocalPubKey()));
-
-    m_initialized = true;
-};
-
-void FeeCalculator<CreateInscriptionBuilder>::updateContent(const std::string &content_type, const bytevector &content) {
-    auto builder = getDummy();
-    builder->SetContentType(content_type);
-    builder->SetContent(hex(content));
-    builder->Sign(hex(m_utxoKey.GetLocalPrivKey()));
-
-    m_funding = builder->GetFundingTx();
-    m_genesis = builder->GetGenesisTx();
-}
-
-CAmount FeeCalculator<CreateInscriptionBuilder>::getWholeFee(const std::string &content_type, const bytevector &content, CAmount fee_rate) {
-    if(!m_initialized) {
-        return 0;
-    }
-    updateContent(content_type, content);
-    auto txs = {&m_funding, &m_genesis};
-    return std::accumulate(txs.begin(), txs.end(), CAmount(0), [this, fee_rate](CAmount sum, const CMutableTransaction* tx) -> CAmount {
-        return sum += getFee(fee_rate, *tx);
-    });
+std::vector<CMutableTransaction> CreateInscriptionBuilder::getTransactions() {
+    return { CreateFundingTxTemplate(), CreateGenesisTxTemplate(*m_content_type, *m_content) };
 }
 
 }

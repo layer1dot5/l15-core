@@ -810,7 +810,11 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     return *mOrdPayoffTx;
 }
 
-void FeeCalculator<SwapInscriptionBuilder>::init() {
+    std::vector<CMutableTransaction > SwapInscriptionBuilder::getTransactions() {
+        return std::vector<CMutableTransaction>();
+    }
+
+    void FeeCalculator<SwapInscriptionBuilder>::init() {
     uint32_t sampleNOutput = 0;
     std::string sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
 

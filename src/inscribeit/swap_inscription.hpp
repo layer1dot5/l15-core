@@ -192,6 +192,8 @@ public:
 
     string OrdSwapRawTransaction();
     string OrdPayoffRawTransaction();
+
+    std::vector<CMutableTransaction> getTransactions() override;
 };
 
 template<>

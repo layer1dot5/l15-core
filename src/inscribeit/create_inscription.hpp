@@ -10,39 +10,12 @@
 
 #include "common.hpp"
 #include "contract_builder.hpp"
-#include "fee_calculator.hpp"
 
 namespace l15::inscribeit {
 
 class CreateInscriptionBuilder;
 
-template<>
-class FeeCalculator<CreateInscriptionBuilder>: public DummyContainer<CreateInscriptionBuilder> {
-public:
-    template<typename... _Args>
-    FeeCalculator(_Args&&... args): DummyContainer<CreateInscriptionBuilder>(args...), m_initialized(false) {
-        init();
-    };
-
-    void init();
-
-    CAmount getWholeFee(const std::string &content_type, const bytevector &content, CAmount fee_rate);
-
-private:
-    void updateContent(const std::string &content_type, const bytevector &content);
-
-    uint32_t m_sampleNOutput = 0;
-    std::string m_sampleOutput = "0000000000000000000000000000000000000000000000000000000000000000";
-
-    l15::core::ChannelKeys m_utxoKey;
-    l15::core::ChannelKeys m_destKey;
-
-    CMutableTransaction m_funding;
-    CMutableTransaction m_genesis;
-    bool m_initialized = false;
-};
-
-class CreateInscriptionBuilder: public ContractBuilder, public CanBeDummy
+class CreateInscriptionBuilder: public ContractBuilder
 {
     static const uint32_t m_protocol_version;
 
@@ -70,7 +43,7 @@ class CreateInscriptionBuilder: public ContractBuilder, public CanBeDummy
 private:
     void CheckBuildArgs() const;
     void CheckRestoreArgs(const UniValue& params) const;
-    void CheckTransactionsExistence() const;
+    //void CheckTransactionsExistence() const;
 
     void RestoreTransactions();
 
@@ -99,11 +72,11 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
-    const CMutableTransaction GetFundingTx() const;
-    const CMutableTransaction GetGenesisTx() const;
+    //const CMutableTransaction GetFundingTx() const;
+    //const CMutableTransaction GetGenesisTx() const;
 
     CMutableTransaction CreateFundingTxTemplate() const;
-    CMutableTransaction CreateGenesisTxTemplate() const;
+    CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const bytevector &content) const;
 
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }
@@ -149,6 +122,8 @@ public:
     { return hex(m_inscribe_int_pk.value()); }
 
     void Sign(std::string utxo_sk);
+
+    std::vector<CMutableTransaction> getTransactions() override;
 
     std::vector<std::string> RawTransactions() const;
 
