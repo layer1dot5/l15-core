@@ -199,7 +199,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 
     funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
     funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
-    
+
     m_utxo_sig = utxo_key.SignTaprootTx(
                 funding_tx, 0,
                 {CTxOut(*m_amount, utxo_pubkeyscript)}, {});

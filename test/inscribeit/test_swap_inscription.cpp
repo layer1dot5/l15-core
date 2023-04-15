@@ -377,9 +377,6 @@ TEST_CASE("FullSwap")
     bool fundsPath = VerifyScript(txin.scriptSig, funds_commit_tx.vout[0].scriptPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, tx_checker);
     REQUIRE(fundsPath);
 
-
-
-
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_swap_tx)));
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_transfer_tx)));
 

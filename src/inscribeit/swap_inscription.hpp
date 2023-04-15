@@ -12,9 +12,7 @@ namespace l15::inscribeit {
 
 class SwapInscriptionBuilder;
 
-template<> class FeeCalculator<SwapInscriptionBuilder>;
-
-class SwapInscriptionBuilder : public ContractBuilder, public CanBeDummy
+class SwapInscriptionBuilder : public ContractBuilder
 {
 public:
     enum SwapPhase {
@@ -29,6 +27,8 @@ public:
         MarketSwapSig,
     };
 private:
+    CAmount m_whole_fee = 0;
+
     static const uint32_t m_protocol_version;
     static std::shared_ptr<FeeCalculator<SwapInscriptionBuilder>> m_calculator;
 
@@ -75,6 +75,12 @@ private:
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTapRoot() const;
 
     CMutableTransaction MakeSwapTx(bool with_funds_in);
+
+    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> TemplateTapRoot() const;
+    CMutableTransaction CreatePayoffTxTemplate();
+    CMutableTransaction CreateSwapTxTemplate();
+    CMutableTransaction CreateOrdCommitTxTemplate();
+    CMutableTransaction CreateFundsCommitTxTemplate();
 
 public:
     const CMutableTransaction& GetOrdCommitTx();
@@ -194,31 +200,7 @@ public:
     string OrdPayoffRawTransaction();
 
     std::vector<CMutableTransaction> getTransactions() override;
+    virtual CAmount getWholeFee(CAmount fee_rate);
 };
 
-template<>
-class FeeCalculator<SwapInscriptionBuilder>: public DummyContainer<SwapInscriptionBuilder> {
-public:
-    template<typename... _Args>
-    FeeCalculator(_Args&&... args): DummyContainer<SwapInscriptionBuilder>(args...), m_initialized(false) {
-        init();
-    };
-
-    void init();
-
-    CAmount getFundsCommit(CAmount fee_rate) const { return getFee(fee_rate, m_fundsCommit); }
-    CAmount getOrdinalCommit(CAmount fee_rate) const { return getFee(fee_rate, m_ordCommit); }
-    CAmount getOrdinalSwap(CAmount fee_rate) const { return getFee(fee_rate, m_ordSwap); }
-    CAmount getOrdinalTransfer(CAmount fee_rate) const { return getFee(fee_rate, m_ordTransfer); }
-
-    CAmount getWholeFee(CAmount fee_rate) const;
-
-private:
-    CMutableTransaction m_fundsCommit;
-    CMutableTransaction m_ordCommit;
-    CMutableTransaction m_ordSwap;
-    CMutableTransaction m_ordTransfer;
-    bool m_initialized = false;
-};
-
-}
+} // namespace l15::inscribeit
