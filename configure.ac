@@ -212,9 +212,17 @@ AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was
 AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
 
 if test "$enable_wasm_module" = "yes"; then
-  CFLAGS+="$CFLAGS -O3 -s LLD_REPORT_UNDEFINED"
-  CXXFLAGS+="$CXXFLAGS -O3 -fwasm-exceptions -s LLD_REPORT_UNDEFINED"
-  LDFLAGS+="$LDFLAGS -O3 -fwasm-exceptions -s EXPORT_EXCEPTION_HANDLING_HELPERS -s LLD_REPORT_UNDEFINED -lembind"
+  CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
+  CFLAGS="$CFLAGS -s LLD_REPORT_UNDEFINED"
+  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -sLLD_REPORT_UNDEFINED"
+  LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED -lembind"
+
+  if test "$enable_debug" != "yes"; then
+      CFLAGS=" -O3 $CFLAGS"
+      CXXFLAGS=" -O3 $CXXFLAGS"
+      LDFLAGS=" -O3 $LDFLAGS"
+  fi
+
 else
   AX_PTHREAD(,[AC_MSG_ERROR([libpthread is required, but it was not found in your system])])
 
