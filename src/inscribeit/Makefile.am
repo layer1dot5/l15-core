@@ -16,8 +16,7 @@ noinst_LTLIBRARIES = libl15-inscribeit.la
 libl15_inscribeit_la_SOURCES = \
 	contract_builder.cpp \
 	create_inscription.cpp \
-	swap_inscription.cpp \
-    fee_calculator.cpp
+	swap_inscription.cpp
 
 libl15_inscribeit_la_LDFLAGS = $(AM_LDFLAGS) -Wl,--gc-sections
 libl15_inscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -ffunction-sections -fdata-sections

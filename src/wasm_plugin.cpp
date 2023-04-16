@@ -50,31 +50,26 @@ void InitSecp256k1() {
     GetSecp256k1();
 }
 
+std::string GetExceptionMessage(intptr_t exceptionPtr) {
+  return std::string(reinterpret_cast<std::exception *>(exceptionPtr)->what());
+}
+
 
 EMSCRIPTEN_BINDINGS(inscribeit) {
 
     emscripten::function("InitSecp256k1", &InitSecp256k1);
+    emscripten::function("getExceptionMessage", &GetExceptionMessage);
 
     emscripten::class_<l15::inscribeit::CreateInscriptionBuilder>("CreateInscriptionBuilder")
             .constructor<std::string>()
-            .property(l15::inscribeit::ContractBuilder::name_version.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetProtocolVersion)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_utxo_txid.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoTxId, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoTxId)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_utxo_nout.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoNOut, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoNOut)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_utxo_amount.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoAmount, &l15::inscribeit::CreateInscriptionBuilder::SetUtxoAmount)
-            .property(l15::inscribeit::ContractBuilder::name_mining_fee_rate.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetMiningFeeRate, &l15::inscribeit::CreateInscriptionBuilder::SetMiningFeeRate)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_content_type.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetContentType, &l15::inscribeit::CreateInscriptionBuilder::SetContentType)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_content.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetContent, &l15::inscribeit::CreateInscriptionBuilder::SetContent)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_destination_pk.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetDestinationPubKey, &l15::inscribeit::CreateInscriptionBuilder::SetDestinationPubKey)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_utxo_pk.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoPubKey)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_utxo_sig.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetUtxoSig)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_inscribe_script_pk.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetInscribeScriptPubKey)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_inscribe_sig.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetInscribeScriptSig)
-            .property(l15::inscribeit::CreateInscriptionBuilder::name_inscribe_int_pk.c_str(), &l15::inscribeit::CreateInscriptionBuilder::GetInscribeInternaltPubKey)
-
+            .function("UTXO", &l15::inscribeit::CreateInscriptionBuilder::UTXO)
+            .function("Data", &l15::inscribeit::CreateInscriptionBuilder::Data)
+            .function("MiningFeeRate", &l15::inscribeit::CreateInscriptionBuilder::FeeRate)
+            .function("DestinationPubKey", &l15::inscribeit::CreateInscriptionBuilder::Destination)
             .function("Sign", &l15::inscribeit::CreateInscriptionBuilder::Sign)
             .function("Serialize", &l15::inscribeit::CreateInscriptionBuilder::Serialize)
 
-            .property("intermediate_taproot_sk", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
+            .function("getIntermediateTaprootSK", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
             ;
 
     emscripten::enum_<l15::inscribeit::SwapInscriptionBuilder::SwapPhase>("SwapPhase")
@@ -91,18 +86,14 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
 
     emscripten::class_<l15::inscribeit::SwapInscriptionBuilder>("SwapInscriptionBuilder")
             .constructor<std::string, std::string, std::string>()
-            .property(l15::inscribeit::ContractBuilder::name_version.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetProtocolVersion)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_mining_fee_rate.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetMiningFeeRate, &l15::inscribeit::SwapInscriptionBuilder::SetMiningFeeRate)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_commit_mining_fee_rate.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdCommitMiningFeeRate, &l15::inscribeit::SwapInscriptionBuilder::SetOrdCommitMiningFeeRate)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_A.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyA, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyA)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_B.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyB, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyB)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_swap_script_pk_M.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetSwapScriptPubKeyM, &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyM)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_txid.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoTxId, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoTxId)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_nout.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoNOut, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoNOut)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_ord_amount.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetOrdUtxoAmount, &l15::inscribeit::SwapInscriptionBuilder::SetOrdUtxoAmount)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_funds_txid.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetFundsUtxoTxId, &l15::inscribeit::SwapInscriptionBuilder::SetFundsUtxoTxId)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_funds_nout.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetFundsUtxoNOut, &l15::inscribeit::SwapInscriptionBuilder::SetFundsUtxoNOut)
-            .property(l15::inscribeit::SwapInscriptionBuilder::name_funds_amount.c_str(), &l15::inscribeit::SwapInscriptionBuilder::GetFundsUtxoAmount, &l15::inscribeit::SwapInscriptionBuilder::SetFundsUtxoAmount)
+
+            .function("OrdUTXO", &l15::inscribeit::SwapInscriptionBuilder::OrdUTXO)
+            .function("FundsUTXO", &l15::inscribeit::SwapInscriptionBuilder::FundsUTXO)
+
+            .function("SwapPubKeyA", &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyA)
+            .function("SwapPubKeyB", &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyB)
+
+            .function("CheckContractTerms", &l15::inscribeit::SwapInscriptionBuilder::CheckContractTerms)
 
             .function("SignOrdCommitment", &l15::inscribeit::SwapInscriptionBuilder::SignOrdCommitment)
             .function("SignOrdPayBack", &l15::inscribeit::SwapInscriptionBuilder::SignOrdPayBack)

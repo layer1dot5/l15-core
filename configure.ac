@@ -213,8 +213,7 @@ AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was 
 
 if test "$enable_wasm_module" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
-  CFLAGS="$CFLAGS -s LLD_REPORT_UNDEFINED"
-  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -sLLD_REPORT_UNDEFINED"
+  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions"
   LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED -lembind"
 
   if test "$enable_debug" != "yes"; then

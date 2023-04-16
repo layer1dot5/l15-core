@@ -163,7 +163,6 @@ TEST_CASE("OrdPayBack")
     std::string fee_rate = "0.000015";
 
     SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
-    builderOrdSeller.SetOrdUnspendableKeyFactor(hex(ord_unspendable_factor));
     builderOrdSeller.SetOrdCommitMiningFeeRate(fee_rate);
     builderOrdSeller.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
@@ -171,9 +170,7 @@ TEST_CASE("OrdPayBack")
     //Exchange Commit UTXO
     //---------------------
 
-    builderOrdSeller.SetOrdUtxoTxId(get<0>(ord_prevout).hash.GetHex());
-    builderOrdSeller.SetOrdUtxoNOut(get<0>(ord_prevout).n);
-    builderOrdSeller.SetOrdUtxoAmount("0.000025");
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     std::string ord_commit_raw_tx;
     REQUIRE_NOTHROW(ord_commit_raw_tx = builderOrdSeller.OrdCommitRawTransaction());
@@ -216,7 +213,6 @@ TEST_CASE("FundsPayBack")
     std::string fee_rate = "0.000015";
 
     SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
-    builderOrdBuyer.SetFundsUnspendableKeyFactor(hex(unspendable_factor));
     builderOrdBuyer.SetMiningFeeRate(fee_rate);
     builderOrdBuyer.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
@@ -224,9 +220,7 @@ TEST_CASE("FundsPayBack")
     //Exchange Commit UTXO
     //---------------------
 
-    builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
-    builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
-    builderOrdBuyer.SetFundsUtxoAmount("0.15");
+    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, "0.15");
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
     std::string funds_commit_raw_tx;
     REQUIRE_NOTHROW(funds_commit_raw_tx = builderOrdBuyer.FundsCommitRawTransaction());
@@ -286,10 +280,8 @@ TEST_CASE("FullSwap")
     string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
-    builderOrdSeller.SetOrdUtxoTxId(get<0>(ord_prevout).hash.GetHex());
-    builderOrdSeller.SetOrdUtxoNOut(get<0>(ord_prevout).n);
-    builderOrdSeller.SetOrdUtxoAmount("0.000025");
 
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey())));
@@ -311,10 +303,8 @@ TEST_CASE("FullSwap")
     string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
+    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, funds_amount);
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
-    builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
-    builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
-    builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
 
     string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsCommitSig);

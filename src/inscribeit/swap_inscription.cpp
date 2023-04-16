@@ -780,5 +780,21 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     return *mOrdPayoffTx;
 }
 
+SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint32_t nout, const string &amount)
+{
+    m_ord_txid = txid;
+    m_ord_nout = nout;
+    m_ord_amount = ParseAmount(amount);
+    return *this;
+}
+
+SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, uint32_t nout, const string &amount)
+{
+    m_funds_txid = txid;
+    m_funds_nout = nout;
+    m_funds_amount = ParseAmount(amount);
+    return *this;
+}
+
 
 }
