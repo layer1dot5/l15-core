@@ -813,6 +813,13 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     std::vector<CMutableTransaction > SwapInscriptionBuilder::getTransactions() {
         return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
     }
+SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint32_t nout, const string &amount)
+{
+    m_ord_txid = txid;
+    m_ord_nout = nout;
+    m_ord_amount = ParseAmount(amount);
+    return *this;
+}
 
     CAmount SwapInscriptionBuilder::getWholeFee(CAmount fee_rate) {
         if (m_last_fee_rate != fee_rate) {
@@ -821,6 +828,13 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
         }
         return m_whole_fee;
     }
+SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, uint32_t nout, const string &amount)
+{
+    m_funds_txid = txid;
+    m_funds_nout = nout;
+    m_funds_amount = ParseAmount(amount);
+    return *this;
+}
 
     CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
         CMutableTransaction result;

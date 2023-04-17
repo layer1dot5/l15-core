@@ -130,6 +130,10 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
+    SwapInscriptionBuilder& OrdUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
+    SwapInscriptionBuilder& FundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
+
+
     std::string GetSwapScriptPubKeyA() const { return hex(m_swap_script_pk_A.value()); }
     void SetSwapScriptPubKeyA(std::string v) { m_swap_script_pk_A = unhex<xonly_pubkey>(v); }
 
@@ -139,17 +143,6 @@ public:
     std::string GetSwapScriptPubKeyM() const { return hex(m_swap_script_pk_M.value()); }
     void SetSwapScriptPubKeyM(std::string v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
 
-    std::string GetOrdUtxoTxId() const { return m_ord_txid.value(); }
-    void SetOrdUtxoTxId(std::string v) { m_ord_txid = v; }
-
-    uint32_t GetOrdUtxoNOut() const { return m_ord_nout.value(); }
-    void SetOrdUtxoNOut(uint32_t v) { m_ord_nout = v; }
-
-    std::string GetOrdUtxoAmount() const { return FormatAmount( m_ord_amount.value()); }
-    void SetOrdUtxoAmount(std::string v) { m_ord_amount = ParseAmount(v); }
-
-    std::string GetOrdUnspendableKeyFactor() const { return hex(m_ord_unspendable_key_factor.value()); }
-    void SetOrdUnspendableKeyFactor(std::string v) { m_ord_unspendable_key_factor = unhex<seckey>(v); }
 
     std::string GetOrdCommitMiningFeeRate() const { return FormatAmount(m_ord_commit_mining_fee_rate.value()); }
     void SetOrdCommitMiningFeeRate(std::string v) { m_ord_commit_mining_fee_rate = ParseAmount(v); }
@@ -162,17 +155,6 @@ public:
     void SignOrdPayBack(std::string sk);
 
 
-    std::string GetFundsUtxoTxId() const { return m_funds_txid.value(); }
-    void SetFundsUtxoTxId(std::string v) { m_funds_txid = v; }
-
-    uint32_t GetFundsUtxoNOut() const { return m_funds_nout.value(); }
-    void SetFundsUtxoNOut(uint32_t v) { m_funds_nout = v; }
-
-    std::string GetFundsUtxoAmount() const { return FormatAmount( m_funds_amount.value()); }
-    void SetFundsUtxoAmount(std::string v) { m_funds_amount = ParseAmount(v); }
-
-    std::string GetFundsUnspendableKeyFactor() const { return hex(m_funds_unspendable_key_factor.value()); }
-    void SetFundsUnspendableKeyFactor(std::string v) { m_funds_unspendable_key_factor = unhex<seckey>(v); }
 
 
     std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }

@@ -46,10 +46,10 @@ std::string make_absolute_path(const std::string& v) {
 
 using namespace ::l15::config;
 
-Config::Config():mApp(PACKAGE_NAME,PACKAGE_NAME)
+Config::Config():mApp(PACKAGE,PACKAGE)
 {
     mApp.set_config(option::CONF, "l15.conf", "Read the configuration file");
-    mApp.set_version_flag("--version,-v", PACKAGE_STRING);
+    mApp.set_version_flag("--version,-v", PACKAGE);
     mApp.set_help_flag("--help,-h");
 
     mApp.add_option(option::CHAINMODE, "Mode to operate: mainnet, testnet, regtest")->check([](const std::string& s){
