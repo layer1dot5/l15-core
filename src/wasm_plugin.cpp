@@ -51,7 +51,11 @@ void InitSecp256k1() {
 }
 
 std::string GetExceptionMessage(intptr_t exceptionPtr) {
-  return std::string(reinterpret_cast<std::exception *>(exceptionPtr)->what());
+    std::exception* e = reinterpret_cast<std::exception *>(exceptionPtr);
+    if (l15::Error* l15err = dynamic_cast<l15::Error*>(e)) {
+        return std::string(l15err->what()) + ": " + l15err->details();
+    }
+    return std::string(e->what());
 }
 
 
