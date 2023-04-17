@@ -6,7 +6,6 @@
 
 #include "channel_keys.hpp"
 
-
 namespace l15::inscribeit {
 
 namespace {
@@ -264,6 +263,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     const xonly_pubkey &funds_utxo_pk = keypair.GetLocalPubKey();
     m_funds_unspendable_key_factor = core::ChannelKeys::GetStrongRandomKey(keypair.Secp256k1Context());
 
+    auto change_pubkeyscript = CScript() << 1 << *m_swap_script_pk_B;
     auto utxo_pubkeyscript = CScript() << 1 << funds_utxo_pk;
     auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
 
@@ -281,7 +281,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
     commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-    commit_tx.vout.push_back({CTxOut(amountRemained, commit_pubkeyscript)});
+    commit_tx.vout.push_back({CTxOut(amountRemained, change_pubkeyscript)});
     commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
     m_funds_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_funds_amount, utxo_pubkeyscript)}, {});
@@ -756,6 +756,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
         CheckContractTerms(FundsCommitSig);
 
         auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
+        auto change_pubkeyscript = CScript() << 1 << *m_swap_script_pk_B;
 
         CMutableTransaction commit_tx;
         commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
@@ -771,7 +772,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
         commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
         commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-        commit_tx.vout.push_back({CTxOut(amountRemained, commit_pubkeyscript)});
+        commit_tx.vout.push_back({CTxOut(amountRemained, change_pubkeyscript)});
         commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
         mFundsCommitTx = move(commit_tx);

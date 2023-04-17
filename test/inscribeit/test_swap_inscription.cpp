@@ -389,6 +389,33 @@ TEST_CASE("FullSwap")
     REQUIRE_NOTHROW(ord_payoff_tx.vin.front().scriptWitness.stack[0] = swap_script_key_B.SignTaprootTx(ord_payoff_tx, 0, {ord_transfer_tx.vout[0]}, {}));
 
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_payoff_tx)));
+
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
+
+    // MARKET tries to spend buyer's change
+    //--------------------------------------------------------------------------
+
+    xonly_pubkey change_pk = w->btc().Bech32Decode(w->btc().GetNewAddress());
+    CScript buyer_change_pubkey_script = CScript() << 1 << change_pk;
+
+    CMutableTransaction ord_change_spend_tx;
+    ord_change_spend_tx.vin = {CTxIn(funds_commit_tx.GetHash(), 1)};
+    ord_change_spend_tx.vin.front().scriptWitness.stack.emplace_back(64);
+    ord_change_spend_tx.vout = {CTxOut(funds_commit_tx.vout[1].nValue, buyer_change_pubkey_script)};
+    ord_change_spend_tx.vout.front().nValue = CalculateOutputAmount(funds_commit_tx.vout[1].nValue, ParseAmount(fee_rate), ord_change_spend_tx);
+
+    REQUIRE_NOTHROW(ord_change_spend_tx.vin.front().scriptWitness.stack[0] = swap_script_key_M.SignTaprootTx(ord_change_spend_tx, 0, {funds_commit_tx.vout[1]}, {}));
+
+    REQUIRE_THROWS(w->btc().SpendTx(CTransaction(ord_change_spend_tx)));
+
+    // BUYER spends his change
+    //--------------------------------------------------------------------------
+
+    REQUIRE_NOTHROW(ord_change_spend_tx.vin.front().scriptWitness.stack[0] = swap_script_key_B.SignTaprootTx(ord_change_spend_tx, 0, {funds_commit_tx.vout[1]}, {}));
+
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_change_spend_tx)));
+
+    w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
 }
 
 TEST_CASE("FullSwapNoChange")
