@@ -429,9 +429,7 @@ TEST_CASE("FullSwapNoChange")
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
-    builderOrdSeller.SetOrdUtxoTxId(get<0>(ord_prevout).hash.GetHex());
-    builderOrdSeller.SetOrdUtxoNOut(get<0>(ord_prevout).n);
-    builderOrdSeller.SetOrdUtxoAmount("0.000025");
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
 
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey())));
@@ -454,9 +452,7 @@ TEST_CASE("FullSwapNoChange")
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
-    builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
-    builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
-    builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
+    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, funds_amount);
     REQUIRE_THROWS_AS(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())), l15::TransactionError);
 }
 
@@ -495,9 +491,7 @@ TEST_CASE("FullSwapFee")
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
-    builderOrdSeller.SetOrdUtxoTxId(get<0>(ord_prevout).hash.GetHex());
-    builderOrdSeller.SetOrdUtxoNOut(get<0>(ord_prevout).n);
-    builderOrdSeller.SetOrdUtxoAmount("0.000025");
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
 
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey())));
@@ -520,9 +514,7 @@ TEST_CASE("FullSwapFee")
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
-    builderOrdBuyer.SetFundsUtxoTxId(get<0>(funds_prevout).hash.GetHex());
-    builderOrdBuyer.SetFundsUtxoNOut(get<0>(funds_prevout).n);
-    builderOrdBuyer.SetFundsUtxoAmount(funds_amount);
+    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, funds_amount);
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
 
     string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsCommitSig);

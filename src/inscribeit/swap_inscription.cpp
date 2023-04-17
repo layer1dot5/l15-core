@@ -810,9 +810,10 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     return *mOrdPayoffTx;
 }
 
-    std::vector<CMutableTransaction > SwapInscriptionBuilder::getTransactions() {
-        return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
-    }
+std::vector<CMutableTransaction > SwapInscriptionBuilder::getTransactions() {
+    return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
+}
+
 SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint32_t nout, const string &amount)
 {
     m_ord_txid = txid;
@@ -821,13 +822,14 @@ SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint
     return *this;
 }
 
-    CAmount SwapInscriptionBuilder::getWholeFee(CAmount fee_rate) {
-        if (m_last_fee_rate != fee_rate) {
-            m_whole_fee = ContractBuilder::getWholeFee(fee_rate);
-            m_last_fee_rate = fee_rate;
-        }
-        return m_whole_fee;
+CAmount SwapInscriptionBuilder::getWholeFee(CAmount fee_rate) {
+    if (m_last_fee_rate != fee_rate) {
+        m_whole_fee = ContractBuilder::getWholeFee(fee_rate);
+        m_last_fee_rate = fee_rate;
     }
+    return m_whole_fee;
+}
+
 SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, uint32_t nout, const string &amount)
 {
     m_funds_txid = txid;
@@ -836,87 +838,88 @@ SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, ui
     return *this;
 }
 
-    CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
-        CMutableTransaction result;
+CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
+    CMutableTransaction result;
 
-        CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
+    CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
 
-        result.vin = {CTxIn(uint256(0), 0)};
-        result.vin.front().scriptWitness.stack.push_back(signature());
-        result.vout = {CTxOut(0, move(pubKeyScript))};
-        result.vout.front().nValue = 0;
+    result.vin = {CTxIn(uint256(0), 0)};
+    result.vin.front().scriptWitness.stack.push_back(signature());
+    result.vout = {CTxOut(0, move(pubKeyScript))};
+    result.vout.front().nValue = 0;
 
-        return result;
-    }
+    return result;
+}
 
-    CMutableTransaction SwapInscriptionBuilder::CreateOrdCommitTxTemplate() const {
-        return CreatePayoffTxTemplate();
-    }
+CMutableTransaction SwapInscriptionBuilder::CreateOrdCommitTxTemplate() const {
+    return CreatePayoffTxTemplate();
+}
 
-    CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const {
-        auto pubKeyScript = CScript() << 1 << xonly_pubkey();
+CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const {
+    auto pubKeyScript = CScript() << 1 << xonly_pubkey();
 
-        CMutableTransaction result;
-        result.vin = {CTxIn(COutPoint(uint256(0), 0))};
-        result.vin.front().scriptWitness.stack.emplace_back(signature());
+    CMutableTransaction result;
+    result.vin = {CTxIn(COutPoint(uint256(0), 0))};
+    result.vin.front().scriptWitness.stack.emplace_back(signature());
 
-        result.vout = {CTxOut(0, pubKeyScript)};
-        result.vout.front().nValue = 0;
+    result.vout = {CTxOut(0, pubKeyScript)};
+    result.vout.front().nValue = 0;
 
-        result.vout.push_back({CTxOut(0, pubKeyScript)});
-        result.vout.back().nValue = 0;
+    result.vout.push_back({CTxOut(0, pubKeyScript)});
+    result.vout.back().nValue = 0;
 
-        return result;
-    }
+    return result;
+}
 
-    CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() const {
-        CMutableTransaction result;
+CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() const {
+    CMutableTransaction result;
 
-        CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
+    CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
 
-        auto ord_commit_taproot = TemplateTapRoot();
-        xonly_pubkey pubKey;
+    auto ord_commit_taproot = TemplateTapRoot();
+    xonly_pubkey pubKey;
 
-        CScript& ord_swap_script = get<2>(ord_commit_taproot).GetScripts()[0];
-        auto ord_scriptpath = get<2>(ord_commit_taproot).CalculateScriptPath(ord_swap_script);
+    CScript& ord_swap_script = get<2>(ord_commit_taproot).GetScripts()[0];
+    auto ord_scriptpath = get<2>(ord_commit_taproot).CalculateScriptPath(ord_swap_script);
 
-        bytevector ord_control_block = {0};
-        ord_control_block.reserve(1 + pubKey.size() + ord_scriptpath.size() * uint256::size());
-        ord_control_block.insert(ord_control_block.end(), pubKey.begin(), pubKey.end());
-        for(uint256 &branch_hash : ord_scriptpath)
-            ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
+    bytevector ord_control_block = {0};
+    ord_control_block.reserve(1 + pubKey.size() + ord_scriptpath.size() * uint256::size());
+    ord_control_block.insert(ord_control_block.end(), pubKey.begin(), pubKey.end());
+    for(uint256 &branch_hash : ord_scriptpath)
+        ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-        //CMutableTransaction swap_tx;
-        result.vin = {CTxIn(uint256(0), 0)};
-        result.vin.front().scriptWitness.stack.push_back(signature());
-        result.vin.front().scriptWitness.stack.push_back(signature());
+    //CMutableTransaction swap_tx;
+    result.vin = {CTxIn(uint256(0), 0)};
+    result.vin.front().scriptWitness.stack.push_back(signature());
+    result.vin.front().scriptWitness.stack.push_back(signature());
 
-        result.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
-        result.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
-        result.vout = {CTxOut(0, pubKeyScript),
-                        CTxOut(0, pubKeyScript),
-                        CTxOut(0, pubKeyScript)};
+    result.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
+    result.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
+    result.vout = {CTxOut(0, pubKeyScript),
+                    CTxOut(0, pubKeyScript),
+                    CTxOut(0, pubKeyScript)};
 
-        auto taproot = TemplateTapRoot();
+    auto taproot = TemplateTapRoot();
 
-        xonly_pubkey funds_unspendable_key;
+    xonly_pubkey funds_unspendable_key;
 
-        CScript& funds_swap_script = get<2>(taproot).GetScripts()[0];
+    CScript& funds_swap_script = get<2>(taproot).GetScripts()[0];
 
-        auto funds_scriptpath = get<2>(taproot).CalculateScriptPath(funds_swap_script);
-        bytevector funds_control_block = {0};
-        funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
-        funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
-        for(uint256 &branch_hash : funds_scriptpath)
-            funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
+    auto funds_scriptpath = get<2>(taproot).CalculateScriptPath(funds_swap_script);
+    bytevector funds_control_block = {0};
+    funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
+    funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
+    for(uint256 &branch_hash : funds_scriptpath)
+        funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-        result.vin.emplace_back(uint256(0), 0);
-        result.vin.back().scriptWitness.stack.push_back(signature());
-        result.vin.back().scriptWitness.stack.push_back(signature());
+    result.vin.emplace_back(uint256(0), 0);
+    result.vin.back().scriptWitness.stack.push_back(signature());
+    result.vin.back().scriptWitness.stack.push_back(signature());
 
-        result.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
-        result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
+    result.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
+    result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
 
-        return result;
-    }
+    return result;
+}
+
 } // namespace l15::inscribeit
