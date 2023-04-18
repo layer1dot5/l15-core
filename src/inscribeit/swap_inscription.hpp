@@ -168,14 +168,14 @@ public:
     void MarketSignSwap(std::string sk);
 
     void CheckContractTerms(SwapPhase phase);
-    string Serialize(SwapPhase phase);
-    void Deserialize(const string& data);
+    std::string Serialize(SwapPhase phase);
+    void Deserialize(const std::string& data);
 
-    string OrdCommitRawTransaction();
-    string OrdPayBackRawTransaction();
+    std::string OrdCommitRawTransaction();
+    std::string OrdPayBackRawTransaction();
 
-    string FundsCommitRawTransaction();
-    string FundsPayBackRawTransaction();
+    std::string FundsCommitRawTransaction();
+    std::string FundsPayBackRawTransaction();
 
     string OrdSwapRawTransaction();
     string OrdPayoffRawTransaction();

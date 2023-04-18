@@ -449,16 +449,16 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     UniValue contract(UniValue::VOBJ);
 
     contract.pushKV(name_version, m_protocol_version);
-    contract.pushKV(name_ord_price, UniValue(UniValue::VNUM, FormatAmount(m_ord_price)));
+    contract.pushKV(name_ord_price, UniValue(FormatAmount(m_ord_price)));
     contract.pushKV(name_swap_script_pk_M, hex(*m_swap_script_pk_M));
 
     if (phase == OrdTerms || phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
-        contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(UniValue::VNUM, FormatAmount(*m_ord_commit_mining_fee_rate)));
+        contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(FormatAmount(*m_ord_commit_mining_fee_rate)));
     }
     if (phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
         contract.pushKV(name_ord_txid, *m_ord_txid);
         contract.pushKV(name_ord_nout, *m_ord_nout);
-        contract.pushKV(name_ord_amount, UniValue(UniValue::VNUM, FormatAmount(*m_ord_amount)));
+        contract.pushKV(name_ord_amount, UniValue(FormatAmount(*m_ord_amount)));
         contract.pushKV(name_ord_unspendable_key_factor, hex(*m_ord_unspendable_key_factor));
         contract.pushKV(name_swap_script_pk_A, hex(*m_swap_script_pk_A));
         contract.pushKV(name_ord_commit_sig, hex(*m_ord_commit_sig));
@@ -468,13 +468,13 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     }
 
     if (phase == FundsTerms || phase == FundsCommitSig || phase == MarketPayoffSig || phase == FundsSwapSig || phase == MarketSwapSig) {
-        contract.pushKV(name_market_fee, UniValue(UniValue::VNUM, FormatAmount(*m_market_fee)));
-        contract.pushKV(name_mining_fee_rate, UniValue(UniValue::VNUM, FormatAmount(*m_mining_fee_rate)));
+        contract.pushKV(name_market_fee, UniValue(FormatAmount(*m_market_fee)));
+        contract.pushKV(name_mining_fee_rate, UniValue(FormatAmount(*m_mining_fee_rate)));
     }
     if (phase == FundsCommitSig || phase == MarketPayoffSig || phase == FundsSwapSig || phase == MarketSwapSig) {
         contract.pushKV(name_funds_txid, *m_funds_txid);
         contract.pushKV(name_funds_nout, *m_funds_nout);
-        contract.pushKV(name_funds_amount, UniValue(UniValue::VNUM, FormatAmount(*m_funds_amount)));
+        contract.pushKV(name_funds_amount, UniValue(FormatAmount(*m_funds_amount)));
         contract.pushKV(name_funds_unspendable_key_factor, hex(*m_funds_unspendable_key_factor));
         contract.pushKV(name_swap_script_pk_B, hex(*m_swap_script_pk_B));
         contract.pushKV(name_funds_commit_sig, hex(*m_funds_commit_sig));
