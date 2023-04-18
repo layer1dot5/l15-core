@@ -280,18 +280,20 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
 
     CAmount amountRemained = m_funds_amount.value() - sumToCommit;
 
-    CMutableTransaction commit_tx;
-    commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
-    commit_tx.vin.front().scriptWitness.stack.emplace_back(64);
+    CMutableTransaction commit_tx = CreateFundsCommitTxTemplate();
 
-    commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
-    commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
+    commit_tx.vin[0].prevout.hash = uint256S(m_funds_txid.value());
+    commit_tx.vin[0].prevout.n = m_funds_nout.value();
+    commit_tx.vin[0].scriptWitness.stack[0] = std::vector<unsigned char>(64);
 
-    commit_tx.vout.push_back({CTxOut(amountRemained, change_pubkeyscript)});
-    commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+    commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
+    commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
+
+    commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
+    commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
     m_funds_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_funds_amount, utxo_pubkeyscript)}, {});
-    commit_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(*m_funds_commit_sig);
+    commit_tx.vin[0].scriptWitness.stack[0] = *m_funds_commit_sig;
 
     mFundsCommitTx = move(commit_tx);
 }
@@ -776,9 +778,9 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
         CAmount amountRemained = m_funds_amount.value() - sumToCommit;
 
         commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
-        commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
-
         commit_tx.vout.push_back({CTxOut(amountRemained, change_pubkeyscript)});
+
+        commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
         commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
         mFundsCommitTx = move(commit_tx);
@@ -869,13 +871,9 @@ CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const 
 
     CMutableTransaction result;
     result.vin = {CTxIn(COutPoint(uint256(0), 0))};
-    result.vin.front().scriptWitness.stack.emplace_back(signature());
+    result.vin.front().scriptWitness.stack.emplace_back(64);
 
-    result.vout = {CTxOut(0, pubKeyScript)};
-    result.vout.front().nValue = 0;
-
-    result.vout.push_back({CTxOut(0, pubKeyScript)});
-    result.vout.back().nValue = 0;
+    result.vout = {CTxOut(0, pubKeyScript), CTxOut(0, pubKeyScript)};
 
     return result;
 }
