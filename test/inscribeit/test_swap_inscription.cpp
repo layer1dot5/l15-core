@@ -17,97 +17,21 @@
 
 #include "policy/policy.h"
 
+#include "test_case_wrapper.hpp"
+
 using namespace l15;
 using namespace l15::core;
 using namespace l15::inscribeit;
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
-class TestcaseWrapper;
 
-std::string configpath;
 std::unique_ptr<TestcaseWrapper> w;
 
-struct TestConfigFactory
-{
-    Config conf;
-
-    explicit TestConfigFactory(const std::string &confpath)
-    {
-        conf.ProcessConfig({"--conf=" + confpath});
-    }
-
-    std::string GetBitcoinDataDir() const
-    {
-        auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
-        if(!datadir_opt->empty())
-            return datadir_opt->as<std::string>();
-        else
-            return std::string();
-    }
-};
-
-struct TestcaseWrapper
-{
-    TestConfigFactory mConfFactory;
-    WalletApi mWallet;
-    ChainApi mBtc;
-    ExecHelper mCli;
-    ExecHelper mBtcd;
-
-    explicit TestcaseWrapper() :
-            mConfFactory(configpath),
-            mWallet(),
-            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
-            mCli("l15node-cli", false),
-            mBtcd("bitcoind", false)
-
-    {
-        StartBitcoinNode();
-
-        if(btc().GetChainHeight() < 50)
-        {
-            btc().CreateWallet("testwallet");
-            btc().GenerateToAddress(btc().GetNewAddress(), "150");
-        }
-    }
-
-    virtual ~TestcaseWrapper()
-    {
-        StopBitcoinNode();
-        std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
-    }
-
-    void StartBitcoinNode()
-    {
-        StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
-    }
-
-    void StopBitcoinNode()
-    {
-        StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
-    }
-
-    Config &conf()
-    { return mConfFactory.conf; }
-
-    WalletApi &wallet()
-    { return mWallet; }
-
-    ChainApi &btc()
-    { return mBtc; }
-
-    void ResetMemPool()
-    {
-        StopBitcoinNode();
-        std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
-        StartBitcoinNode();
-    }
-
-};
 
 int main(int argc, char* argv[])
 {
+    std::string configpath;
     Catch::Session session;
 
 
@@ -138,7 +62,7 @@ int main(int argc, char* argv[])
         configpath = (std::filesystem::current_path() / p).string();
     }
 
-    w = std::make_unique<TestcaseWrapper>();
+    w = std::make_unique<TestcaseWrapper>(configpath);
 
     return session.run();
 }
@@ -156,13 +80,19 @@ TEST_CASE("OrdPayBack")
     ChannelKeys ord_utxo_key;
 
     //Create ord utxo
-    string ord_addr = w->btc().Bech32Encode(ord_utxo_key.GetLocalPubKey());
-    string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
+    string ord_addr = w->bech32().Encode(ord_utxo_key.GetLocalPubKey());
+    string ord_txid = w->btc().SendToAddress(ord_addr, "0.00001");
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
-    std::string fee_rate = "0.000015";
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
-    SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdSeller("regtest", "0.00005", "0.000001");
     builderOrdSeller.SetOrdCommitMiningFeeRate(fee_rate);
     builderOrdSeller.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
@@ -170,7 +100,7 @@ TEST_CASE("OrdPayBack")
     //Exchange Commit UTXO
     //---------------------
 
-    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, FormatAmount(get<1>(ord_prevout).nValue));
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     std::string ord_commit_raw_tx;
     REQUIRE_NOTHROW(ord_commit_raw_tx = builderOrdSeller.OrdCommitRawTransaction());
@@ -191,6 +121,7 @@ TEST_CASE("OrdPayBack")
 
     w->btc().GenerateToAddress(w->btc().GetNewAddress(), "11");
     REQUIRE_THROWS(w->btc().SpendTx(CTransaction(ord_payback_tx)));
+
     w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
     REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(ord_payback_tx)));
 }
@@ -206,11 +137,17 @@ TEST_CASE("FundsPayBack")
     ChannelKeys funds_utxo_key;
 
     //Create ord utxo
-    string funds_addr = w->btc().Bech32Encode(funds_utxo_key.GetLocalPubKey());
+    string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     string funds_txid = w->btc().SendToAddress(funds_addr, "0.15");
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
-    std::string fee_rate = "0.000015";
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
     SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
     builderOrdBuyer.SetMiningFeeRate(fee_rate);
@@ -220,7 +157,7 @@ TEST_CASE("FundsPayBack")
     //Exchange Commit UTXO
     //---------------------
 
-    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, "0.15");
+    builderOrdBuyer.FundsUTXO(get<0>(funds_prevout).hash.GetHex(), get<0>(funds_prevout).n, FormatAmount(get<1>(funds_prevout).nValue));
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
     std::string funds_commit_raw_tx;
     REQUIRE_NOTHROW(funds_commit_raw_tx = builderOrdBuyer.FundsCommitRawTransaction());
@@ -256,9 +193,13 @@ TEST_CASE("FullSwap")
     ChannelKeys ord_utxo_key;
     ChannelKeys funds_utxo_key;
 
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
-    std::string fee_rate = "0.000015";
-    //std::clog << "Fee rate: " << fee_rate << std::endl;
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
     // ORD side terms
     //--------------------------------------------------------------------------
@@ -276,11 +217,11 @@ TEST_CASE("FullSwap")
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
 
     //Create ord utxo
-    string ord_addr = w->btc().Bech32Encode(ord_utxo_key.GetLocalPubKey());
+    string ord_addr = w->bech32().Encode(ord_utxo_key.GetLocalPubKey());
     string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
-    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, "0.000025");
+    builderOrdSeller.OrdUTXO(get<0>(ord_prevout).hash.GetHex(), get<0>(ord_prevout).n, FormatAmount(get<1>(ord_prevout).nValue));
     builderOrdSeller.SetSwapScriptPubKeyA(hex(swap_script_key_A.GetLocalPubKey()));
 
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
@@ -299,7 +240,7 @@ TEST_CASE("FullSwap")
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
-    string funds_addr = w->btc().Bech32Encode(funds_utxo_key.GetLocalPubKey());
+    string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
@@ -379,7 +320,7 @@ TEST_CASE("FullSwap")
     // BUYER spends his ord
     //--------------------------------------------------------------------------
 
-    xonly_pubkey payoff_pk = w->btc().Bech32Decode(w->btc().GetNewAddress());
+    xonly_pubkey payoff_pk = w->bech32().Decode(w->btc().GetNewAddress());
     CScript buyer_pubkeyscript = CScript() << 1 << payoff_pk;
 
 
