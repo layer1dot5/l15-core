@@ -33,6 +33,9 @@ namespace {
     const char* const GENERATETOADDRESS = "generatetoaddress";
     const char* const STOP = "stop";
     const char* const CREATEWALLET = "createwallet";
+    const char* const GETWALLETINFO = "getwalletinfo";
+    const char* const WALLETPASSPHRASE = "walletpassphrase";
+
     const char* const GETBLOCK = "getblock";
     const char* const GETZMQNOTIFICATIONS = "getzmqnotifications";
     const char* const ESTIMATESMARTFEE = "estimatesmartfee";
@@ -401,6 +404,34 @@ void ChainApi::CreateWallet(std::string&& name) const
     btc_exec.Run();
 }
 
+std::string ChainApi::GetWalletInfo() const
+{
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back(GETWALLETINFO);
+
+    return btc_exec.Run();
+}
+
+void ChainApi::WalletPassPhrase(const std::string& phrase, const std::string& lifetime) const
+{
+    ExecHelper btc_exec(m_cli_path, false);
+    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
+    {
+        btc_exec.Arguments().emplace_back(v);
+    });
+
+    btc_exec.Arguments().emplace_back(WALLETPASSPHRASE);
+    btc_exec.Arguments().emplace_back(phrase);
+    btc_exec.Arguments().emplace_back(lifetime);
+
+    btc_exec.Run();
+}
+
 std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const string& address) const
 {
     std::string strTXOut;
@@ -504,10 +535,10 @@ std::string ChainApi::EstimateSmartFee(const std::string& confirmation_target, c
     resRoot.read(res);
 
     if (resRoot.exists("feerate")) {
-        return resRoot["feerate"].get_str();
+        return resRoot["feerate"].getValStr();
     }
     else {
-        throw std::logic_error(resRoot["feerate"][0].get_str());
+        throw std::logic_error(resRoot["feerate"][0].getValStr());
     }
 }
 
