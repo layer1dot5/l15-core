@@ -120,14 +120,17 @@ void SwapInscriptionBuilder::SignOrdCommitment(std::string sk)
     auto utxo_pubkeyscript = CScript() << 1 << (ord_utxo_pk);
     auto commit_pubkeyscript = CScript() << 1 << get<0>(OrdCommitTapRoot());
 
-    CMutableTransaction commit_tx;
-    commit_tx.vin = {CTxIn(COutPoint(uint256S(*m_ord_txid), *m_ord_nout))};
-    commit_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    commit_tx.vout = {CTxOut(*m_ord_amount, commit_pubkeyscript)};
-    commit_tx.vout.front().nValue = CalculateOutputAmount(*m_ord_amount, *m_ord_commit_mining_fee_rate, commit_tx);
+    CMutableTransaction commit_tx = CreateOrdCommitTxTemplate();
+
+    commit_tx.vin[0].prevout.hash = uint256S(*m_ord_txid);
+    commit_tx.vin[0].prevout.n = *m_ord_nout;
+    commit_tx.vin[0].scriptWitness.stack[0] = std::vector<unsigned char>(64);
+
+    commit_tx.vout[0].scriptPubKey = move(commit_pubkeyscript);
+    commit_tx.vout[0].nValue = CalculateOutputAmount(*m_ord_amount, *m_ord_commit_mining_fee_rate, commit_tx);
 
     m_ord_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_ord_amount, utxo_pubkeyscript)}, {});
-    commit_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(*m_ord_commit_sig);
+    commit_tx.vin[0].scriptWitness.stack[0] = *m_ord_commit_sig;
 
     mOrdCommitTx = move(commit_tx);
 }
