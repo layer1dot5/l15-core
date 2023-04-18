@@ -160,7 +160,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 {
     CheckBuildArgs();
 
-    CAmount wholeFee = getWholeFee(*m_mining_fee_rate);
+    CAmount wholeFee = getWholeFee();
     if (*m_amount < wholeFee) {
         throw l15::TransactionError("not enough amount to create inscription transactions");
     }
@@ -318,7 +318,7 @@ void CreateInscriptionBuilder::RestoreTransactions()
 
     CAmount wholeFee = 0;
 
-    wholeFee = getWholeFee(*m_mining_fee_rate);
+    wholeFee = getWholeFee();
     if (*m_amount < wholeFee) {
         throw l15::TransactionError("not enough amount to create inscription transactions");
     }
@@ -419,25 +419,21 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std:
     return result;
 }
 
-std::vector<CMutableTransaction> CreateInscriptionBuilder::getTransactions() {
-    return { CreateFundingTxTemplate(), CreateGenesisTxTemplate(*m_content_type, *m_content) };
+    std::vector<std::pair<CAmount,CMutableTransaction>> CreateInscriptionBuilder::getTransactions() {
+    return {
+        { *m_mining_fee_rate, CreateFundingTxTemplate() },
+        { *m_mining_fee_rate, CreateGenesisTxTemplate(*m_content_type, *m_content)}
+    };
 }
 
-CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, const string &hex_content, CAmount fee_rate) {
-    if(fee_rate == 0 && !m_mining_fee_rate) {
-        throw TransactionError("fee rate was not set to some value > 0");
-    }
-    CAmount current_fee_rate = fee_rate;
-    if(current_fee_rate == 0) {
-        current_fee_rate = *m_mining_fee_rate;
-    }
+CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, const string &hex_content) {
     auto old_content_type = std::move(*m_content_type);
     auto old_content = std::move(*m_content);
 
     m_content_type = content_type;
     m_content = unhex<bytevector>(hex_content);
 
-    auto result = getWholeFee(current_fee_rate);
+    auto result = getWholeFee();
 
     m_content_type = std::move(old_content_type);
     m_content = std::move(old_content);

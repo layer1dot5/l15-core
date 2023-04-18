@@ -75,7 +75,7 @@ public:
     CMutableTransaction CreateFundingTxTemplate() const;
     CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const l15::bytevector &content) const;
 
-    CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content, CAmount fee_rate);
+    CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content);
 
     std::string GetUtxoTxId() const { return m_txid.value(); }
     void SetUtxoTxId(std::string v) { m_txid = v; }
@@ -122,7 +122,7 @@ public:
 
     void Sign(std::string utxo_sk);
 
-    std::vector<CMutableTransaction> getTransactions() override;
+    std::vector<std::pair<CAmount,CMutableTransaction>> getTransactions() override;
 
     std::vector<std::string> RawTransactions() const;
 

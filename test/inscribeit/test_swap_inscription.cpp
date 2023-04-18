@@ -214,6 +214,7 @@ TEST_CASE("FundsPayBack")
 
     SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
     builderOrdBuyer.SetMiningFeeRate(fee_rate);
+    builderOrdBuyer.SetOrdCommitMiningFeeRate(fee_rate);
     builderOrdBuyer.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
 
@@ -495,13 +496,14 @@ TEST_CASE("FullSwapFee")
 
     //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
     std::string fee_rate = "0.000015";
+    std::string ord_fee_rate = "0.000030";
     //std::clog << "Fee rate: " << fee_rate << std::endl;
 
     // ORD side terms
     //--------------------------------------------------------------------------
 
     SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
-    builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
+    builderMarket.SetOrdCommitMiningFeeRate(ord_fee_rate);
     builderMarket.SetMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
@@ -605,16 +607,17 @@ TEST_CASE("FullSwapFee")
     REQUIRE(fundsPath);
 
     CAmount fee_rate_amount = ParseAmount(fee_rate);
+    CAmount ord_fee_rate_amount = ParseAmount(ord_fee_rate);
 
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateFundsCommitTxTemplate()));
-    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateOrdCommitTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(ord_fee_rate_amount, ord_commit_tx) == l15::CalculateTxFee(ord_fee_rate_amount, builderMarket.CreateOrdCommitTxTemplate()));
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateSwapTxTemplate(true)));
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreatePayoffTxTemplate()));
 
     CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) +
-                      l15::CalculateTxFee(fee_rate_amount, ord_commit_tx) +
+                      l15::CalculateTxFee(ord_fee_rate_amount, ord_commit_tx) +
                       l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) +
                       l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx);
 
-    REQUIRE(realFee == builderMarket.getWholeFee(fee_rate_amount));
+    REQUIRE(realFee == builderMarket.getWholeFee());
 }

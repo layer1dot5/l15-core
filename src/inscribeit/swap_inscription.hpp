@@ -180,8 +180,7 @@ public:
     string OrdSwapRawTransaction();
     string OrdPayoffRawTransaction();
 
-    std::vector<CMutableTransaction> getTransactions() override;
-    virtual CAmount getWholeFee(CAmount fee_rate);
+    std::vector<std::pair<CAmount,CMutableTransaction>> getTransactions() override;
 };
 
 } // namespace l15::inscribeit

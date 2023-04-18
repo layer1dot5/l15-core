@@ -408,6 +408,6 @@ TEST_CASE("CreateInscriptionBuilder fee estimation")
     CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funding_tx) +
                       l15::CalculateTxFee(fee_rate_amount, genesis_tx);
 
-    REQUIRE(realFee == builder.getWholeFee(fee_rate_amount));
-    REQUIRE(realFee == builder.GetFeeForContent(content_type, content, fee_rate_amount));
+    REQUIRE(realFee == builder.getWholeFee());
+    REQUIRE(realFee == builder.GetFeeForContent(content_type, content));
 }

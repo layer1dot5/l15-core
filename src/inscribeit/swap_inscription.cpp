@@ -273,7 +273,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     auto utxo_pubkeyscript = CScript() << 1 << funds_utxo_pk;
     auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
 
-    CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee(m_mining_fee_rate.value());
+    CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee();
     if(m_funds_amount.value() <= sumToCommit) {
         throw l15::TransactionError("funds amount is too small");
     }
@@ -451,10 +451,8 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     contract.pushKV(name_version, m_protocol_version);
     contract.pushKV(name_ord_price, UniValue(FormatAmount(m_ord_price)));
     contract.pushKV(name_swap_script_pk_M, hex(*m_swap_script_pk_M));
+    contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(FormatAmount(*m_ord_commit_mining_fee_rate)));
 
-    if (phase == OrdTerms || phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
-        contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(FormatAmount(*m_ord_commit_mining_fee_rate)));
-    }
     if (phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
         contract.pushKV(name_ord_txid, *m_ord_txid);
         contract.pushKV(name_ord_nout, *m_ord_nout);
@@ -770,7 +768,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
         commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
         commit_tx.vin.front().scriptWitness.stack.emplace_back(*m_funds_commit_sig);
 
-        CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee(m_mining_fee_rate.value());
+        CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee();
         if(m_funds_amount.value() <= sumToCommit) {
             throw l15::TransactionError("funds amount is too small");
         }
@@ -821,8 +819,16 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     return *mOrdPayoffTx;
 }
 
-std::vector<CMutableTransaction> SwapInscriptionBuilder::getTransactions() {
-    return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(true), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
+std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::getTransactions() {
+    if (!m_ord_commit_mining_fee_rate) {
+        throw l15::TransactionError("Ordinal commit mining fee rate was not set!");
+    }
+    return {
+        { *m_mining_fee_rate, CreatePayoffTxTemplate() },
+        { *m_mining_fee_rate, CreateSwapTxTemplate(true) },
+        { *m_ord_commit_mining_fee_rate, CreateOrdCommitTxTemplate() },
+        { *m_mining_fee_rate, CreateFundsCommitTxTemplate() }
+    };
 }
 
 SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint32_t nout, const string &amount)
@@ -831,14 +837,6 @@ SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint
     m_ord_nout = nout;
     m_ord_amount = ParseAmount(amount);
     return *this;
-}
-
-CAmount SwapInscriptionBuilder::getWholeFee(CAmount fee_rate) {
-    if (m_last_fee_rate != fee_rate) {
-        m_whole_fee = ContractBuilder::getWholeFee(fee_rate);
-        m_last_fee_rate = fee_rate;
-    }
-    return m_whole_fee;
 }
 
 SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, uint32_t nout, const string &amount)
