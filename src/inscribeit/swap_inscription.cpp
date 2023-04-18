@@ -802,12 +802,14 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
 
         CMutableTransaction swap_tx(MakeSwapTx(true));
 
-        CMutableTransaction transfer_tx;// = CreatePayoffTxTemplate();
+        CMutableTransaction transfer_tx = CreatePayoffTxTemplate();
 
-        transfer_tx.vin = {CTxIn(swap_tx.GetHash(), 0)};
-        transfer_tx.vin.front().scriptWitness.stack.push_back(*m_ordpayoff_sig);
-        transfer_tx.vout = {CTxOut(swap_tx.vout[0].nValue, move(transfer_pubkeyscript))};
-        transfer_tx.vout.front().nValue = CalculateOutputAmount(swap_tx.vout[0].nValue, *m_mining_fee_rate, transfer_tx);
+        transfer_tx.vin[0].prevout.hash = swap_tx.GetHash();
+        transfer_tx.vin[0].prevout.n = 0;
+        transfer_tx.vin[0].scriptWitness.stack[0] = *m_ordpayoff_sig;
+
+        transfer_tx.vout[0].scriptPubKey = move(transfer_pubkeyscript);
+        transfer_tx.vout[0].nValue = CalculateOutputAmount(swap_tx.vout[0].nValue, *m_mining_fee_rate, transfer_tx);
 
         mOrdPayoffTx = move(transfer_tx);
     }
