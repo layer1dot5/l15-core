@@ -78,7 +78,7 @@ private:
 
 public:
     CMutableTransaction CreatePayoffTxTemplate() const;
-    CMutableTransaction CreateSwapTxTemplate() const;
+    CMutableTransaction CreateSwapTxTemplate(bool with_funds_in) const;
     CMutableTransaction CreateOrdCommitTxTemplate() const;
     CMutableTransaction CreateFundsCommitTxTemplate() const;
 

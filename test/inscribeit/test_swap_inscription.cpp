@@ -608,7 +608,7 @@ TEST_CASE("FullSwapFee")
 
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateFundsCommitTxTemplate()));
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_commit_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateOrdCommitTxTemplate()));
-    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateSwapTxTemplate()));
+    REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreateSwapTxTemplate(true)));
     REQUIRE(l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx) == l15::CalculateTxFee(fee_rate_amount, builderMarket.CreatePayoffTxTemplate()));
 
     CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funds_commit_tx) +

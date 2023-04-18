@@ -132,7 +132,6 @@ void SwapInscriptionBuilder::SignOrdCommitment(std::string sk)
     mOrdCommitTx = move(commit_tx);
 }
 
-/*
 CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
 {
     auto ord_commit_taproot = OrdCommitTapRoot();
@@ -152,98 +151,8 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
     for(uint256 &branch_hash : ord_scriptpath)
         ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-    CMutableTransaction swap_tx;
-    swap_tx.vin = {CTxIn(GetOrdCommitTx().GetHash(), 0)};
-    if (m_ord_swap_sig_M) {
-        swap_tx.vin.front().scriptWitness.stack.push_back(*m_ord_swap_sig_M);
-    } else {
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    }
-    if (m_ord_swap_sig_A) {
-        swap_tx.vin.front().scriptWitness.stack.push_back(*m_ord_swap_sig_A);
-    } else {
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(65);
-    }
-    swap_tx.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
-    swap_tx.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
-    swap_tx.vout = {CTxOut(*m_ord_amount, ord_pubkeyscript),
-                    CTxOut(m_ord_price, funds_pubkeyscript),
-                    CTxOut(*m_market_fee, fee_pubkeyscript)};
+    CMutableTransaction swap_tx = CreateSwapTxTemplate(with_funds_in);
 
-    if (with_funds_in) {
-        auto funds_commit_taproot = FundsCommitTapRoot();
-
-        xonly_pubkey funds_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_funds_unspendable_key_factor);
-
-        CScript& funds_swap_script = get<2>(funds_commit_taproot).GetScripts()[0];
-
-        auto funds_scriptpath = get<2>(funds_commit_taproot).CalculateScriptPath(funds_swap_script);
-        bytevector funds_control_block = {static_cast<uint8_t>(0xc0 | get<1>(funds_commit_taproot))};
-        funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
-        funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
-        for(uint256 &branch_hash : funds_scriptpath)
-            funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
-
-        swap_tx.vin.emplace_back(mFundsCommitTx->GetHash(), 0);
-        if (m_funds_swap_sig_M) {
-            swap_tx.vin.back().scriptWitness.stack.push_back(*m_funds_swap_sig_M);
-        } else {
-            swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
-        }
-        if (m_funds_swap_sig_B) {
-            swap_tx.vin.back().scriptWitness.stack.push_back(*m_funds_swap_sig_B);
-        } else {
-            swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
-        }
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
-    }
-
-    return swap_tx;
-}
- */
-
-CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
-{
-    auto ord_commit_taproot = OrdCommitTapRoot();
-
-    auto ord_pubkeyscript = CScript() << 1 << *m_swap_script_pk_M;
-    auto funds_pubkeyscript = CScript() << 1 << *m_swap_script_pk_A;
-    auto fee_pubkeyscript = CScript() << 1 << *m_swap_script_pk_M;
-
-    xonly_pubkey ord_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_ord_unspendable_key_factor);
-
-    CScript& ord_swap_script = get<2>(ord_commit_taproot).GetScripts()[0];
-
-    auto ord_scriptpath = get<2>(ord_commit_taproot).CalculateScriptPath(ord_swap_script);
-    bytevector ord_control_block = {static_cast<uint8_t>(0xc0 | get<1>(ord_commit_taproot))};
-    ord_control_block.reserve(1 + ord_unspendable_key.size() + ord_scriptpath.size() * uint256::size());
-    ord_control_block.insert(ord_control_block.end(), ord_unspendable_key.begin(), ord_unspendable_key.end());
-    for(uint256 &branch_hash : ord_scriptpath)
-        ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
-
-    CMutableTransaction swap_tx = CreateSwapTxTemplate();
-    if (!with_funds_in) {
-        swap_tx.vin.pop_back();
-    }
-/*    swap_tx.vin = {CTxIn(GetOrdCommitTx().GetHash(), 0)};
-    if (m_ord_swap_sig_M) {
-        swap_tx.vin.front().scriptWitness.stack.push_back(*m_ord_swap_sig_M);
-    } else {
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    }
-    if (m_ord_swap_sig_A) {
-        swap_tx.vin.front().scriptWitness.stack.push_back(*m_ord_swap_sig_A);
-    } else {
-        swap_tx.vin.front().scriptWitness.stack.emplace_back(65);
-    }
-    swap_tx.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
-/*    swap_tx.vin.front().scriptWitness.stack.emplace_back('a');
-/*    swap_tx.vout = {CTxOut(*m_ord_amount, ord_pubkeyscript),
-                    CTxOut(m_ord_price, funds_pubkeyscript),
-                    CTxOut(*m_market_fee, fee_pubkeyscript)};
-*/
-    //CMutableTransaction swap_tx = CreateSwapTxTemplate();
     swap_tx.vin[0].prevout.hash = GetOrdCommitTx().GetHash();
     swap_tx.vin[0].prevout.n = 0;
 
@@ -265,35 +174,6 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
 
     swap_tx.vout[2].scriptPubKey = fee_pubkeyscript;
     swap_tx.vout[2].nValue = *m_market_fee;
-/*
-    if (with_funds_in) {
-        auto funds_commit_taproot = FundsCommitTapRoot();
-
-        xonly_pubkey funds_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_funds_unspendable_key_factor);
-
-        CScript& funds_swap_script = get<2>(funds_commit_taproot).GetScripts()[0];
-
-        auto funds_scriptpath = get<2>(funds_commit_taproot).CalculateScriptPath(funds_swap_script);
-        bytevector funds_control_block = {static_cast<uint8_t>(0xc0 | get<1>(funds_commit_taproot))};
-        funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
-        funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
-        for(uint256 &branch_hash : funds_scriptpath)
-            funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
-
-        swap_tx.vin[1].prevout.hash = mFundsCommitTx->GetHash();
-        swap_tx.vin[1].prevout.n = 0;
-
-        if (m_funds_swap_sig_M) {
-            swap_tx.vin[1].scriptWitness.stack[0] = *m_funds_swap_sig_M;
-        }
-        if (m_funds_swap_sig_B) {
-            swap_tx.vin[1].scriptWitness.stack[1] = *m_funds_swap_sig_B;
-        }
-        swap_tx.vin[1].scriptWitness.stack[2] = std::vector<unsigned char>(funds_swap_script.begin(), funds_swap_script.end());
-        swap_tx.vin[1].scriptWitness.stack[3] = std::move(funds_control_block);
-    }
-
-    return swap_tx;*/
 
     if (with_funds_in) {
         auto funds_commit_taproot = FundsCommitTapRoot();
@@ -308,21 +188,7 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
         funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
         for(uint256 &branch_hash : funds_scriptpath)
             funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
-/*
-        swap_tx.vin.emplace_back(mFundsCommitTx->GetHash(), 0);
-        if (m_funds_swap_sig_M) {
-            swap_tx.vin.back().scriptWitness.stack.push_back(*m_funds_swap_sig_M);
-        } else {
-            swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
-        }
-        if (m_funds_swap_sig_B) {
-            swap_tx.vin.back().scriptWitness.stack.push_back(*m_funds_swap_sig_B);
-        } else {
-            swap_tx.vin.back().scriptWitness.stack.emplace_back(64);
-        }
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
-        swap_tx.vin.back().scriptWitness.stack.emplace_back(funds_control_block);
-*/
+
         swap_tx.vin[1].prevout.hash = mFundsCommitTx->GetHash();
         swap_tx.vin[1].prevout.n = 0;
 
@@ -949,7 +815,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
 }
 
 std::vector<CMutableTransaction> SwapInscriptionBuilder::getTransactions() {
-    return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
+    return {CreatePayoffTxTemplate(), CreateSwapTxTemplate(true), CreateOrdCommitTxTemplate(), CreateFundsCommitTxTemplate()};
 }
 
 SwapInscriptionBuilder &SwapInscriptionBuilder::OrdUTXO(const string &txid, uint32_t nout, const string &amount)
@@ -1009,7 +875,7 @@ CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const 
     return result;
 }
 
-CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() const {
+CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate(bool with_funds_in) const {
     CMutableTransaction result;
 
     CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
@@ -1037,26 +903,28 @@ CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate() const {
                     CTxOut(0, pubKeyScript),
                     CTxOut(0, pubKeyScript)};
 
-    auto taproot = TemplateTapRoot();
+    if (with_funds_in) {
+        auto taproot = TemplateTapRoot();
 
-    xonly_pubkey funds_unspendable_key;
+        xonly_pubkey funds_unspendable_key;
 
-    CScript& funds_swap_script = get<2>(taproot).GetScripts()[0];
+        CScript &funds_swap_script = get<2>(taproot).GetScripts()[0];
 
-    auto funds_scriptpath = get<2>(taproot).CalculateScriptPath(funds_swap_script);
-    bytevector funds_control_block = {0};
-    funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
-    funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(), funds_unspendable_key.end());
-    for(uint256 &branch_hash : funds_scriptpath)
-        funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
+        auto funds_scriptpath = get<2>(taproot).CalculateScriptPath(funds_swap_script);
+        bytevector funds_control_block = {0};
+        funds_control_block.reserve(1 + funds_unspendable_key.size() + funds_scriptpath.size() * uint256::size());
+        funds_control_block.insert(funds_control_block.end(), funds_unspendable_key.begin(),
+                                   funds_unspendable_key.end());
+        for (uint256 &branch_hash: funds_scriptpath)
+            funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-    result.vin.emplace_back(uint256(0), 0);
-    result.vin.back().scriptWitness.stack.emplace_back(64);
-    result.vin.back().scriptWitness.stack.emplace_back(64);
+        result.vin.emplace_back(uint256(0), 0);
+        result.vin.back().scriptWitness.stack.emplace_back(64);
+        result.vin.back().scriptWitness.stack.emplace_back(64);
 
-    result.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
-    result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
-
+        result.vin.back().scriptWitness.stack.emplace_back(funds_swap_script.begin(), funds_swap_script.end());
+        result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
+    }
     return result;
 }
 
