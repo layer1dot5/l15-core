@@ -340,18 +340,22 @@ void CreateInscriptionBuilder::RestoreTransactions()
     genesis_pubkeyscript << m_destination_pk.value();
 
     CMutableTransaction funding_tx = CreateFundingTxTemplate();
-    funding_tx.vin = {CTxIn(COutPoint(uint256S(*m_txid), *m_nout))};
-    funding_tx.vin.front().scriptWitness.stack.push_back(m_utxo_sig.value());
+    funding_tx.vin[0].prevout.hash = uint256S(*m_txid);
+    funding_tx.vin[0].prevout.n = *m_nout;
+    funding_tx.vin[0].scriptWitness.stack[0] = m_utxo_sig.value();
 
-    funding_tx.vout = {CTxOut(*m_amount, funding_pubkeyscript)};
-    funding_tx.vout.front().nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);
+    funding_tx.vout[0].scriptPubKey = funding_pubkeyscript;
+    funding_tx.vout[0].nValue = CalculateOutputAmount(*m_amount, *m_mining_fee_rate, funding_tx);;
 
     CMutableTransaction genesis_tx = CreateGenesisTxTemplate(*m_content_type, *m_content);
-    genesis_tx.vin = {CTxIn(COutPoint(funding_tx.GetHash(), 0))};
-    genesis_tx.vout = {CTxOut(*m_amount, genesis_pubkeyscript)};
+    genesis_tx.vin[0].prevout.hash = funding_tx.GetHash();
+    genesis_tx.vin[0].prevout.n = 0;
 
-    genesis_tx.vin.front().scriptWitness.stack.push_back(m_inscribe_script_sig.value());
-    genesis_tx.vin.front().scriptWitness.stack.emplace_back(genesis_script.begin(), genesis_script.end());
+    genesis_tx.vout[0].nValue = *m_amount;
+    genesis_tx.vout[0].scriptPubKey = genesis_pubkeyscript;
+
+    genesis_tx.vin[0].scriptWitness.stack[0] = *m_inscribe_script_sig;
+    genesis_tx.vin[0].scriptWitness.stack[1] = std::vector<unsigned char>(genesis_script.begin(), genesis_script.end());
 
     auto genesis_scriptpath = genesis_tap_tree.CalculateScriptPath(genesis_script);
 
@@ -362,8 +366,8 @@ void CreateInscriptionBuilder::RestoreTransactions()
     for(uint256 &branch_hash : genesis_scriptpath)
         control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
 
-    genesis_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
-    genesis_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
+    genesis_tx.vin[0].scriptWitness.stack[2] = control_block;
+    genesis_tx.vout[0].nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, *m_mining_fee_rate, genesis_tx);
 
     mFundingTx.emplace(move(funding_tx));
     mGenesisTx.emplace(move(genesis_tx));
