@@ -119,6 +119,7 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
+    SwapInscriptionBuilder& FeeRate(const std::string& mining_fee_rate) { m_mining_fee_rate = ParseAmount(mining_fee_rate); return *this; }
     SwapInscriptionBuilder& OrdUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
     SwapInscriptionBuilder& FundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
 

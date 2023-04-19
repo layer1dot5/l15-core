@@ -206,7 +206,6 @@ TEST_CASE("FullSwap")
 
     SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
     builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
-    builderMarket.SetMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
     string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
@@ -233,7 +232,7 @@ TEST_CASE("FullSwap")
     // FUNDS side terms
     //--------------------------------------------------------------------------
 
-    //builderMarket.SetMiningFeeRate(fee_rate);
+    builderMarket.FeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
     SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
