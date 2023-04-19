@@ -16,15 +16,15 @@
 #include "core_io.h"
 #include "serialize.h"
 
+#include "test_case_wrapper.hpp"
+
 using namespace l15;
 using namespace l15::core;
 using namespace l15::inscribeit;
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
-class TestcaseWrapper;
 
-std::string configpath;
 std::unique_ptr<TestcaseWrapper> w;
 
 std::string GenRandomString(const int len) {
@@ -42,86 +42,9 @@ std::string GenRandomString(const int len) {
     return tmp_s;
 }
 
-struct TestConfigFactory
-{
-    Config conf;
-
-    explicit TestConfigFactory(const std::string &confpath)
-    {
-        conf.ProcessConfig({"--conf=" + confpath});
-    }
-
-    std::string GetBitcoinDataDir() const
-    {
-        auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
-        if(!datadir_opt->empty())
-            return datadir_opt->as<std::string>();
-        else
-            return std::string();
-    }
-};
-
-struct TestcaseWrapper
-{
-    TestConfigFactory mConfFactory;
-    WalletApi mWallet;
-    ChainApi mBtc;
-    ExecHelper mCli;
-    ExecHelper mBtcd;
-
-    explicit TestcaseWrapper() :
-            mConfFactory(configpath),
-            mWallet(),
-            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
-            mCli("l15node-cli", false),
-            mBtcd("bitcoind", false)
-
-    {
-        StartBitcoinNode();
-
-        if(btc().GetChainHeight() < 50)
-        {
-            btc().CreateWallet("testwallet");
-            btc().GenerateToAddress(btc().GetNewAddress(), "250");
-        }
-    }
-
-    virtual ~TestcaseWrapper()
-    {
-        StopBitcoinNode();
-        std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
-    }
-
-    void StartBitcoinNode()
-    {
-        StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
-    }
-
-    void StopBitcoinNode()
-    {
-        StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
-    }
-
-    Config &conf()
-    { return mConfFactory.conf; }
-
-    WalletApi &wallet()
-    { return mWallet; }
-
-    ChainApi &btc()
-    { return mBtc; }
-
-    void ResetMemPool()
-    {
-        StopBitcoinNode();
-        std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
-        StartBitcoinNode();
-    }
-
-};
-
 int main(int argc, char* argv[])
 {
+    std::string configpath;
     Catch::Session session;
 
 
@@ -152,35 +75,39 @@ int main(int argc, char* argv[])
         configpath = (std::filesystem::current_path() / p).string();
     }
 
-    w = std::make_unique<TestcaseWrapper>();
+    w = std::make_unique<TestcaseWrapper>(configpath);
 
     return session.run();
 }
 
 
-TEST_CASE("CreateInscriptionBuilder positive scenario")
+TEST_CASE("inscribe")
 {
     //get key pair
-    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
-    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+    ChannelKeys utxo_key;
+    ChannelKeys dest_key;
 
     //create address from key pair
-    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "1");
+    string txid = w->btc().SendToAddress(addr, "0.00001");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
-    std::string fee_rate = "0.00005";
-
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
                          .Data("text", hex(GenRandomString(1024 * 10)))
                          .FeeRate(fee_rate)
                          .Destination(hex(dest_key.GetLocalPubKey()))
@@ -206,23 +133,27 @@ TEST_CASE("CreateInscriptionBuilder positive scenario")
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 }
 
-TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
+TEST_CASE("inscribe_setters")
 {
     //get key pair
-    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
-    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+    ChannelKeys utxo_key;
+    ChannelKeys dest_key;
 
     //create address from key pair
-    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "1");
+    string txid = w->btc().SendToAddress(addr, "0.00001");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
-    std::string fee_rate = "0.00005";
-
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
@@ -230,7 +161,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
 
     builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
     builder.SetUtxoNOut(get<0>(prevout).n);
-    builder.SetUtxoAmount("1");
+    builder.SetUtxoAmount(FormatAmount(get<1>(prevout).nValue));
     builder.SetMiningFeeRate(fee_rate);
     builder.SetContentType("text");
     builder.SetContent(hex(GenRandomString(1024 * 10)));
@@ -258,35 +189,39 @@ TEST_CASE("CreateInscriptionBuilder positive scenario with setters")
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 }
 
-TEST_CASE("CreateInscriptionBuilder spend funding tx back")
+TEST_CASE("fallback")
 {
     //get key pair
-    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
-    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+    ChannelKeys utxo_key;
+    ChannelKeys dest_key;
 
     //create address from key pair
-    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "1");
+    string txid = w->btc().SendToAddress(addr, "0.00001");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
-    std::string fee_rate = "0.00005";
-
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
                           .Data("text", hex(std::string("test")))
                           .FeeRate(fee_rate)
                           .Destination(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())));
 
-    ChannelKeys rollback_key(w->wallet().Secp256k1Context(), unhex<seckey>(builder.IntermediateTaprootPrivKey()));
+    ChannelKeys rollback_key(unhex<seckey>(builder.IntermediateTaprootPrivKey()));
 
     std::string ser_data;
     CHECK_NOTHROW(ser_data = builder.Serialize());
