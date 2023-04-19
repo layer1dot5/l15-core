@@ -761,25 +761,25 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
     if (!mFundsCommitTx) {
         CheckContractTerms(FundsCommitSig);
 
-        auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
-        auto change_pubkeyscript = CScript() << 1 << *m_swap_script_pk_B;
-
-        CMutableTransaction commit_tx;
-        commit_tx.vin = {CTxIn(COutPoint(uint256S(m_funds_txid.value()), m_funds_nout.value()))};
-        commit_tx.vin.front().scriptWitness.stack.emplace_back(*m_funds_commit_sig);
-
         CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee();
         if(m_funds_amount.value() <= sumToCommit) {
             throw l15::TransactionError("funds amount is too small");
         }
-
         CAmount amountRemained = m_funds_amount.value() - sumToCommit;
 
-        commit_tx.vout = {CTxOut(sumToCommit, commit_pubkeyscript)};
-        commit_tx.vout.push_back({CTxOut(amountRemained, change_pubkeyscript)});
+        auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
+        auto change_pubkeyscript = CScript() << 1 << *m_swap_script_pk_B;
 
-        commit_tx.vout.front().nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
-        commit_tx.vout.back().nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+        CMutableTransaction commit_tx = CreateFundsCommitTxTemplate();
+        commit_tx.vin[0].prevout.hash = uint256S(m_funds_txid.value());
+        commit_tx.vin[0].prevout.n = m_funds_nout.value();
+        commit_tx.vin[0].scriptWitness.stack[0] =*m_funds_commit_sig;
+
+        commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
+        commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
+
+        commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
+        commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
 
         mFundsCommitTx = move(commit_tx);
     }
