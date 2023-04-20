@@ -3,6 +3,7 @@
 #include "univalue.h"
 
 #include "core_io.h"
+#include "policy.h"
 
 #include "channel_keys.hpp"
 
@@ -175,7 +176,7 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in)
         for(uint256 &branch_hash : funds_scriptpath)
             funds_control_block.insert(funds_control_block.end(), branch_hash.begin(), branch_hash.end());
 
-        swap_tx.vin.emplace_back(mFundsCommitTx->GetHash(), 0);
+        swap_tx.vin.emplace_back(GetFundsCommitTx().GetHash(), 0);
         if (m_funds_swap_sig_M) {
             swap_tx.vin.back().scriptWitness.stack.push_back(*m_funds_swap_sig_M);
         } else {
@@ -371,6 +372,24 @@ void SwapInscriptionBuilder::MarketSignSwap(std::string sk)
     swap_tx.vin[1].scriptWitness.stack[0] = *m_funds_swap_sig_M;
 
     mSwapTx = move(swap_tx);
+
+    PrecomputedTransactionData txdata;
+    txdata.Init(*mSwapTx, {mOrdCommitTx->vout[0], mFundsCommitTx->vout[0]}, /* force=*/ true);
+
+    const CTxIn& ordTxin = mSwapTx->vin.at(0);
+    MutableTransactionSignatureChecker TxOrdChecker(&(*mSwapTx), 0, mOrdCommitTx->vout[0].nValue, txdata, MissingDataBehavior::FAIL);
+    bool ordPath = VerifyScript(ordTxin.scriptSig, mOrdCommitTx->vout[0].scriptPubKey, &ordTxin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TxOrdChecker);
+    if (!ordPath) {
+        throw ContractError("Ord path swap error");
+    }
+
+    const CTxIn& txin = mSwapTx->vin.at(1);
+    MutableTransactionSignatureChecker tx_checker(&(*mSwapTx), 1, mFundsCommitTx->vout[0].nValue, txdata, MissingDataBehavior::FAIL);
+    bool fundsPath = VerifyScript(txin.scriptSig, mFundsCommitTx->vout[0].scriptPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, tx_checker);
+    if (!fundsPath) {
+        throw ContractError("Funds path swap error");
+    }
+
 }
 
 string SwapInscriptionBuilder::OrdCommitRawTransaction()
