@@ -67,8 +67,6 @@ int main(int argc, char* argv[])
     return session.run();
 }
 
-
-
 TEST_CASE("OrdPayBack")
 {
     ChannelKeys swap_script_key_A;
@@ -336,7 +334,7 @@ TEST_CASE("FullSwap")
     // MARKET tries to spend buyer's change
     //--------------------------------------------------------------------------
 
-    xonly_pubkey change_pk = w->btc().Bech32Decode(w->btc().GetNewAddress());
+    xonly_pubkey change_pk = w->bech32().Decode(w->btc().GetNewAddress());
     CScript buyer_change_pubkey_script = CScript() << 1 << change_pk;
 
     CMutableTransaction ord_change_spend_tx;
@@ -392,7 +390,7 @@ TEST_CASE("FullSwapNoChange")
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
 
     //Create ord utxo
-    string ord_addr = w->btc().Bech32Encode(ord_utxo_key.GetLocalPubKey());
+    string ord_addr = w->bech32().Encode(ord_utxo_key.GetLocalPubKey());
     string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
@@ -415,7 +413,7 @@ TEST_CASE("FullSwapNoChange")
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
-    string funds_addr = w->btc().Bech32Encode(funds_utxo_key.GetLocalPubKey());
+    string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
@@ -455,7 +453,7 @@ TEST_CASE("FullSwapFee")
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
 
     //Create ord utxo
-    string ord_addr = w->btc().Bech32Encode(ord_utxo_key.GetLocalPubKey());
+    string ord_addr = w->bech32().Encode(ord_utxo_key.GetLocalPubKey());
     string ord_txid = w->btc().SendToAddress(ord_addr, "0.000025");
     auto ord_prevout = w->btc().CheckOutput(ord_txid, ord_addr);
 
@@ -478,7 +476,7 @@ TEST_CASE("FullSwapFee")
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
-    string funds_addr = w->btc().Bech32Encode(funds_utxo_key.GetLocalPubKey());
+    string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 

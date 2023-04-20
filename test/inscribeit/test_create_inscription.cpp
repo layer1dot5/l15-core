@@ -90,8 +90,9 @@ TEST_CASE("inscribe")
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
+    string amount = "0.00007";
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00001");
+    string txid = w->btc().SendToAddress(addr, "0.00007");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
@@ -143,7 +144,7 @@ TEST_CASE("inscribe_setters")
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00001");
+    string txid = w->btc().SendToAddress(addr, "0.00007");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
@@ -262,11 +263,11 @@ TEST_CASE("fallback")
 TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
 {
     //get key pair
-    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
-    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+    ChannelKeys utxo_key;
+    ChannelKeys dest_key;
 
     //create address from key pair
-    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
     string txid = w->btc().SendToAddress(addr, "1");
@@ -291,11 +292,11 @@ TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
 TEST_CASE("CreateInscriptionBuilder fee estimation")
 {
     //get key pair
-    ChannelKeys utxo_key(w->wallet().Secp256k1Context());
-    ChannelKeys dest_key(w->wallet().Secp256k1Context());
+    ChannelKeys utxo_key;
+    ChannelKeys dest_key;
 
     //create address from key pair
-    string addr = w->btc().Bech32Encode(utxo_key.GetLocalPubKey());
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
     string txid = w->btc().SendToAddress(addr, "1");
