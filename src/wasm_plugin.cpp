@@ -108,6 +108,13 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
 
             .function("Serialize", &l15::inscribeit::SwapInscriptionBuilder::Serialize)
             .function("Deserialize", &l15::inscribeit::SwapInscriptionBuilder::Deserialize)
+
+            .function("OrdCommitRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdCommitRawTransaction)
+            .function("OrdPayBackRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdPayBackRawTransaction)
+            .function("FundsCommitRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::FundsCommitRawTransaction)
+            .function("FundsPayBackRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::FundsPayBackRawTransaction)
+            .function("OrdSwapRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdSwapRawTransaction)
+            .function("OrdPayoffRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdPayoffRawTransaction)
             ;
 
     emscripten::class_<ChannelKeysWasm>("ChannelKeys")

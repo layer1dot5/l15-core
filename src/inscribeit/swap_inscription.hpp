@@ -37,6 +37,7 @@ private:
     std::optional<std::string> m_ord_txid;
     std::optional<uint32_t> m_ord_nout;
     std::optional<CAmount> m_ord_amount;
+    std::optional<xonly_pubkey> m_ord_pk;
 
     std::optional<CAmount> m_ord_commit_mining_fee_rate;
     std::optional<signature> m_ord_commit_sig;
@@ -57,24 +58,32 @@ private:
     std::optional<signature> m_ordpayoff_sig;
 
 
-    std::optional<CMutableTransaction> mOrdCommitTx;
-    std::optional<CMutableTransaction> mOrdPaybackTx;
-    std::optional<CMutableTransaction> mFundsCommitTx;
-    std::optional<CMutableTransaction> mFundsPaybackTx;
+    mutable std::optional<CMutableTransaction> mOrdCommitTx;
+    mutable std::optional<CMutableTransaction> mOrdPaybackTx;
+    mutable std::optional<CMutableTransaction> mFundsCommitTx;
+    mutable std::optional<CMutableTransaction> mFundsPaybackTx;
 
-    std::optional<CMutableTransaction> mSwapTx;
-    std::optional<CMutableTransaction> mOrdPayoffTx;
+    mutable std::optional<CMutableTransaction> mSwapTx;
+    mutable std::optional<CMutableTransaction> mOrdPayoffTx;
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> OrdCommitTapRoot() const;
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTapRoot() const;
 
-    CMutableTransaction MakeSwapTx(bool with_funds_in);
+    CMutableTransaction MakeSwapTx(bool with_funds_in) const;
+
+    void CheckOrdCommitSig() const ;
+//    void CheckFundsCommitSig() const;
+
+    void CheckOrdSwapSig() const;
+    void CheckFundsSwapSig() const;
+
+    void CheckOrdPayoffSig() const;
 
 public:
-    const CMutableTransaction& GetOrdCommitTx();
-    const CMutableTransaction& GetFundsCommitTx();
-    const CMutableTransaction& GetSwapTx();
-    const CMutableTransaction& GetPayoffTx();
+    const CMutableTransaction& GetOrdCommitTx() const;
+    const CMutableTransaction& GetFundsCommitTx() const;
+    const CMutableTransaction& GetSwapTx() const;
+    const CMutableTransaction& GetPayoffTx() const;
 
     static const std::string name_ord_price;
     static const std::string name_market_fee;
@@ -87,6 +96,7 @@ public:
     static const std::string name_ord_txid;
     static const std::string name_ord_nout;
     static const std::string name_ord_amount;
+    static const std::string name_ord_pk;
 
     static const std::string name_ord_commit_mining_fee_rate;
     static const std::string name_ord_commit_sig;
@@ -119,6 +129,7 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
+    SwapInscriptionBuilder& FeeRate(const std::string& mining_fee_rate) { m_mining_fee_rate = ParseAmount(mining_fee_rate); return *this; }
     SwapInscriptionBuilder& OrdUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
     SwapInscriptionBuilder& FundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
 
@@ -143,9 +154,6 @@ public:
     void SignOrdSwap(std::string sk);
     void SignOrdPayBack(std::string sk);
 
-
-
-
     std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
     void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }
 
@@ -156,7 +164,7 @@ public:
     void MarketSignOrdPayoffTx(std::string sk);
     void MarketSignSwap(std::string sk);
 
-    void CheckContractTerms(SwapPhase phase);
+    void CheckContractTerms(SwapPhase phase) const;
     std::string Serialize(SwapPhase phase);
     void Deserialize(const std::string& data);
 

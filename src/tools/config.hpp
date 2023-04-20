@@ -24,6 +24,7 @@ extern const char* const RPCPORT;
 extern const char* const RPCUSER;
 extern const char* const RPCPASS;
 extern const char* const DATADIR;
+extern const char* const CHAINMODE;
 
 }
 
@@ -36,6 +37,9 @@ private:
 public:
     explicit Config();
     ~Config() = default;
+
+    const CLI::Option& operator[](const std::string& name)
+    { return *mApp[name]; }
 
     void ProcessConfig(const std::vector<std::string>& args)
     {

@@ -126,8 +126,11 @@ CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
 {
     size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
-    size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size) / WITNESS_SCALE_FACTOR;
-    return static_cast<int64_t>(vsize) * fee_rate / 1024;
+    size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size + 3) / WITNESS_SCALE_FACTOR;
+
+//    std::clog << ">>>>>>>>>>>>>>>> vsize: " << vsize << std::endl;
+
+    return static_cast<int64_t>(vsize) * fee_rate / 1000;
 }
 
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
