@@ -234,7 +234,7 @@ TEST_CASE("FullSwap")
     builderMarket.FeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
-    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.0001", "0.0001");
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
@@ -377,14 +377,14 @@ TEST_CASE("FullSwapNoChange")
     // ORD side terms
     //--------------------------------------------------------------------------
 
-    SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderMarket("regtest", "0.0001", "0.0001");
     builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
     builderMarket.SetMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
     string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
 
-    SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdSeller("regtest", "0.0001", "0.0001");
     builderOrdSeller.Deserialize(marketOrdConditions);
 
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
@@ -409,7 +409,7 @@ TEST_CASE("FullSwapNoChange")
     //builderMarket.SetMiningFeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
-    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.0001", "0.0001");
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
@@ -440,14 +440,14 @@ TEST_CASE("FullSwapFee")
     // ORD side terms
     //--------------------------------------------------------------------------
 
-    SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderMarket("regtest", "0.0001", "0.0001");
     builderMarket.SetOrdCommitMiningFeeRate(ord_fee_rate);
     builderMarket.SetMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
     string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
 
-    SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdSeller("regtest", "0.0001", "0.0001");
     builderOrdSeller.Deserialize(marketOrdConditions);
 
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
@@ -472,7 +472,7 @@ TEST_CASE("FullSwapFee")
     //builderMarket.SetMiningFeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
-    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.0001", "0.0001");
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create funds utxo
@@ -557,5 +557,5 @@ TEST_CASE("FullSwapFee")
                       l15::CalculateTxFee(fee_rate_amount, ord_swap_tx) +
                       l15::CalculateTxFee(fee_rate_amount, ord_transfer_tx);
 
-    REQUIRE(realFee == builderMarket.getWholeFee());
+    REQUIRE(realFee == builderMarket.CalculateWholeFee());
 }

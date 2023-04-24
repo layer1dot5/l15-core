@@ -13,6 +13,7 @@
 #include "script_merkle_tree.hpp"
 #include "channel_keys.hpp"
 
+#define ORD_AMOUNT 5000
 
 namespace l15::inscribeit {
 
@@ -160,7 +161,7 @@ void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 {
     CheckBuildArgs();
 
-    CAmount wholeFee = getWholeFee();
+    CAmount wholeFee =ParseAmount(GetWholeFee());
     if (*m_amount < wholeFee) {
         throw l15::TransactionError("not enough amount to create inscription transactions");
     }
@@ -316,9 +317,8 @@ void CreateInscriptionBuilder::RestoreTransactions()
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
 
-    CAmount wholeFee = 0;
+    CAmount wholeFee = ParseAmount(GetWholeFee());
 
-    wholeFee = getWholeFee();
     if (*m_amount < wholeFee) {
         throw l15::TransactionError("not enough amount to create inscription transactions");
     }
@@ -419,7 +419,7 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std:
     return result;
 }
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> CreateInscriptionBuilder::getTransactions() {
+std::vector<std::pair<CAmount,CMutableTransaction>> CreateInscriptionBuilder::GetTransactions() {
     return {
         { *m_mining_fee_rate, CreateFundingTxTemplate() },
         { *m_mining_fee_rate, CreateGenesisTxTemplate(*m_content_type, *m_content)}
@@ -433,12 +433,19 @@ CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, c
     m_content_type = content_type;
     m_content = unhex<bytevector>(hex_content);
 
-    auto result = getWholeFee();
+    auto result = CalculateWholeFee();
 
     m_content_type = std::move(old_content_type);
     m_content = std::move(old_content);
 
     return result;
+}
+
+std::string CreateInscriptionBuilder::GetMinFundingAmount() {
+    if(!m_content_type || !m_content) {
+        throw l15::TransactionError("Cannot get funding amount: content type and content must both be set");
+    }
+    return FormatAmount(ORD_AMOUNT + CalculateWholeFee());
 }
 
 }

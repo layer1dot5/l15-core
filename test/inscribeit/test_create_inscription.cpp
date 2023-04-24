@@ -90,9 +90,8 @@ TEST_CASE("inscribe")
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
-    string amount = "0.00007";
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00007");
+    string txid = w->btc().SendToAddress(addr, "0.0007");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
@@ -109,7 +108,7 @@ TEST_CASE("inscribe")
     CreateInscriptionBuilder builder("regtest");
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
-                         .Data("text", hex(GenRandomString(1024 * 10)))
+                         .Data("text", hex(GenRandomString(1024 * 20)))
                          .FeeRate(fee_rate)
                          .Destination(hex(dest_key.GetLocalPubKey()))
                          .Sign(hex(utxo_key.GetLocalPrivKey())));
@@ -270,7 +269,7 @@ TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "1");
+    string txid = w->btc().SendToAddress(addr, "0.00001");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
@@ -299,7 +298,7 @@ TEST_CASE("CreateInscriptionBuilder fee estimation")
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
     //send to the address
-    string txid = w->btc().SendToAddress(addr, "1");
+    string txid = w->btc().SendToAddress(addr, "0.0001");
 
     auto prevout = w->btc().CheckOutput(txid, addr);
 
@@ -344,6 +343,6 @@ TEST_CASE("CreateInscriptionBuilder fee estimation")
     CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funding_tx) +
                       l15::CalculateTxFee(fee_rate_amount, genesis_tx);
 
-    REQUIRE(realFee == builder.getWholeFee());
+    REQUIRE(realFee == builder.CalculateWholeFee());
     REQUIRE(realFee == builder.GetFeeForContent(content_type, content));
 }

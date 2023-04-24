@@ -273,7 +273,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     auto utxo_pubkeyscript = CScript() << 1 << funds_utxo_pk;
     auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
 
-    CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee();
+    CAmount sumToCommit = ParseAmount(GetMinFundingAmount());
     if(m_funds_amount.value() <= sumToCommit) {
         throw l15::TransactionError("funds amount is too small");
     }
@@ -761,7 +761,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx()
     if (!mFundsCommitTx) {
         CheckContractTerms(FundsCommitSig);
 
-        CAmount sumToCommit = m_ord_price + m_market_fee.value() + getWholeFee();
+        CAmount sumToCommit = ParseAmount(GetMinFundingAmount());
         if(m_funds_amount.value() <= sumToCommit) {
             throw l15::TransactionError("funds amount is too small");
         }
@@ -819,7 +819,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx()
     return *mOrdPayoffTx;
 }
 
-std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::getTransactions() {
+std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::GetTransactions() {
     if (!m_ord_commit_mining_fee_rate) {
         throw l15::TransactionError("Ordinal commit mining fee rate was not set!");
     }
@@ -927,6 +927,13 @@ CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate(bool with_funds
         result.vin.back().scriptWitness.stack.emplace_back(move(funds_control_block));
     }
     return result;
+}
+
+std::string SwapInscriptionBuilder::GetMinFundingAmount() {
+    if (!m_ord_price || !m_market_fee) {
+        throw l15::TransactionError("Cannot get minimal funding amount: both ordinal price and market fee must be set");
+    }
+    return FormatAmount(m_ord_price + m_market_fee.value() + CalculateWholeFee());
 }
 
 } // namespace l15::inscribeit
