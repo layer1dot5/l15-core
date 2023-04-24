@@ -1,4 +1,3 @@
-#ifdef WASM_MODULE
 
 #include "random.h"
 
@@ -6,9 +5,6 @@
 #include "channel_keys.hpp"
 #include "create_inscription.hpp"
 #include "swap_inscription.hpp"
-
-#include <emscripten.h>
-#include <emscripten/bind.h>
 
 
 namespace {
@@ -31,10 +27,19 @@ const secp256k1_context * GetSecp256k1()
 
 }
 
-class ChannelKeysWasm : private l15::core::ChannelKeys {
+namespace l15::wasm {
+
+class ChannelKeys : private l15::core::ChannelKeys
+{
 public:
-    ChannelKeysWasm() : l15::core::ChannelKeys(GetSecp256k1()) {}
-    explicit ChannelKeysWasm(std::string sk) : l15::core::ChannelKeys(GetSecp256k1(), l15::unhex<l15::seckey>(sk)) {}
+    static void InitSecp256k1()
+    { GetSecp256k1(); }
+
+    ChannelKeys() : l15::core::ChannelKeys(GetSecp256k1())
+    {}
+
+    explicit ChannelKeys(const char* sk) : l15::core::ChannelKeys(GetSecp256k1(), l15::unhex<l15::seckey>(sk))
+    {}
 
     std::string GetLocalPrivKey() const
     { return l15::hex(l15::core::ChannelKeys::GetLocalPrivKey()); }
@@ -42,23 +47,26 @@ public:
     std::string GetLocalPubKey() const
     { return l15::hex(l15::core::ChannelKeys::GetLocalPubKey()); }
 
-    std::string SignSchnorr(std::string data) const
-    { return l15::hex(l15::core::ChannelKeys::SignSchnorr(uint256S(data))); }
+    std::string SignSchnorr(const char* m) const
+    { return l15::hex(l15::core::ChannelKeys::SignSchnorr(uint256S(m))); }
 };
 
-void InitSecp256k1() {
-    GetSecp256k1();
-}
-
-std::string GetExceptionMessage(intptr_t exceptionPtr) {
-    std::exception* e = reinterpret_cast<std::exception *>(exceptionPtr);
-    if (l15::Error* l15err = dynamic_cast<l15::Error*>(e)) {
-        return std::string(l15err->what()) + ": " + l15err->details();
+struct Exception
+{
+    static std::string getMessage(void* exceptionPtr)
+    {
+        std::exception *e = reinterpret_cast<std::exception *>(exceptionPtr);
+        if (l15::Error *l15err = dynamic_cast<l15::Error *>(e)) {
+            return std::string(l15err->what()) + ": " + l15err->details();
+        }
+        return std::string(e->what());
     }
-    return std::string(e->what());
+};
+
 }
 
 
+/*
 EMSCRIPTEN_BINDINGS(inscribeit) {
 
     emscripten::function("InitSecp256k1", &InitSecp256k1);
@@ -76,16 +84,16 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
             .function("getIntermediateTaprootSK", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
             ;
 
-    emscripten::enum_<l15::inscribeit::SwapInscriptionBuilder::SwapPhase>("SwapPhase")
-            .value("ORD_TERMS", l15::inscribeit::SwapInscriptionBuilder::OrdTerms)
-            .value("ORD_COMMIT_SIG", l15::inscribeit::SwapInscriptionBuilder::OrdCommitSig)
-            .value("FUNDS_TERMS", l15::inscribeit::SwapInscriptionBuilder::FundsTerms)
-            .value("FUNDS_COMMIT_SIG", l15::inscribeit::SwapInscriptionBuilder::FundsCommitSig)
-            .value("ORD_PAYOFF_TERMS", l15::inscribeit::SwapInscriptionBuilder::MarketPayoffTerms)
-            .value("ORD_PAYOFF_SIG", l15::inscribeit::SwapInscriptionBuilder::MarketPayoffSig)
-            .value("ORD_SWAP_SIG", l15::inscribeit::SwapInscriptionBuilder::OrdSwapSig)
-            .value("FUNDS_SWAP_SIG", l15::inscribeit::SwapInscriptionBuilder::FundsSwapSig)
-            .value("MARKET_SWAP_SIG", l15::inscribeit::SwapInscriptionBuilder::MarketSwapSig)
+    emscripten::enum_<l15::inscribeit::SwapPhase>("SwapPhase")
+            .value("ORD_TERMS", l15::inscribeit::OrdTerms)
+            .value("ORD_COMMIT_SIG", l15::inscribeit::OrdCommitSig)
+            .value("FUNDS_TERMS", l15::inscribeit::FundsTerms)
+            .value("FUNDS_COMMIT_SIG", l15::inscribeit::FundsCommitSig)
+            .value("ORD_PAYOFF_TERMS", l15::inscribeit::MarketPayoffTerms)
+            .value("ORD_PAYOFF_SIG", l15::inscribeit::MarketPayoffSig)
+            .value("ORD_SWAP_SIG", l15::inscribeit::OrdSwapSig)
+            .value("FUNDS_SWAP_SIG", l15::inscribeit::FundsSwapSig)
+            .value("MARKET_SWAP_SIG", l15::inscribeit::MarketSwapSig)
             ;
 
     emscripten::class_<l15::inscribeit::SwapInscriptionBuilder>("SwapInscriptionBuilder")
@@ -125,5 +133,8 @@ EMSCRIPTEN_BINDINGS(inscribeit) {
             .function("SignSchnorr", &ChannelKeysWasm::SignSchnorr)
         ;
 }
-#endif
+ */
 
+
+
+#include "inscribeit.cpp"

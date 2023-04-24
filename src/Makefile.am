@@ -19,3 +19,7 @@ endif
 if BUILD_PYTHON_MODULE
 SUBDIRS += python_binding
 endif
+
+if BUILD_WASM_MODULE
+SUBDIRS += wasm_binding
+endif

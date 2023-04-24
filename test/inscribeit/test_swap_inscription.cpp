@@ -208,12 +208,12 @@ TEST_CASE("FullSwap")
     builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
-    string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
+    string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::ORD_TERMS);
 
     SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
     builderOrdSeller.Deserialize(marketOrdConditions);
 
-    builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
+    builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::ORD_TERMS);
 
     //Create ord utxo
     string ord_addr = w->bech32().Encode(ord_utxo_key.GetLocalPubKey());
@@ -226,14 +226,14 @@ TEST_CASE("FullSwap")
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdCommitment(hex(ord_utxo_key.GetLocalPrivKey())));
     REQUIRE_NOTHROW(builderOrdSeller.SignOrdSwap(hex(swap_script_key_A.GetLocalPrivKey())));
 
-    string ordSellerTerms = builderOrdSeller.Serialize(SwapInscriptionBuilder::OrdSwapSig);
+    string ordSellerTerms = builderOrdSeller.Serialize(SwapInscriptionBuilder::ORD_SWAP_SIG);
 
 
     // FUNDS side terms
     //--------------------------------------------------------------------------
 
     builderMarket.FeeRate(fee_rate);
-    string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
+    string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FUNDS_TERMS);
 
     SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
     builderOrdBuyer.Deserialize(marketFundsConditions);
@@ -247,17 +247,17 @@ TEST_CASE("FullSwap")
     builderOrdBuyer.SetSwapScriptPubKeyB(hex(swap_script_key_B.GetLocalPubKey()));
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsCommitment(hex(funds_utxo_key.GetLocalPrivKey())));
 
-    string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsCommitSig);
+    string ordBuyerTerms = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FUNDS_COMMIT_SIG);
 
 
     // MARKET confirm terms
     //--------------------------------------------------------------------------
 
     builderMarket.Deserialize(ordSellerTerms);
-    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::OrdSwapSig));
+    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::ORD_SWAP_SIG));
 
     builderMarket.Deserialize(ordBuyerTerms);
-    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::FundsCommitSig));
+    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::FUNDS_COMMIT_SIG));
 
     string funds_commit_raw_tx = builderMarket.FundsCommitRawTransaction();
     string ord_commit_raw_tx = builderMarket.OrdCommitRawTransaction();
@@ -272,18 +272,18 @@ TEST_CASE("FullSwap")
     w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
 
     REQUIRE_NOTHROW(builderMarket.MarketSignOrdPayoffTx(hex(swap_script_key_M.GetLocalPrivKey())));
-    string ordMarketTerms = builderMarket.Serialize(SwapInscriptionBuilder::MarketPayoffSig);
+    string ordMarketTerms = builderMarket.Serialize(SwapInscriptionBuilder::MARKET_PAYOFF_SIG);
 
 
     // BUYER sign swap
     //--------------------------------------------------------------------------
 
     builderOrdBuyer.Deserialize(ordMarketTerms);
-    REQUIRE_NOTHROW(builderOrdBuyer.CheckContractTerms(SwapInscriptionBuilder::MarketPayoffSig));
+    REQUIRE_NOTHROW(builderOrdBuyer.CheckContractTerms(SwapInscriptionBuilder::MARKET_PAYOFF_SIG));
 
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsSwap(hex(swap_script_key_B.GetLocalPrivKey())));
 
-    string ordFundsSignature = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsSwapSig);
+    string ordFundsSignature = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FUNDS_SWAP_SIG);
 
 
     // MARKET sign swap

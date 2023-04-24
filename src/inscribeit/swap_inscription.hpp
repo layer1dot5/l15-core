@@ -8,22 +8,20 @@
 
 namespace l15::inscribeit {
 
+enum SwapPhase {
+    ORD_TERMS,
+    ORD_COMMIT_SIG,
+    FUNDS_TERMS,
+    FUNDS_COMMIT_SIG,
+    MARKET_PAYOFF_TERMS,
+    MARKET_PAYOFF_SIG,
+    ORD_SWAP_SIG,
+    FUNDS_SWAP_SIG,
+    MARKET_SWAP_SIG,
+};
 
 class SwapInscriptionBuilder : public ContractBuilder
 {
-public:
-    enum SwapPhase {
-        OrdTerms,
-        OrdCommitSig,
-        FundsTerms,
-        FundsCommitSig,
-        MarketPayoffTerms,
-        MarketPayoffSig,
-        OrdSwapSig,
-        FundsSwapSig,
-        MarketSwapSig,
-    };
-private:
     static const uint32_t m_protocol_version;
 
     CAmount m_ord_price;

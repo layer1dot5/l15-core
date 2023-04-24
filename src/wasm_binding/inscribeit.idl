@@ -1,0 +1,40 @@
+
+
+[Prefix="std::"]
+interface string
+{
+    void string([Const] DOMString str);
+    [Const] DOMString c_str();
+};
+
+[Prefix="l15::wasm::"]
+interface ChannelKeys
+{
+    static void InitSecp256k1();
+
+    void ChannelKeys();
+    void ChannelKeys([Const] DOMString sk);
+    [Value] string GetLocalPrivKey();
+    [Value] string GetLocalPubKey();
+    [Value] string SignSchnorr([Const] DOMString m);
+};
+
+[Prefix="l15::wasm::"]
+interface Exception
+{
+    [Value] static string getMessage(any e);
+};
+
+
+//enum l15_inscribeit_SwapPhase
+//{
+//    "l15::inscribeit::ORD_TERMS",
+//    "l15::inscribeit::ORD_COMMIT_SIG",
+//    "l15::inscribeit::FUNDS_TERMS",
+//    "l15::inscribeit::FUNDS_COMMIT_SIG",
+//    "l15::inscribeit::ORD_PAYOFF_TERMS",
+//    "l15::inscribeit::ORD_PAYOFF_SIG",
+//    "l15::inscribeit::ORD_SWAP_SIG",
+//    "l15::inscribeit::FUNDS_SWAP_SIG",
+//    "l15::inscribeit::MARKET_SWAP_SIG",
+//};
