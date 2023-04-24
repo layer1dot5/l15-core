@@ -184,7 +184,6 @@ TEST_CASE("FundsPayBack")
 
 TEST_CASE("FullSwap")
 {
-    const std::string funds_amount = "0.11008000";
     ChannelKeys swap_script_key_A;
     ChannelKeys swap_script_key_B;
     ChannelKeys swap_script_key_M;
@@ -234,8 +233,10 @@ TEST_CASE("FullSwap")
     builderMarket.FeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
-    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.0001", "0.0001");
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
     builderOrdBuyer.Deserialize(marketFundsConditions);
+
+    const std::string funds_amount = FormatAmount(ParseAmount(builderOrdBuyer.GetMinFundingAmount()) + 750);
 
     //Create funds utxo
     string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
@@ -359,7 +360,6 @@ TEST_CASE("FullSwap")
 
 TEST_CASE("FullSwapNoChange")
 {
-    const std::string funds_amount = "0.11000720";
     ChannelKeys swap_script_key_A;
     ChannelKeys swap_script_key_B;
     ChannelKeys swap_script_key_M;
@@ -377,14 +377,14 @@ TEST_CASE("FullSwapNoChange")
     // ORD side terms
     //--------------------------------------------------------------------------
 
-    SwapInscriptionBuilder builderMarket("regtest", "0.0001", "0.0001");
+    SwapInscriptionBuilder builderMarket("regtest", "0.1", "0.01");
     builderMarket.SetOrdCommitMiningFeeRate(fee_rate);
     builderMarket.SetMiningFeeRate(fee_rate);
     builderMarket.SetSwapScriptPubKeyM(hex(swap_script_key_M.GetLocalPubKey()));
 
     string marketOrdConditions = builderMarket.Serialize(SwapInscriptionBuilder::OrdTerms);
 
-    SwapInscriptionBuilder builderOrdSeller("regtest", "0.0001", "0.0001");
+    SwapInscriptionBuilder builderOrdSeller("regtest", "0.1", "0.01");
     builderOrdSeller.Deserialize(marketOrdConditions);
 
     builderOrdSeller.CheckContractTerms(SwapInscriptionBuilder::OrdTerms);
@@ -409,9 +409,11 @@ TEST_CASE("FullSwapNoChange")
     //builderMarket.SetMiningFeeRate(fee_rate);
     string marketFundsConditions = builderMarket.Serialize(SwapInscriptionBuilder::FundsTerms);
 
-    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.0001", "0.0001");
+    SwapInscriptionBuilder builderOrdBuyer("regtest", "0.1", "0.01");
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
+
+    const std::string funds_amount = builderOrdBuyer.GetMinFundingAmount();
     //Create funds utxo
     string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
