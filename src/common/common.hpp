@@ -83,7 +83,7 @@ public:
         }
     }
 
-    bool verify(const secp256k1_context *ctx, const signature& sig, const uint256 &msg);
+    bool verify(const secp256k1_context *ctx, const signature& sig, const uint256 &msg) const;
 
 };
 

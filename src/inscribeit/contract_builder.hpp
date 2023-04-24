@@ -81,6 +81,10 @@ public:
 
     std::string GetMiningFeeRate() const { return FormatAmount(m_mining_fee_rate.value()); }
     void SetMiningFeeRate(std::string v) { m_mining_fee_rate = ParseAmount(v); }
+
+    static void VerifyTxSignature(const xonly_pubkey& pk, const signature& sig, const CMutableTransaction& tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script);
+
+
 };
 
 } // inscribeit

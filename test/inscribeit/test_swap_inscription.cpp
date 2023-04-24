@@ -254,7 +254,10 @@ TEST_CASE("FullSwap")
     //--------------------------------------------------------------------------
 
     builderMarket.Deserialize(ordSellerTerms);
+    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::OrdSwapSig));
+
     builderMarket.Deserialize(ordBuyerTerms);
+    REQUIRE_NOTHROW(builderMarket.CheckContractTerms(SwapInscriptionBuilder::FundsCommitSig));
 
     string funds_commit_raw_tx = builderMarket.FundsCommitRawTransaction();
     string ord_commit_raw_tx = builderMarket.OrdCommitRawTransaction();
@@ -276,6 +279,8 @@ TEST_CASE("FullSwap")
     //--------------------------------------------------------------------------
 
     builderOrdBuyer.Deserialize(ordMarketTerms);
+    REQUIRE_NOTHROW(builderOrdBuyer.CheckContractTerms(SwapInscriptionBuilder::MarketPayoffSig));
+
     REQUIRE_NOTHROW(builderOrdBuyer.SignFundsSwap(hex(swap_script_key_B.GetLocalPrivKey())));
 
     string ordFundsSignature = builderOrdBuyer.Serialize(SwapInscriptionBuilder::FundsSwapSig);
