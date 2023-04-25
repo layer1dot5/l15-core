@@ -84,7 +84,9 @@ private:
     void CheckOrdPayoffSig() const;
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> TemplateTapRoot() const;
+
 public:
+    CAmount GetMinChange() const;
     CMutableTransaction CreatePayoffTxTemplate() const;
     CMutableTransaction CreateSwapTxTemplate(bool with_funds_in) const;
     CMutableTransaction CreateOrdCommitTxTemplate() const;

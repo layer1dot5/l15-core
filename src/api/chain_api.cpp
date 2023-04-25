@@ -528,7 +528,6 @@ std::string ChainApi::EstimateSmartFee(const std::string& confirmation_target, c
     btc_exec.Arguments().emplace_back(confirmation_target);
     btc_exec.Arguments().emplace_back(mode);
 
-
     std::string res = btc_exec.Run();
 
     UniValue resRoot;

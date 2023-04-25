@@ -273,7 +273,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     auto commit_pubkeyscript = CScript() << 1 << get<0>(FundsCommitTapRoot());
 
     CAmount sumToCommit = ParseAmount(GetMinFundingAmount());
-    if(m_funds_amount.value() <= sumToCommit) {
+    if(m_funds_amount.value() < sumToCommit) {
         throw l15::TransactionError("funds amount is too small");
     }
 
@@ -288,8 +288,12 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
     commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
     commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-    commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
-    commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+    if(amountRemained >= GetMinChange()) {
+        commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
+        commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+    } else {
+        commit_tx.vout.pop_back();
+    }
 
     m_funds_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_funds_amount, utxo_pubkeyscript)}, {});
     commit_tx.vin[0].scriptWitness.stack[0] = *m_funds_commit_sig;
@@ -809,8 +813,12 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx() const
         commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
         commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-        commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
-        commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+        if(amountRemained >= GetMinChange()) {
+            commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
+            commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+        } else {
+            commit_tx.vout.pop_back();
+        }
 
         mFundsCommitTx = move(commit_tx);
     }
@@ -1016,6 +1024,11 @@ void SwapInscriptionBuilder::CheckOrdPayoffSig() const
         CMutableTransaction swap_tx(MakeSwapTx(true));
         VerifyTxSignature(*m_swap_script_pk_M, *m_ordpayoff_sig, GetPayoffTx(), 0, {swap_tx.vout.front()}, {});
     }
+}
+
+CAmount SwapInscriptionBuilder::GetMinChange() const {
+    auto payoff = CreatePayoffTxTemplate();
+    return l15::CalculateTxFee(*m_mining_fee_rate, payoff) * 5.1;
 }
 
 } // namespace l15::inscribeit
