@@ -64,8 +64,6 @@ public:
     CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;
 
-    explicit CreateInscriptionBuilder(const std::string& chain_mode) : ContractBuilder(chain_mode) {};
-
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
     std::string GetUtxoTxId() const { return m_txid.value(); }
@@ -88,12 +86,12 @@ public:
 
     std::string GetIntermediateSecKey() const { return l15::hex(m_inscribe_taproot_sk.value()); }
 
+    CreateInscriptionBuilder& MiningFeeRate(const std::string& rate);
     CreateInscriptionBuilder& UTXO(const std::string& txid, uint32_t nout, const std::string& amount);
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);
-    CreateInscriptionBuilder& FeeRate(const std::string& rate);
-    CreateInscriptionBuilder& Destination(const std::string& pk);
+    CreateInscriptionBuilder& DestinationPubKey(const std::string& pk);
 
-    std::string IntermediateTaprootPrivKey() const
+    std::string getIntermediateTaprootSK() const
     { return hex(m_inscribe_taproot_sk.value()); }
 
     std::string GetUtxoPubKey() const

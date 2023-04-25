@@ -211,7 +211,7 @@ AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was 
 
 if test "$enable_wasm_module" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
-  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions"
+  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -Wno-unqualified-std-cast-call"
   LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED  -sEXPORTED_FUNCTIONS=['_malloc'] -sEXPORT_NAME='L15' -sMODULARIZE=1 -sNO_FILESYSTEM=1"
 
   if test "$enable_debug" != "yes"; then

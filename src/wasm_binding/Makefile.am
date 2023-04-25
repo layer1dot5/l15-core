@@ -27,6 +27,8 @@ $(top_builddir)/src/inscribeit/libl15-inscribeit.la
 BUILT_SOURCES = inscribeit.cpp inscribeit.js
 EXTRA_DIST = inscribeit.idl
 
+CLEANFILES = $(BUILT_SOURCES) l15.wasm
+
 inscribeit.js: inscribeit.idl
 
 inscribeit.cpp: inscribeit.idl

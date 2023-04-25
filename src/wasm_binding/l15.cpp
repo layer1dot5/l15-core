@@ -65,76 +65,7 @@ struct Exception
 
 }
 
-
-/*
-EMSCRIPTEN_BINDINGS(inscribeit) {
-
-    emscripten::function("InitSecp256k1", &InitSecp256k1);
-    emscripten::function("getExceptionMessage", &GetExceptionMessage);
-
-    emscripten::class_<l15::inscribeit::CreateInscriptionBuilder>("CreateInscriptionBuilder")
-            .constructor<std::string>()
-            .function("UTXO", &l15::inscribeit::CreateInscriptionBuilder::UTXO)
-            .function("Data", &l15::inscribeit::CreateInscriptionBuilder::Data)
-            .function("MiningFeeRate", &l15::inscribeit::CreateInscriptionBuilder::FeeRate)
-            .function("DestinationPubKey", &l15::inscribeit::CreateInscriptionBuilder::Destination)
-            .function("Sign", &l15::inscribeit::CreateInscriptionBuilder::Sign)
-            .function("Serialize", &l15::inscribeit::CreateInscriptionBuilder::Serialize)
-
-            .function("getIntermediateTaprootSK", &l15::inscribeit::CreateInscriptionBuilder::IntermediateTaprootPrivKey)
-            ;
-
-    emscripten::enum_<l15::inscribeit::SwapPhase>("SwapPhase")
-            .value("ORD_TERMS", l15::inscribeit::OrdTerms)
-            .value("ORD_COMMIT_SIG", l15::inscribeit::OrdCommitSig)
-            .value("FUNDS_TERMS", l15::inscribeit::FundsTerms)
-            .value("FUNDS_COMMIT_SIG", l15::inscribeit::FundsCommitSig)
-            .value("ORD_PAYOFF_TERMS", l15::inscribeit::MarketPayoffTerms)
-            .value("ORD_PAYOFF_SIG", l15::inscribeit::MarketPayoffSig)
-            .value("ORD_SWAP_SIG", l15::inscribeit::OrdSwapSig)
-            .value("FUNDS_SWAP_SIG", l15::inscribeit::FundsSwapSig)
-            .value("MARKET_SWAP_SIG", l15::inscribeit::MarketSwapSig)
-            ;
-
-    emscripten::class_<l15::inscribeit::SwapInscriptionBuilder>("SwapInscriptionBuilder")
-            .constructor<std::string, std::string, std::string>()
-
-            .function("OrdUTXO", &l15::inscribeit::SwapInscriptionBuilder::OrdUTXO)
-            .function("FundsUTXO", &l15::inscribeit::SwapInscriptionBuilder::FundsUTXO)
-
-            .function("SwapPubKeyA", &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyA)
-            .function("SwapPubKeyB", &l15::inscribeit::SwapInscriptionBuilder::SetSwapScriptPubKeyB)
-
-            .function("CheckContractTerms", &l15::inscribeit::SwapInscriptionBuilder::CheckContractTerms)
-
-            .function("SignOrdCommitment", &l15::inscribeit::SwapInscriptionBuilder::SignOrdCommitment)
-            .function("SignOrdPayBack", &l15::inscribeit::SwapInscriptionBuilder::SignOrdPayBack)
-            .function("SignOrdSwap", &l15::inscribeit::SwapInscriptionBuilder::SignOrdSwap)
-            .function("SignFundsCommitment", &l15::inscribeit::SwapInscriptionBuilder::SignFundsCommitment)
-            .function("SignFundsPayBackt", &l15::inscribeit::SwapInscriptionBuilder::SignFundsPayBack)
-            .function("SignFundsSwap", &l15::inscribeit::SwapInscriptionBuilder::SignFundsSwap)
-
-            .function("Serialize", &l15::inscribeit::SwapInscriptionBuilder::Serialize)
-            .function("Deserialize", &l15::inscribeit::SwapInscriptionBuilder::Deserialize)
-
-            .function("OrdCommitRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdCommitRawTransaction)
-            .function("OrdPayBackRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdPayBackRawTransaction)
-            .function("FundsCommitRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::FundsCommitRawTransaction)
-            .function("FundsPayBackRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::FundsPayBackRawTransaction)
-            .function("OrdSwapRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdSwapRawTransaction)
-            .function("OrdPayoffRawTransaction", &l15::inscribeit::SwapInscriptionBuilder::OrdPayoffRawTransaction)
-            ;
-
-    emscripten::class_<ChannelKeysWasm>("ChannelKeys")
-            .constructor()
-            .constructor<std::string>()
-            .function("GetLocalPrivKey", &ChannelKeysWasm::GetLocalPrivKey)
-            .function("GetLocalPubKey", &ChannelKeysWasm::GetLocalPubKey)
-            .function("SignSchnorr", &ChannelKeysWasm::SignSchnorr)
-        ;
-}
- */
-
-
+using namespace l15;
+using namespace l15::inscribeit;
 
 #include "inscribeit.cpp"

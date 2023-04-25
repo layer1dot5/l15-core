@@ -120,47 +120,41 @@ public:
     SwapInscriptionBuilder(const SwapInscriptionBuilder&) = default;
     SwapInscriptionBuilder(SwapInscriptionBuilder&&) noexcept = default;
 
-    explicit SwapInscriptionBuilder(const std::string& chain_mode, const std::string& ord_price, const std::string& market_fee);
+    explicit SwapInscriptionBuilder(const std::string& ord_price, const std::string& market_fee);
 
     SwapInscriptionBuilder& operator=(const SwapInscriptionBuilder& ) = default;
     SwapInscriptionBuilder& operator=(SwapInscriptionBuilder&& ) noexcept = default;
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
-    SwapInscriptionBuilder& FeeRate(const std::string& mining_fee_rate) { m_mining_fee_rate = ParseAmount(mining_fee_rate); return *this; }
+//    SwapInscriptionBuilder& FeeRate(const std::string& mining_fee_rate) { m_mining_fee_rate = ParseAmount(mining_fee_rate); return *this; }
     SwapInscriptionBuilder& OrdUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
     SwapInscriptionBuilder& FundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
 
-
-    std::string GetSwapScriptPubKeyA() const { return hex(m_swap_script_pk_A.value()); }
-    void SetSwapScriptPubKeyA(std::string v) { m_swap_script_pk_A = unhex<xonly_pubkey>(v); }
-
-    std::string GetSwapScriptPubKeyB() const { return hex(m_swap_script_pk_B.value()); }
-    void SetSwapScriptPubKeyB(std::string v) { m_swap_script_pk_B = unhex<xonly_pubkey>(v); }
+    SwapInscriptionBuilder& SwapScriptPubKeyA(const std::string& v) { m_swap_script_pk_A = unhex<xonly_pubkey>(v); return *this; }
+    SwapInscriptionBuilder& SwapScriptPubKeyB(const std::string& v) { m_swap_script_pk_B = unhex<xonly_pubkey>(v); return *this; }
 
     std::string GetSwapScriptPubKeyM() const { return hex(m_swap_script_pk_M.value()); }
-    void SetSwapScriptPubKeyM(std::string v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
+    void SetSwapScriptPubKeyM(const std::string& v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
 
-
-    std::string GetOrdCommitMiningFeeRate() const { return FormatAmount(m_ord_commit_mining_fee_rate.value()); }
-    void SetOrdCommitMiningFeeRate(std::string v) { m_ord_commit_mining_fee_rate = ParseAmount(v); }
+    void SetOrdCommitMiningFeeRate(const std::string& v) { m_ord_commit_mining_fee_rate = ParseAmount(v); }
 
     std::string GetOrdCommitSig() const { return hex(m_ord_commit_sig.value()); }
-    void SetOrdCommitSig(std::string v) { m_ord_commit_sig = unhex<signature>(v); }
+    void SetOrdCommitSig(const std::string& v) { m_ord_commit_sig = unhex<signature>(v); }
 
-    void SignOrdCommitment(std::string sk);
-    void SignOrdSwap(std::string sk);
-    void SignOrdPayBack(std::string sk);
+    void SignOrdCommitment(const std::string& sk);
+    void SignOrdSwap(const std::string& sk);
+    void SignOrdPayBack(const std::string& sk);
 
     std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
     void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }
 
-    void SignFundsCommitment(std::string sk);
-    void SignFundsSwap(std::string sk);
-    void SignFundsPayBack(std::string sk);
+    void SignFundsCommitment(const std::string& sk);
+    void SignFundsSwap(const std::string& sk);
+    void SignFundsPayBack(const std::string& sk);
 
-    void MarketSignOrdPayoffTx(std::string sk);
-    void MarketSignSwap(std::string sk);
+    void MarketSignOrdPayoffTx(const std::string& sk);
+    void MarketSignSwap(const std::string& sk);
 
     void CheckContractTerms(SwapPhase phase) const;
     std::string Serialize(SwapPhase phase);

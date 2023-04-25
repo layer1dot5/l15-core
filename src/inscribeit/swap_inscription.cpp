@@ -78,8 +78,8 @@ const std::string SwapInscriptionBuilder::name_ordpayoff_unspendable_key_factor 
 const std::string SwapInscriptionBuilder::name_ordpayoff_sig = "ordpayoff_sig";
 
 
-SwapInscriptionBuilder::SwapInscriptionBuilder(const string &chain_mode, const string &ord_price, const string &market_fee)
-        : ContractBuilder(chain_mode), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {};
+SwapInscriptionBuilder::SwapInscriptionBuilder(const string &ord_price, const string &market_fee)
+        : ContractBuilder(), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {};
 
 
 std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::OrdCommitTapRoot() const
@@ -103,7 +103,7 @@ std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::Fund
 }
 
 
-void SwapInscriptionBuilder::SignOrdCommitment(std::string sk)
+void SwapInscriptionBuilder::SignOrdCommitment(const std::string& sk)
 {
     CheckContractTerms(ORD_TERMS);
 
@@ -195,7 +195,7 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in) const
     return swap_tx;
 }
 
-void SwapInscriptionBuilder::SignOrdSwap(std::string sk)
+void SwapInscriptionBuilder::SignOrdSwap(const std::string& sk)
 {
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -209,7 +209,7 @@ void SwapInscriptionBuilder::SignOrdSwap(std::string sk)
 }
 
 
-void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
+void SwapInscriptionBuilder::SignOrdPayBack(const std::string& sk)
 {
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -247,7 +247,7 @@ void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
     mOrdPaybackTx = move(payback_tx);
 }
 
-void SwapInscriptionBuilder::SignFundsCommitment(std::string sk)
+void SwapInscriptionBuilder::SignFundsCommitment(const std::string& sk)
 {
     CheckContractTerms(FUNDS_TERMS);
 
@@ -271,7 +271,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk)
 }
 
 
-void SwapInscriptionBuilder::SignFundsSwap(std::string sk)
+void SwapInscriptionBuilder::SignFundsSwap(const std::string& sk)
 {
     CheckContractTerms(MARKET_PAYOFF_SIG);
 
@@ -288,7 +288,7 @@ void SwapInscriptionBuilder::SignFundsSwap(std::string sk)
     m_funds_swap_sig_B = keypair.SignTaprootTx(swap_tx, 1, {ord_commit.vout[0], funds_commit.vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
 }
 
-void SwapInscriptionBuilder::SignFundsPayBack(std::string sk)
+void SwapInscriptionBuilder::SignFundsPayBack(const std::string& sk)
 {
     const CMutableTransaction& funds_commit = GetFundsCommitTx(); // Request it here in order to force reuired fields check
 
@@ -323,7 +323,7 @@ void SwapInscriptionBuilder::SignFundsPayBack(std::string sk)
     mFundsPaybackTx = move(payback_tx);
 }
 
-void SwapInscriptionBuilder::MarketSignOrdPayoffTx(std::string sk)
+void SwapInscriptionBuilder::MarketSignOrdPayoffTx(const std::string& sk)
 {
     CheckContractTerms(MARKET_PAYOFF_TERMS);
 
@@ -350,7 +350,7 @@ void SwapInscriptionBuilder::MarketSignOrdPayoffTx(std::string sk)
     mOrdPayoffTx = move(transfer_tx);
 }
 
-void SwapInscriptionBuilder::MarketSignSwap(std::string sk)
+void SwapInscriptionBuilder::MarketSignSwap(const std::string& sk)
 {
     CheckContractTerms(FUNDS_SWAP_SIG);
 
