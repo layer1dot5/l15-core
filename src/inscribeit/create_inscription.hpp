@@ -122,8 +122,8 @@ public:
 
     void Sign(std::string utxo_sk);
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() override;
-    std::string GetMinFundingAmount() override;
+    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+    std::string GetMinFundingAmount() const override;
 
     std::vector<std::string> RawTransactions() const;
 

@@ -187,8 +187,8 @@ public:
     string OrdSwapRawTransaction();
     string OrdPayoffRawTransaction();
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() override;
-    std::string GetMinFundingAmount();
+    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+    std::string GetMinFundingAmount() const;
 };
 
 } // namespace l15::inscribeit

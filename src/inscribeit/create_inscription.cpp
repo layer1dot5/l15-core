@@ -419,7 +419,7 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate(const std:
     return result;
 }
 
-std::vector<std::pair<CAmount,CMutableTransaction>> CreateInscriptionBuilder::GetTransactions() {
+std::vector<std::pair<CAmount,CMutableTransaction>> CreateInscriptionBuilder::GetTransactions() const {
     return {
         { *m_mining_fee_rate, CreateFundingTxTemplate() },
         { *m_mining_fee_rate, CreateGenesisTxTemplate(*m_content_type, *m_content)}
@@ -441,7 +441,7 @@ CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, c
     return result;
 }
 
-std::string CreateInscriptionBuilder::GetMinFundingAmount() {
+std::string CreateInscriptionBuilder::GetMinFundingAmount() const {
     if(!m_content_type || !m_content) {
         throw l15::TransactionError("Cannot get funding amount: content type and content must both be set");
     }

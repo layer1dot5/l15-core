@@ -55,11 +55,11 @@ public:
     ContractBuilder& operator=(const ContractBuilder& ) = default;
     ContractBuilder& operator=(ContractBuilder&& ) noexcept = default;
 
-    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() = 0;
-    virtual std::string GetMinFundingAmount() = 0;
+    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const = 0;
+    virtual std::string GetMinFundingAmount() const = 0;
 
     std::string GetWholeFee();
-    virtual CAmount CalculateWholeFee();
+    virtual CAmount CalculateWholeFee() const;
 
     explicit ContractBuilder(const std::string& chain_mode)
     {

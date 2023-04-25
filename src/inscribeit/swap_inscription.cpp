@@ -848,7 +848,7 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx() const
     return *mOrdPayoffTx;
 }
 
-std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::GetTransactions() {
+std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::GetTransactions() const {
     if (!m_ord_commit_mining_fee_rate) {
         throw l15::TransactionError("Ordinal commit mining fee rate was not set!");
     }
@@ -878,12 +878,6 @@ SwapInscriptionBuilder &SwapInscriptionBuilder::FundsUTXO(const string &txid, ui
 
 CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
     CMutableTransaction result;
-void SwapInscriptionBuilder::CheckOrdCommitSig() const
-{
-    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
-    VerifyTxSignature(*m_ord_pk, *m_ord_commit_sig, GetOrdCommitTx(), 0, {CTxOut(*m_ord_amount, move(utxo_pubkeyscript))}, {});
-}
-
     CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
 
     result.vin = {CTxIn(uint256(0), 0)};
@@ -892,11 +886,19 @@ void SwapInscriptionBuilder::CheckOrdCommitSig() const
     result.vout.front().nValue = 0;
 
     return result;
+}
+
 //void SwapInscriptionBuilder::CheckFundsCommitSig() const
 //{
 //    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
 //    VerifyTxSignature(*m_ord_pk, *m_ord_commit_sig, GetOrdCommitTx(), 0, {CTxOut(*m_ord_amount, move(utxo_pubkeyscript))}, {});
 //}
+
+void SwapInscriptionBuilder::CheckOrdCommitSig() const {
+    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
+    VerifyTxSignature(*m_ord_pk, *m_ord_commit_sig, GetOrdCommitTx(), 0,
+                      {CTxOut(*m_ord_amount, move(utxo_pubkeyscript))}, {});
+}
 
 void SwapInscriptionBuilder::CheckOrdSwapSig() const
 {
@@ -985,12 +987,13 @@ CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate(bool with_funds
     return result;
 }
 
-std::string SwapInscriptionBuilder::GetMinFundingAmount() {
+std::string SwapInscriptionBuilder::GetMinFundingAmount() const {
     if (!m_ord_price || !m_market_fee) {
         throw l15::TransactionError("Cannot get minimal funding amount: both ordinal price and market fee must be set");
     }
     return FormatAmount(m_ord_price + m_market_fee.value() + CalculateWholeFee());
 }
+
 void SwapInscriptionBuilder::CheckFundsSwapSig() const
 {
     std::vector<CTxOut> spent_outs = {GetOrdCommitTx().vout.front(), GetFundsCommitTx().vout.front()};
