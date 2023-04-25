@@ -13,8 +13,6 @@
 #include "script_merkle_tree.hpp"
 #include "channel_keys.hpp"
 
-#define ORD_AMOUNT 5000
-
 namespace l15::inscribeit {
 
 namespace {
@@ -24,6 +22,7 @@ const std::string val_create_inscription("CreateInscription");
 const size_t chunk_size = 520;
 const bytevector ord_tag {'o', 'r', 'd'};
 const bytevector one_tag {'\1'};
+const CAmount ord_amount = 10000;
 
 CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data) {
     CScript script;
@@ -97,24 +96,31 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::Destination(const string &pk
 void CreateInscriptionBuilder::CheckBuildArgs() const
 {
     if (!m_destination_pk) {
-        throw std::invalid_argument("No destination public key is provided");
+        throw std::invalid_argument("No destination");
     }
     if (!m_content) {
-        throw std::invalid_argument("No content data is provided");
+        throw std::invalid_argument("No content");
     }
     if (!m_content_type) {
-        throw std::invalid_argument("No content-type is provided");
+        throw std::invalid_argument("No content-type");
     }
     if (!m_txid || !m_nout) {
-        throw std::invalid_argument("No UTXO is provided");
+        throw std::invalid_argument("No UTXO");
     }
     if (!m_amount) {
-        throw std::invalid_argument("No UTXO amount is provided");
+        throw std::invalid_argument("No UTXO amount");
     }
     if (!m_mining_fee_rate) {
-        throw std::invalid_argument("No mining fee rate is provided");
+        throw std::invalid_argument("No mining fee rate");
     }
+    CheckAmount();
+}
 
+void CreateInscriptionBuilder::CheckAmount() const
+{
+    if (*m_amount < ord_amount + CalculateWholeFee()) {
+        throw l15::TransactionError("UTXO amount is not enough");
+    }
 }
 
 void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
@@ -160,11 +166,6 @@ void CreateInscriptionBuilder::CheckRestoreArgs(const UniValue& contract) const
 void CreateInscriptionBuilder::Sign(std::string utxo_sk)
 {
     CheckBuildArgs();
-
-    CAmount wholeFee =ParseAmount(GetWholeFee());
-    if (*m_amount < wholeFee) {
-        throw l15::TransactionError("not enough amount to create inscription transactions");
-    }
 
     core::ChannelKeys utxo_key(unhex<seckey>(utxo_sk));
     core::ChannelKeys inscribe_script_key;
@@ -308,6 +309,8 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
 
     m_destination_pk = unhex<xonly_pubkey>(contract[name_destination_pk].get_str());
 
+    CheckAmount();
+
     RestoreTransactions();
 }
 
@@ -316,12 +319,6 @@ void CreateInscriptionBuilder::RestoreTransactions()
     CScript genesis_script = MakeInscriptionScript(m_insribe_script_pk.value(), *m_content_type, *m_content);
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
-
-    CAmount wholeFee = ParseAmount(GetWholeFee());
-
-    if (*m_amount < wholeFee) {
-        throw l15::TransactionError("not enough amount to create inscription transactions");
-    }
 
     auto inscribe_taproot = core::ChannelKeys::AddTapTweak(m_inscribe_int_pk.value(), root);
     xonly_pubkey inscribe_taproot_pk = inscribe_taproot.first;
@@ -442,10 +439,13 @@ CAmount CreateInscriptionBuilder::GetFeeForContent(const string &content_type, c
 }
 
 std::string CreateInscriptionBuilder::GetMinFundingAmount() const {
-    if(!m_content_type || !m_content) {
-        throw l15::TransactionError("Cannot get funding amount: content type and content must both be set");
+    if(!m_content_type) {
+        throw l15::TransactionError("content type is empty");
     }
-    return FormatAmount(ORD_AMOUNT + CalculateWholeFee());
+    if(!m_content) {
+        throw l15::TransactionError("content is empty");
+    }
+    return FormatAmount(ord_amount + CalculateWholeFee());
 }
 
 }

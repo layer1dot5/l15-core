@@ -43,7 +43,7 @@ class CreateInscriptionBuilder: public ContractBuilder
 private:
     void CheckBuildArgs() const;
     void CheckRestoreArgs(const UniValue& params) const;
-    //void CheckTransactionsExistence() const;
+    void CheckAmount() const;
 
     void RestoreTransactions();
 

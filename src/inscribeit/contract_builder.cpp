@@ -12,13 +12,9 @@ const std::string ContractBuilder::name_mining_fee_rate = "mining_fee_rate";
 
 CAmount ContractBuilder::CalculateWholeFee() const {
     auto txs = GetTransactions();
-    return std::accumulate(txs.begin(), txs.end(), CAmount(0), [this](CAmount sum, const std::pair<CAmount,CMutableTransaction> &tx) -> CAmount {
-        return sum += l15::CalculateTxFee(tx.first, tx.second);
+    return std::accumulate(txs.begin(), txs.end(), CAmount(0), [](CAmount sum, const std::pair<CAmount,CMutableTransaction> &tx) -> CAmount {
+        return sum + l15::CalculateTxFee(tx.first, tx.second);
     });
-}
-
-std::string ContractBuilder::GetWholeFee() {
-    return FormatAmount(CalculateWholeFee());
 }
 
 void ContractBuilder::VerifyTxSignature(const xonly_pubkey& pk, const signature& sig, const CMutableTransaction& tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script)

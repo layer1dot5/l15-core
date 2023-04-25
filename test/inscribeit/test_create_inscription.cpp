@@ -259,7 +259,7 @@ TEST_CASE("fallback")
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
 }
 
-TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
+TEST_CASE("NotEnoughAmount")
 {
     //get key pair
     ChannelKeys utxo_key;
@@ -268,27 +268,58 @@ TEST_CASE("CreateInscriptionBuilder positive scenario not enough satoshi")
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
-    //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00001");
-
-    auto prevout = w->btc().CheckOutput(txid, addr);
-
-    std::string fee_rate = "0.00005";
-
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
-
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch (...) {
+        fee_rate = "0.000011";
+    }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    REQUIRE_THROWS_AS(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "0.000001")
-                          .Data("text", hex(GenRandomString(1024 * 10)))
-                          .FeeRate(fee_rate)
-                          .Destination(hex(dest_key.GetLocalPubKey()))
-                          .Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
+    std::string content_type = "text/ascii";
+    auto content = hex(GenRandomString(1024));
+
+    CHECK_NOTHROW(builder.Data(content_type, content)
+                          .FeeRate(fee_rate));
+
+    std::string lesser_amount = FormatAmount(ParseAmount(builder.GetMinFundingAmount()) - 1);
+
+
+    string txid = w->btc().SendToAddress(addr, lesser_amount);
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, lesser_amount)
+                         .Destination(hex(dest_key.GetLocalPubKey())));
+
+    CHECK_THROWS_AS(builder.Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
+
+//    std::string ser_data;
+//    CHECK_NOTHROW(ser_data = builder.Serialize());
+//
+//    std::clog << ser_data << std::endl;
+//
+//    CreateInscriptionBuilder builder2("regtest");
+//
+//    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+//
+//    stringvector rawtx;
+//    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+//
+//    CMutableTransaction funding_tx, genesis_tx;
+//    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
+//    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
+//
+//    CHECK(genesis_tx.vout.size() == 1);
+//    CHECK(genesis_tx.vout.front().nValue == 5000);
+//
+//    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+//    CHECK_THROWS(w->btc().SpendTx(CTransaction(genesis_tx)));
 }
 
-TEST_CASE("CreateInscriptionBuilder fee estimation")
+TEST_CASE("ExactAmount")
 {
     //get key pair
     ChannelKeys utxo_key;
@@ -297,25 +328,29 @@ TEST_CASE("CreateInscriptionBuilder fee estimation")
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
-    //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.0001");
-
-    auto prevout = w->btc().CheckOutput(txid, addr);
-
-    std::string fee_rate = "0.00005";
-
-    //CHECK_NOTHROW(fee_rate = w->btc().EstimateSmartFee("1"));
-
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.000011";
+    }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
     CreateInscriptionBuilder builder("regtest");
 
-    std::string content_type = "text";
-    auto content = hex(GenRandomString(1024 * 10));
+    std::string content_type = "text/ascii";
+    auto content = hex(GenRandomString(1024));
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, "1")
-                          .Data(content_type, content)
-                          .FeeRate(fee_rate)
+    CHECK_NOTHROW(builder.Data(content_type, content)
+                         .FeeRate(fee_rate));
+
+    std::string exact_amount = builder.GetMinFundingAmount();
+
+    string txid = w->btc().SendToAddress(addr, exact_amount);
+    auto prevout = w->btc().CheckOutput(txid, addr);
+
+    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, exact_amount)
                           .Destination(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())));
 
@@ -335,14 +370,9 @@ TEST_CASE("CreateInscriptionBuilder fee estimation")
     CHECK(DecodeHexTx(funding_tx, rawtx.front()));
     CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
 
-    CAmount fee_rate_amount = ParseAmount(fee_rate);
+    CHECK(genesis_tx.vout.size() == 1);
+    CHECK(genesis_tx.vout.front().nValue == 5000);
 
-    REQUIRE(l15::CalculateTxFee(fee_rate_amount, funding_tx) == l15::CalculateTxFee(fee_rate_amount, builder.CreateFundingTxTemplate()));
-    REQUIRE(l15::CalculateTxFee(fee_rate_amount, genesis_tx) == l15::CalculateTxFee(fee_rate_amount, builder.CreateGenesisTxTemplate(content_type, unhex<bytevector>(content))));
-
-    CAmount realFee = l15::CalculateTxFee(fee_rate_amount, funding_tx) +
-                      l15::CalculateTxFee(fee_rate_amount, genesis_tx);
-
-    REQUIRE(realFee == builder.CalculateWholeFee());
-    REQUIRE(realFee == builder.GetFeeForContent(content_type, content));
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 }

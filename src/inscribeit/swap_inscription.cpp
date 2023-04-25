@@ -995,11 +995,9 @@ CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate(bool with_funds
     return result;
 }
 
-std::string SwapInscriptionBuilder::GetMinFundingAmount() const {
-    if (!m_ord_price || !m_market_fee) {
-        throw l15::TransactionError("Cannot get minimal funding amount: both ordinal price and market fee must be set");
-    }
-    return FormatAmount(m_ord_price + m_market_fee.value() + CalculateWholeFee());
+std::string SwapInscriptionBuilder::GetMinFundingAmount() const
+{
+    return FormatAmount(m_ord_price + *m_market_fee + CalculateWholeFee());
 }
 
 void SwapInscriptionBuilder::CheckFundsSwapSig() const
@@ -1027,8 +1025,8 @@ void SwapInscriptionBuilder::CheckOrdPayoffSig() const
 }
 
 CAmount SwapInscriptionBuilder::GetMinChange() const {
-    auto payoff = CreatePayoffTxTemplate();
-    return l15::CalculateTxFee(*m_mining_fee_rate, payoff) * 5.1;
+    auto payoff = CreateFundsCommitTxTemplate();
+    return l15::CalculateTxFee(*m_mining_fee_rate, payoff);
 }
 
 } // namespace l15::inscribeit
