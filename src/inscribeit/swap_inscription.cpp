@@ -15,14 +15,6 @@ const std::string val_swap_inscription("SwapInscription");
 
 const uint32_t COMMIT_TIMEOUT = 12;
 
-CScript MakeOrdSwapScript(const xonly_pubkey& pk_A, const xonly_pubkey& pk_M)
-{
-    CScript script;
-    script << pk_A << OP_CHECKSIG;
-    script << pk_M << OP_CHECKSIGADD;
-    script << 2 << OP_NUMEQUAL;
-    return script;
-}
 
 CScript MakeFundsSwapScript(const xonly_pubkey& pk_B, const xonly_pubkey& pk_M)
 {
@@ -43,7 +35,7 @@ CScript MakeRelTimeLockScript(uint32_t blocks_to_lock, const xonly_pubkey& pk)
 
 }
 
-const uint32_t SwapInscriptionBuilder::m_protocol_version = 1;
+const uint32_t SwapInscriptionBuilder::m_protocol_version = 2;
 
 const std::string SwapInscriptionBuilder::name_ord_price = "ord_price";
 const std::string SwapInscriptionBuilder::name_market_fee = "market_fee";
@@ -52,14 +44,11 @@ const std::string SwapInscriptionBuilder::name_swap_script_pk_A = "swap_script_p
 const std::string SwapInscriptionBuilder::name_swap_script_pk_B = "swap_script_pk_B";
 const std::string SwapInscriptionBuilder::name_swap_script_pk_M = "swap_script_pk_M";
 
-const std::string SwapInscriptionBuilder::name_ord_unspendable_key_factor = "ord_unspendable_key_factor";
 const std::string SwapInscriptionBuilder::name_ord_txid = "ord_txid";
 const std::string SwapInscriptionBuilder::name_ord_nout = "ord_nout";
 const std::string SwapInscriptionBuilder::name_ord_amount = "ord_amount";
 const std::string SwapInscriptionBuilder::name_ord_pk = "ord_pk";
 
-const std::string SwapInscriptionBuilder::name_ord_commit_mining_fee_rate = "ord_commit_mining_fee_rate";
-const std::string SwapInscriptionBuilder::name_ord_commit_sig = "ord_utxo_sig";
 
 const std::string SwapInscriptionBuilder::name_funds_unspendable_key_factor = "funds_unspendable_key_factor";
 const std::string SwapInscriptionBuilder::name_funds_txid = "funds_txid";
@@ -69,7 +58,6 @@ const std::string SwapInscriptionBuilder::name_funds_amount = "funds_amount";
 const std::string SwapInscriptionBuilder::name_funds_commit_sig = "funds_commit_sig";
 
 const std::string SwapInscriptionBuilder::name_ord_swap_sig_A = "ord_swap_sig_A";
-const std::string SwapInscriptionBuilder::name_ord_swap_sig_M = "ord_swap_sig_M";
 const std::string SwapInscriptionBuilder::name_funds_swap_sig_B = "funds_swap_sig_B";
 const std::string SwapInscriptionBuilder::name_funds_swap_sig_M = "funds_swap_sig_M";
 
@@ -80,15 +68,6 @@ SwapInscriptionBuilder::SwapInscriptionBuilder(const string &ord_price, const st
         : ContractBuilder(), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {};
 
 
-std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::OrdCommitTapRoot() const
-{
-    ScriptMerkleTree tap_tree(TreeBalanceType::WEIGHTED,
-                              { MakeOrdSwapScript(m_swap_script_pk_A.value(), m_swap_script_pk_M.value()),
-                                MakeRelTimeLockScript(COMMIT_TIMEOUT, m_swap_script_pk_A.value())});
-
-    return std::tuple_cat(core::ChannelKeys::AddTapTweak(core::ChannelKeys::CreateUnspendablePubKey(m_ord_unspendable_key_factor.value()),
-                                                  tap_tree.CalculateRoot()), std::make_tuple(tap_tree));
-}
 
 std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::FundsCommitTapRoot() const
 {
@@ -110,65 +89,23 @@ std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::Temp
     return std::tuple_cat(std::pair<xonly_pubkey, uint8_t>(pubKey, 0), std::make_tuple(tap_tree));
 }
 
-void SwapInscriptionBuilder::SignOrdCommitment(const std::string& sk)
-{
-    CheckContractTerms(ORD_TERMS);
-
-    core::ChannelKeys keypair(unhex<seckey>(sk));
-    m_ord_pk = keypair.GetLocalPubKey();
-    m_ord_unspendable_key_factor = core::ChannelKeys::GetStrongRandomKey(keypair.Secp256k1Context());
-
-    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
-    auto commit_pubkeyscript = CScript() << 1 << get<0>(OrdCommitTapRoot());
-
-    CMutableTransaction commit_tx = CreateOrdCommitTxTemplate();
-
-    commit_tx.vin[0].prevout.hash = uint256S(*m_ord_txid);
-    commit_tx.vin[0].prevout.n = *m_ord_nout;
-    commit_tx.vin[0].scriptWitness.stack[0] = std::vector<unsigned char>(64);
-
-    commit_tx.vout[0].scriptPubKey = move(commit_pubkeyscript);
-    commit_tx.vout[0].nValue = CalculateOutputAmount(*m_ord_amount, *m_ord_commit_mining_fee_rate, commit_tx);
-
-    m_ord_commit_sig = keypair.SignTaprootTx(commit_tx, 0, {CTxOut(*m_ord_amount, utxo_pubkeyscript)}, {});
-    commit_tx.vin[0].scriptWitness.stack[0] = *m_ord_commit_sig;
-
-    mOrdCommitTx = move(commit_tx);
-}
 
 CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in) const
 {
-    auto ord_commit_taproot = OrdCommitTapRoot();
-
     auto ord_pubkeyscript = CScript() << 1 << *m_swap_script_pk_M;
     auto funds_pubkeyscript = CScript() << 1 << *m_swap_script_pk_A;
     auto fee_pubkeyscript = CScript() << 1 << *m_swap_script_pk_M;
 
-    xonly_pubkey ord_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_ord_unspendable_key_factor);
 
-    CScript& ord_swap_script = get<2>(ord_commit_taproot).GetScripts()[0];
-
-    auto ord_scriptpath = get<2>(ord_commit_taproot).CalculateScriptPath(ord_swap_script);
-    bytevector ord_control_block = {static_cast<uint8_t>(0xc0 | get<1>(ord_commit_taproot))};
-    ord_control_block.reserve(1 + ord_unspendable_key.size() + ord_scriptpath.size() * uint256::size());
-    ord_control_block.insert(ord_control_block.end(), ord_unspendable_key.begin(), ord_unspendable_key.end());
-    for (uint256 &branch_hash: ord_scriptpath)
-        ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
 
     CMutableTransaction swap_tx = CreateSwapTxTemplate(with_funds_in);
 
-    swap_tx.vin[0].prevout.hash = GetOrdCommitTx().GetHash();
-    swap_tx.vin[0].prevout.n = 0;
+    swap_tx.vin[0].prevout = COutPoint(uint256S(*m_ord_txid), *m_ord_nout);
 
-    if (m_ord_swap_sig_M) {
-        swap_tx.vin[0].scriptWitness.stack[0] = *m_ord_swap_sig_M;
-    }
     if (m_ord_swap_sig_A) {
-        swap_tx.vin[0].scriptWitness.stack[1] = *m_ord_swap_sig_A;
+        swap_tx.vin[0].scriptWitness.stack[0] = *m_ord_swap_sig_A;
     }
 
-    swap_tx.vin[0].scriptWitness.stack[2] = std::vector<unsigned char>(ord_swap_script.begin(), ord_swap_script.end());
-    swap_tx.vin[0].scriptWitness.stack[3] = move(ord_control_block);
 
     swap_tx.vout[0].scriptPubKey = ord_pubkeyscript;
     swap_tx.vout[0].nValue = *m_ord_amount;
@@ -212,53 +149,16 @@ void SwapInscriptionBuilder::SignOrdSwap(const std::string& sk)
 {
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
-    if (keypair.GetLocalPubKey() != *m_swap_script_pk_A) {
-        throw ContractError("Swap PubKey does not match the secret");
-    }
+    m_ord_pk = keypair.GetLocalPubKey();
+
+    auto utxo_pubkeyscript = CScript() << 1 << (keypair.GetLocalPubKey());
 
     CMutableTransaction swap_tx(MakeSwapTx(false));
 
-    m_ord_swap_sig_A = keypair.SignTaprootTx(swap_tx, 0, {GetOrdCommitTx().vout[0]}, MakeOrdSwapScript(*m_swap_script_pk_A, *m_swap_script_pk_M), SIGHASH_ALL|SIGHASH_ANYONECANPAY);
+    m_ord_swap_sig_A = keypair.SignTaprootTx(swap_tx, 0, {CTxOut(*m_ord_amount, utxo_pubkeyscript)}, {}, SIGHASH_ALL|SIGHASH_ANYONECANPAY);
 }
 
 
-void SwapInscriptionBuilder::SignOrdPayBack(const std::string& sk)
-{
-    core::ChannelKeys keypair(unhex<seckey>(sk));
-
-    if (keypair.GetLocalPubKey() != *m_swap_script_pk_A) {
-        throw ContractError("Swap PubKey does not match the secret");
-    }
-
-    auto commit_taproot = OrdCommitTapRoot();
-
-    auto payoff_pubkeyscript = CScript() << 1 << *m_swap_script_pk_A;
-
-    xonly_pubkey internal_unspendable_key = core::ChannelKeys::CreateUnspendablePubKey(*m_ord_unspendable_key_factor);
-
-    CScript& payoff_script = get<2>(commit_taproot).GetScripts()[1];
-
-    auto commit_scriptpath = get<2>(commit_taproot).CalculateScriptPath(payoff_script);
-    bytevector control_block = {static_cast<uint8_t>(0xc0 | get<1>(commit_taproot))};
-    control_block.reserve(1 + internal_unspendable_key.size() + commit_scriptpath.size() * uint256::size());
-    control_block.insert(control_block.end(), internal_unspendable_key.begin(), internal_unspendable_key.end());
-    for(uint256 &branch_hash : commit_scriptpath)
-        control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
-
-    const CMutableTransaction& ord_commit = GetOrdCommitTx();
-    CMutableTransaction payback_tx;
-    payback_tx.vin = {CTxIn(ord_commit.GetHash(), 0, {}, GetCsvInBlocks(12))};
-    payback_tx.vin.front().scriptWitness.stack.emplace_back(64);
-    payback_tx.vin.front().scriptWitness.stack.emplace_back(payoff_script.begin(), payoff_script.end());
-    payback_tx.vin.front().scriptWitness.stack.emplace_back(control_block);
-    payback_tx.vout = {CTxOut(m_ord_amount.value(), payoff_pubkeyscript)};
-    payback_tx.vout.front().nValue = CalculateOutputAmount(ord_commit.vout[0].nValue, *m_ord_commit_mining_fee_rate, payback_tx);
-
-    signature payoff_sig = keypair.SignTaprootTx(payback_tx, 0, {ord_commit.vout[0]}, payoff_script);
-    payback_tx.vin.front().scriptWitness.stack.front() = move(payoff_sig);
-
-    mOrdPaybackTx = move(payback_tx);
-}
 
 void SwapInscriptionBuilder::SignFundsCommitment(const std::string& sk)
 {
@@ -277,7 +177,7 @@ void SwapInscriptionBuilder::SignFundsCommitment(const std::string& sk)
         throw l15::TransactionError("funds amount is too small");
     }
 
-    CAmount amountRemained = m_funds_amount.value() - sumToCommit;
+    CAmount changeAmount = m_funds_amount.value() - sumToCommit;
 
     CMutableTransaction commit_tx = CreateFundsCommitTxTemplate();
 
@@ -288,9 +188,9 @@ void SwapInscriptionBuilder::SignFundsCommitment(const std::string& sk)
     commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
     commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-    if(amountRemained >= GetMinChange()) {
+    if(changeAmount > Dust(*m_mining_fee_rate)) {
         commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
-        commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+        commit_tx.vout[1].nValue = changeAmount;
     } else {
         commit_tx.vout.pop_back();
     }
@@ -312,11 +212,12 @@ void SwapInscriptionBuilder::SignFundsSwap(const std::string& sk)
         throw ContractError("Swap PubKey does not match the secret");
     }
 
-    const CMutableTransaction& ord_commit = GetOrdCommitTx();
+    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
+
     const CMutableTransaction& funds_commit = GetFundsCommitTx();
     CMutableTransaction swap_tx(MakeSwapTx(true));
 
-    m_funds_swap_sig_B = keypair.SignTaprootTx(swap_tx, 1, {ord_commit.vout[0], funds_commit.vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
+    m_funds_swap_sig_B = keypair.SignTaprootTx(swap_tx, 1, {CTxOut(*m_ord_amount, utxo_pubkeyscript), funds_commit.vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
 }
 
 void SwapInscriptionBuilder::SignFundsPayBack(const std::string& sk)
@@ -391,22 +292,22 @@ void SwapInscriptionBuilder::MarketSignSwap(const std::string& sk)
         throw ContractError("Swap PubKey does not match the secret");
     }
 
+    auto utxo_pubkeyscript = CScript() << 1 << *m_ord_pk;
+
     CMutableTransaction swap_tx(MakeSwapTx(true));
 
-    m_ord_swap_sig_M = keypair.SignTaprootTx(swap_tx, 0, {GetOrdCommitTx().vout[0], GetFundsCommitTx().vout[0]}, MakeOrdSwapScript(*m_swap_script_pk_A, *m_swap_script_pk_M));
-    m_funds_swap_sig_M = keypair.SignTaprootTx(swap_tx, 1, {GetOrdCommitTx().vout[0], GetFundsCommitTx().vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
+    m_funds_swap_sig_M = keypair.SignTaprootTx(swap_tx, 1, {CTxOut(*m_ord_amount, utxo_pubkeyscript), GetFundsCommitTx().vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
 
-    swap_tx.vin[0].scriptWitness.stack[0] = *m_ord_swap_sig_M;
     swap_tx.vin[1].scriptWitness.stack[0] = *m_funds_swap_sig_M;
 
     mSwapTx = move(swap_tx);
 
     PrecomputedTransactionData txdata;
-    txdata.Init(*mSwapTx, {mOrdCommitTx->vout[0], mFundsCommitTx->vout[0]}, /* force=*/ true);
+    txdata.Init(*mSwapTx, {CTxOut(*m_ord_amount, utxo_pubkeyscript), mFundsCommitTx->vout[0]}, /* force=*/ true);
 
     const CTxIn& ordTxin = mSwapTx->vin.at(0);
-    MutableTransactionSignatureChecker TxOrdChecker(&(*mSwapTx), 0, mOrdCommitTx->vout[0].nValue, txdata, MissingDataBehavior::FAIL);
-    bool ordPath = VerifyScript(ordTxin.scriptSig, mOrdCommitTx->vout[0].scriptPubKey, &ordTxin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TxOrdChecker);
+    MutableTransactionSignatureChecker TxOrdChecker(&(*mSwapTx), 0, *m_ord_amount, txdata, MissingDataBehavior::FAIL);
+    bool ordPath = VerifyScript(ordTxin.scriptSig, utxo_pubkeyscript, &ordTxin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TxOrdChecker);
     if (!ordPath) {
         throw ContractError("Ord path swap error");
     }
@@ -420,20 +321,6 @@ void SwapInscriptionBuilder::MarketSignSwap(const std::string& sk)
 
 }
 
-string SwapInscriptionBuilder::OrdCommitRawTransaction()
-{
-    std::string res = EncodeHexTx(CTransaction(GetOrdCommitTx()));
-    return res;
-}
-
-string SwapInscriptionBuilder::OrdPayBackRawTransaction()
-{
-    if (!mOrdPaybackTx) {
-        throw std::logic_error("OrdPayOff transaction data unavailable");
-    }
-    std::string res = EncodeHexTx(CTransaction(*mOrdPaybackTx));
-    return res;
-}
 
 string SwapInscriptionBuilder::FundsCommitRawTransaction()
 {
@@ -471,19 +358,16 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     contract.pushKV(name_version, m_protocol_version);
     contract.pushKV(name_ord_price, UniValue(FormatAmount(m_ord_price)));
     contract.pushKV(name_swap_script_pk_M, hex(*m_swap_script_pk_M));
-    contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(FormatAmount(*m_ord_commit_mining_fee_rate)));
 
-    if (phase == ORD_TERMS || phase == ORD_COMMIT_SIG || phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
-        contract.pushKV(name_ord_commit_mining_fee_rate, FormatAmount(*m_ord_commit_mining_fee_rate));
+    if (phase == ORD_TERMS || phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
+
     }
-    if (phase == ORD_COMMIT_SIG || phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
+    if (phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_ord_txid, *m_ord_txid);
         contract.pushKV(name_ord_nout, *m_ord_nout);
         contract.pushKV(name_ord_amount, FormatAmount(*m_ord_amount));
         contract.pushKV(name_ord_pk, hex(*m_ord_pk));
-        contract.pushKV(name_ord_unspendable_key_factor, hex(*m_ord_unspendable_key_factor));
         contract.pushKV(name_swap_script_pk_A, hex(*m_swap_script_pk_A));
-        contract.pushKV(name_ord_commit_sig, hex(*m_ord_commit_sig));
     }
     if (phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_ord_swap_sig_A, hex(*m_ord_swap_sig_A));
@@ -525,7 +409,6 @@ void SwapInscriptionBuilder::CheckContractTerms(SwapPhase phase) const
 {
     switch (phase) {
     case MARKET_SWAP_SIG:
-        if (!m_ord_swap_sig_M) throw ContractTermMissing("Market ord sig");
         if (!m_funds_swap_sig_M) throw ContractTermMissing("Market funds sig");
         // no break;
     case FUNDS_SWAP_SIG:
@@ -540,21 +423,15 @@ void SwapInscriptionBuilder::CheckContractTerms(SwapPhase phase) const
         CheckContractTerms(FUNDS_COMMIT_SIG);
     case ORD_SWAP_SIG:
         if (!m_ord_swap_sig_A) throw ContractTermMissing("Ord seller sig");
-        CheckOrdSwapSig();
-        // no break;
-    case ORD_COMMIT_SIG:
         if (!m_ord_pk) throw ContractTermMissing("Ord UTXO pubkey");
         if (!m_ord_amount) throw ContractTermMissing("Ord UTXO amount");
         if (!m_ord_txid) throw ContractTermMissing("Ord UTXO txid");
         if (!m_ord_nout) throw ContractTermMissing("Ord UTXO nout");
-        if (!m_ord_unspendable_key_factor) throw ContractTermMissing("Ord commit unspendable key factor");
         if (!m_swap_script_pk_A) throw ContractTermMissing("Ord seller pubkey");
-        if (!m_ord_commit_sig) throw ContractTermMissing("Ord commit sig");
-        CheckOrdCommitSig();
+        CheckOrdSwapSig();
         // no break;
     case ORD_TERMS:
         if (m_ord_price <= 0) throw ContractTermMissing("Ord price");
-        if (!m_ord_commit_mining_fee_rate) throw ContractTermMissing("Ord commit mining fee rate");
         if (!m_swap_script_pk_M) throw ContractTermMissing("Market swap pubkey");
         break;
     case FUNDS_COMMIT_SIG:
@@ -627,14 +504,6 @@ void SwapInscriptionBuilder::Deserialize(const string &data)
             else m_swap_script_pk_M = unhex<xonly_pubkey>(val.get_str());
         }
     }
-    {   const auto& val = contract[name_ord_unspendable_key_factor];
-        if (!val.isNull()) {
-            if (m_ord_unspendable_key_factor) {
-                if (*m_ord_unspendable_key_factor != unhex<seckey>(val.get_str())) throw ContractError(std::string(name_ord_unspendable_key_factor));
-            }
-            else m_ord_unspendable_key_factor = unhex<seckey>(val.get_str());
-        }
-    }
     {   const auto& val = contract[name_ord_txid];
         if (!val.isNull()) {
             if (m_ord_txid) {
@@ -667,23 +536,6 @@ void SwapInscriptionBuilder::Deserialize(const string &data)
             else m_ord_pk = unhex<xonly_pubkey>(val.get_str());
         }
     }
-    {   const auto& val = contract[name_ord_commit_mining_fee_rate];
-        if (!val.isNull()) {
-            if (m_ord_commit_mining_fee_rate) {
-                if (*m_ord_commit_mining_fee_rate != ParseAmount(val.getValStr())) throw ContractError(std::string(name_ord_commit_mining_fee_rate));
-            }
-            else m_ord_commit_mining_fee_rate = ParseAmount(val.getValStr());
-        }
-    }
-    {   const auto& val = contract[name_ord_commit_sig];
-        if (!val.isNull()) {
-            if (m_ord_commit_sig) {
-                if (*m_ord_commit_sig != unhex<signature>(val.get_str())) throw ContractError(std::string(name_ord_commit_sig));
-            }
-            else m_ord_commit_sig = unhex<signature>(val.get_str());
-        }
-    }
-
     {   const auto& val = contract[name_funds_unspendable_key_factor];
         if (!val.isNull()) {
             if (m_funds_unspendable_key_factor) {
@@ -740,14 +592,6 @@ void SwapInscriptionBuilder::Deserialize(const string &data)
             else m_ord_swap_sig_A = unhex<signature>(val.get_str());
         }
     }
-    {   const auto& val = contract[name_ord_swap_sig_M];
-        if (!val.isNull()) {
-            if (m_ord_swap_sig_M) {
-                if (*m_ord_swap_sig_M != unhex<signature>(val.get_str())) throw ContractError(std::string(name_ord_swap_sig_M));
-            }
-            else m_ord_swap_sig_M = unhex<signature>(val.get_str());
-        }
-    }
     {   const auto& val = contract[name_funds_swap_sig_B];
         if (!val.isNull()) {
             if (m_funds_swap_sig_B) {
@@ -774,30 +618,13 @@ void SwapInscriptionBuilder::Deserialize(const string &data)
     }
 }
 
-const CMutableTransaction &SwapInscriptionBuilder::GetOrdCommitTx() const
-{
-    if (!mOrdCommitTx) {
-
-        auto commit_pubkeyscript = CScript() << 1 << get<0>(OrdCommitTapRoot());
-
-        CMutableTransaction commit_tx;
-        commit_tx.vin = {CTxIn(COutPoint(uint256S(*m_ord_txid), *m_ord_nout))};
-        commit_tx.vin.front().scriptWitness.stack.push_back(*m_ord_commit_sig);
-        commit_tx.vout = {CTxOut(*m_ord_amount, commit_pubkeyscript)};
-        commit_tx.vout.front().nValue = CalculateOutputAmount(*m_ord_amount, *m_ord_commit_mining_fee_rate, commit_tx);
-
-        mOrdCommitTx = move(commit_tx);
-    }
-    return *mOrdCommitTx;
-}
-
 
 const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx() const
 {
     if (!mFundsCommitTx) {
 
         CAmount sumToCommit = ParseAmount(GetMinFundingAmount());
-        if(m_funds_amount.value() <= sumToCommit) {
+        if(m_funds_amount.value() < sumToCommit) {
             throw l15::TransactionError("funds amount is too small");
         }
         CAmount amountRemained = m_funds_amount.value() - sumToCommit;
@@ -813,9 +640,9 @@ const CMutableTransaction &SwapInscriptionBuilder::GetFundsCommitTx() const
         commit_tx.vout[0].scriptPubKey = commit_pubkeyscript;
         commit_tx.vout[0].nValue = CalculateOutputAmount(sumToCommit, *m_mining_fee_rate, commit_tx);
 
-        if(amountRemained >= GetMinChange()) {
+        if(amountRemained > Dust(*m_mining_fee_rate)) {
             commit_tx.vout[1].scriptPubKey = change_pubkeyscript;
-            commit_tx.vout[1].nValue = CalculateOutputAmount(amountRemained, *m_mining_fee_rate, commit_tx);
+            commit_tx.vout[1].nValue = amountRemained;
         } else {
             commit_tx.vout.pop_back();
         }
@@ -857,13 +684,9 @@ const CMutableTransaction &SwapInscriptionBuilder::GetPayoffTx() const
 }
 
 std::vector<std::pair<CAmount,CMutableTransaction>> SwapInscriptionBuilder::GetTransactions() const {
-    if (!m_ord_commit_mining_fee_rate) {
-        throw l15::TransactionError("Ordinal commit mining fee rate was not set!");
-    }
     return {
         { *m_mining_fee_rate, CreatePayoffTxTemplate() },
         { *m_mining_fee_rate, CreateSwapTxTemplate(true) },
-        { *m_ord_commit_mining_fee_rate, CreateOrdCommitTxTemplate() },
         { *m_mining_fee_rate, CreateFundsCommitTxTemplate() }
     };
 }
@@ -896,39 +719,27 @@ CMutableTransaction SwapInscriptionBuilder::CreatePayoffTxTemplate() const {
     return result;
 }
 
-//void SwapInscriptionBuilder::CheckFundsCommitSig() const
-//{
-//    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
-//    VerifyTxSignature(*m_ord_pk, *m_ord_commit_sig, GetOrdCommitTx(), 0, {CTxOut(*m_ord_amount, move(utxo_pubkeyscript))}, {});
-//}
-
-void SwapInscriptionBuilder::CheckOrdCommitSig() const {
-    auto utxo_pubkeyscript = CScript() << 1 << (*m_ord_pk);
-    VerifyTxSignature(*m_ord_pk, *m_ord_commit_sig, GetOrdCommitTx(), 0,
-                      {CTxOut(*m_ord_amount, move(utxo_pubkeyscript))}, {});
-}
 
 void SwapInscriptionBuilder::CheckOrdSwapSig() const
 {
     bool has_funds_sig = m_funds_unspendable_key_factor && m_funds_swap_sig_B && m_funds_swap_sig_M;
 
-    std::vector<CTxOut> spent_outs = {GetOrdCommitTx().vout.front()};
+    auto ord_scriptpubkey = CScript() << 1 << *m_ord_pk;
+
+    std::vector<CTxOut> spent_outs = {CTxOut(*m_ord_amount, ord_scriptpubkey)};
     if (has_funds_sig) {
         spent_outs.emplace_back(GetFundsCommitTx().vout.front());
     }
 
     if (mSwapTx) {
-        VerifyTxSignature(*m_swap_script_pk_A, *m_ord_swap_sig_A, *mSwapTx, 0, move(spent_outs), MakeOrdSwapScript(*m_swap_script_pk_A, *m_swap_script_pk_M));
+        VerifyTxSignature(*m_ord_pk, *m_ord_swap_sig_A, *mSwapTx, 0, move(spent_outs), {});
     }
     else {
         CMutableTransaction swap_tx(MakeSwapTx(has_funds_sig));
-        VerifyTxSignature(*m_swap_script_pk_A, *m_ord_swap_sig_A, swap_tx, 0, move(spent_outs), MakeOrdSwapScript(*m_swap_script_pk_A, *m_swap_script_pk_M));
+        VerifyTxSignature(*m_ord_pk, *m_ord_swap_sig_A, swap_tx, 0, move(spent_outs), {});
     }
 }
 
-CMutableTransaction SwapInscriptionBuilder::CreateOrdCommitTxTemplate() const {
-    return CreatePayoffTxTemplate();
-}
 
 CMutableTransaction SwapInscriptionBuilder::CreateFundsCommitTxTemplate() const {
     auto pubKeyScript = CScript() << 1 << xonly_pubkey();
@@ -947,25 +758,11 @@ CMutableTransaction SwapInscriptionBuilder::CreateSwapTxTemplate(bool with_funds
 
     CScript pubKeyScript = CScript() << 1 << xonly_pubkey();
 
-    auto ord_commit_taproot = TemplateTapRoot();
     xonly_pubkey pubKey;
 
-    CScript& ord_swap_script = get<2>(ord_commit_taproot).GetScripts()[0];
-    auto ord_scriptpath = get<2>(ord_commit_taproot).CalculateScriptPath(ord_swap_script);
-
-    bytevector ord_control_block = {0};
-    ord_control_block.reserve(1 + pubKey.size() + ord_scriptpath.size() * uint256::size());
-    ord_control_block.insert(ord_control_block.end(), pubKey.begin(), pubKey.end());
-    for(uint256 &branch_hash : ord_scriptpath)
-        ord_control_block.insert(ord_control_block.end(), branch_hash.begin(), branch_hash.end());
-
-    //CMutableTransaction swap_tx;
     result.vin = {CTxIn(uint256(0), 0)};
-    result.vin.front().scriptWitness.stack.emplace_back(64);
     result.vin.front().scriptWitness.stack.emplace_back(65);
 
-    result.vin.front().scriptWitness.stack.emplace_back(ord_swap_script.begin(), ord_swap_script.end());
-    result.vin.front().scriptWitness.stack.emplace_back(move(ord_control_block));
     result.vout = {CTxOut(0, pubKeyScript),
                     CTxOut(0, pubKeyScript),
                     CTxOut(0, pubKeyScript)};
@@ -1002,7 +799,8 @@ std::string SwapInscriptionBuilder::GetMinFundingAmount() const
 
 void SwapInscriptionBuilder::CheckFundsSwapSig() const
 {
-    std::vector<CTxOut> spent_outs = {GetOrdCommitTx().vout.front(), GetFundsCommitTx().vout.front()};
+    auto ord_scriptpubkey = CScript() << 1 << *m_ord_pk;
+    std::vector<CTxOut> spent_outs = {CTxOut(*m_ord_amount, ord_scriptpubkey), GetFundsCommitTx().vout.front()};
 
     if (mSwapTx) {
         VerifyTxSignature(*m_swap_script_pk_B, *m_funds_swap_sig_B, *mSwapTx, 1, move(spent_outs), MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
@@ -1024,9 +822,5 @@ void SwapInscriptionBuilder::CheckOrdPayoffSig() const
     }
 }
 
-CAmount SwapInscriptionBuilder::GetMinChange() const {
-    auto payoff = CreateFundsCommitTxTemplate();
-    return l15::CalculateTxFee(*m_mining_fee_rate, payoff);
-}
 
 } // namespace l15::inscribeit

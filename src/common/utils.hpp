@@ -18,6 +18,7 @@ CAmount ParseAmount(const std::string& amountstr);
 std::string FormatAmount(CAmount amount);
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction&);
 CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx);
+CAmount Dust(CAmount fee_rate);
 
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();
