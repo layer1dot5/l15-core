@@ -76,9 +76,8 @@ const std::string SwapInscriptionBuilder::name_funds_swap_sig_M = "funds_swap_si
 const std::string SwapInscriptionBuilder::name_ordpayoff_unspendable_key_factor = "ordpayoff_unspendable_key_factor";
 const std::string SwapInscriptionBuilder::name_ordpayoff_sig = "ordpayoff_sig";
 
-SwapInscriptionBuilder::SwapInscriptionBuilder(const string &chain_mode, const string &ord_price, const string &market_fee)
-        : ContractBuilder(chain_mode), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {
-};
+SwapInscriptionBuilder::SwapInscriptionBuilder(const string &ord_price, const string &market_fee)
+        : ContractBuilder(), m_ord_price(ParseAmount(ord_price)), m_market_fee(ParseAmount(market_fee)) {};
 
 
 std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::OrdCommitTapRoot() const
@@ -111,9 +110,9 @@ std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> SwapInscriptionBuilder::Temp
     return std::tuple_cat(std::pair<xonly_pubkey, uint8_t>(pubKey, 0), std::make_tuple(tap_tree));
 }
 
-void SwapInscriptionBuilder::SignOrdCommitment(std::string sk)
+void SwapInscriptionBuilder::SignOrdCommitment(const std::string& sk)
 {
-    CheckContractTerms(OrdTerms);
+    CheckContractTerms(ORD_TERMS);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
     m_ord_pk = keypair.GetLocalPubKey();
@@ -209,7 +208,7 @@ CMutableTransaction SwapInscriptionBuilder::MakeSwapTx(bool with_funds_in) const
     return swap_tx;
 }
 
-void SwapInscriptionBuilder::SignOrdSwap(std::string sk)
+void SwapInscriptionBuilder::SignOrdSwap(const std::string& sk)
 {
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -223,7 +222,7 @@ void SwapInscriptionBuilder::SignOrdSwap(std::string sk)
 }
 
 
-void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
+void SwapInscriptionBuilder::SignOrdPayBack(const std::string& sk)
 {
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -261,8 +260,9 @@ void SwapInscriptionBuilder::SignOrdPayBack(std::string sk)
     mOrdPaybackTx = move(payback_tx);
 }
 
-void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
-    CheckContractTerms(FundsTerms);
+void SwapInscriptionBuilder::SignFundsCommitment(const std::string& sk)
+{
+    CheckContractTerms(FUNDS_TERMS);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
     const xonly_pubkey &funds_utxo_pk = keypair.GetLocalPubKey();
@@ -302,9 +302,9 @@ void SwapInscriptionBuilder::SignFundsCommitment(std::string sk) {
 }
 
 
-void SwapInscriptionBuilder::SignFundsSwap(std::string sk)
+void SwapInscriptionBuilder::SignFundsSwap(const std::string& sk)
 {
-    CheckContractTerms(MarketPayoffSig);
+    CheckContractTerms(MARKET_PAYOFF_SIG);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -319,7 +319,7 @@ void SwapInscriptionBuilder::SignFundsSwap(std::string sk)
     m_funds_swap_sig_B = keypair.SignTaprootTx(swap_tx, 1, {ord_commit.vout[0], funds_commit.vout[0]}, MakeFundsSwapScript(*m_swap_script_pk_B, *m_swap_script_pk_M));
 }
 
-void SwapInscriptionBuilder::SignFundsPayBack(std::string sk)
+void SwapInscriptionBuilder::SignFundsPayBack(const std::string& sk)
 {
     const CMutableTransaction& funds_commit = GetFundsCommitTx(); // Request it here in order to force reuired fields check
 
@@ -354,9 +354,9 @@ void SwapInscriptionBuilder::SignFundsPayBack(std::string sk)
     mFundsPaybackTx = move(payback_tx);
 }
 
-void SwapInscriptionBuilder::MarketSignOrdPayoffTx(std::string sk)
+void SwapInscriptionBuilder::MarketSignOrdPayoffTx(const std::string& sk)
 {
-    CheckContractTerms(MarketPayoffTerms);
+    CheckContractTerms(MARKET_PAYOFF_TERMS);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
     if (keypair.GetLocalPubKey() != *m_swap_script_pk_M) {
@@ -381,9 +381,9 @@ void SwapInscriptionBuilder::MarketSignOrdPayoffTx(std::string sk)
     mOrdPayoffTx = move(transfer_tx);
 }
 
-void SwapInscriptionBuilder::MarketSignSwap(std::string sk)
+void SwapInscriptionBuilder::MarketSignSwap(const std::string& sk)
 {
-    CheckContractTerms(FundsSwapSig);
+    CheckContractTerms(FUNDS_SWAP_SIG);
 
     core::ChannelKeys keypair(unhex<seckey>(sk));
 
@@ -473,10 +473,10 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     contract.pushKV(name_swap_script_pk_M, hex(*m_swap_script_pk_M));
     contract.pushKV(name_ord_commit_mining_fee_rate, UniValue(FormatAmount(*m_ord_commit_mining_fee_rate)));
 
-    if (phase == OrdTerms || phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
+    if (phase == ORD_TERMS || phase == ORD_COMMIT_SIG || phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_ord_commit_mining_fee_rate, FormatAmount(*m_ord_commit_mining_fee_rate));
     }
-    if (phase == OrdCommitSig || phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
+    if (phase == ORD_COMMIT_SIG || phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_ord_txid, *m_ord_txid);
         contract.pushKV(name_ord_nout, *m_ord_nout);
         contract.pushKV(name_ord_amount, FormatAmount(*m_ord_amount));
@@ -485,15 +485,15 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
         contract.pushKV(name_swap_script_pk_A, hex(*m_swap_script_pk_A));
         contract.pushKV(name_ord_commit_sig, hex(*m_ord_commit_sig));
     }
-    if (phase == OrdSwapSig || phase == MarketPayoffSig || phase == MarketSwapSig) {
+    if (phase == ORD_SWAP_SIG || phase == MARKET_PAYOFF_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_ord_swap_sig_A, hex(*m_ord_swap_sig_A));
     }
 
-    if (phase == FundsTerms || phase == FundsCommitSig || phase == MarketPayoffSig || phase == FundsSwapSig || phase == MarketSwapSig) {
+    if (phase == FUNDS_TERMS || phase == FUNDS_COMMIT_SIG || phase == MARKET_PAYOFF_SIG || phase == FUNDS_SWAP_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_market_fee, UniValue(FormatAmount(*m_market_fee)));
         contract.pushKV(name_mining_fee_rate, UniValue(FormatAmount(*m_mining_fee_rate)));
     }
-    if (phase == FundsCommitSig || phase == MarketPayoffSig || phase == FundsSwapSig || phase == MarketSwapSig) {
+    if (phase == FUNDS_COMMIT_SIG || phase == MARKET_PAYOFF_SIG || phase == FUNDS_SWAP_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_funds_txid, *m_funds_txid);
         contract.pushKV(name_funds_nout, *m_funds_nout);
         contract.pushKV(name_funds_amount, UniValue(FormatAmount(*m_funds_amount)));
@@ -502,15 +502,15 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
         contract.pushKV(name_funds_commit_sig, hex(*m_funds_commit_sig));
     }
 
-    if (phase == MarketPayoffSig) {
+    if (phase == MARKET_PAYOFF_SIG) {
         contract.pushKV(name_ordpayoff_sig, hex(*m_ordpayoff_sig));
     }
 
-    if (phase == FundsSwapSig || phase == MarketSwapSig) {
+    if (phase == FUNDS_SWAP_SIG || phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_funds_swap_sig_B, hex(*m_funds_swap_sig_B));
     }
 
-    if (phase == MarketSwapSig) {
+    if (phase == MARKET_SWAP_SIG) {
         contract.pushKV(name_funds_swap_sig_M, hex(*m_funds_swap_sig_M));
     }
 
@@ -521,28 +521,28 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
     return dataRoot.write();
 }
 
-void SwapInscriptionBuilder::CheckContractTerms(SwapInscriptionBuilder::SwapPhase phase) const
+void SwapInscriptionBuilder::CheckContractTerms(SwapPhase phase) const
 {
     switch (phase) {
-    case MarketSwapSig:
+    case MARKET_SWAP_SIG:
         if (!m_ord_swap_sig_M) throw ContractTermMissing("Market ord sig");
         if (!m_funds_swap_sig_M) throw ContractTermMissing("Market funds sig");
         // no break;
-    case FundsSwapSig:
+    case FUNDS_SWAP_SIG:
         if (!m_funds_swap_sig_B) throw ContractTermMissing("Funds seller sig");
         CheckFundsSwapSig();
         // no break;
-    case MarketPayoffSig:
+    case MARKET_PAYOFF_SIG:
         if (!m_ordpayoff_sig) throw ContractTermMissing("Ord pay-off sig");
         CheckOrdPayoffSig();
         // no break;
-    case MarketPayoffTerms:
-        CheckContractTerms(FundsCommitSig);
-    case OrdSwapSig:
+    case MARKET_PAYOFF_TERMS:
+        CheckContractTerms(FUNDS_COMMIT_SIG);
+    case ORD_SWAP_SIG:
         if (!m_ord_swap_sig_A) throw ContractTermMissing("Ord seller sig");
         CheckOrdSwapSig();
         // no break;
-    case OrdCommitSig:
+    case ORD_COMMIT_SIG:
         if (!m_ord_pk) throw ContractTermMissing("Ord UTXO pubkey");
         if (!m_ord_amount) throw ContractTermMissing("Ord UTXO amount");
         if (!m_ord_txid) throw ContractTermMissing("Ord UTXO txid");
@@ -552,12 +552,12 @@ void SwapInscriptionBuilder::CheckContractTerms(SwapInscriptionBuilder::SwapPhas
         if (!m_ord_commit_sig) throw ContractTermMissing("Ord commit sig");
         CheckOrdCommitSig();
         // no break;
-    case OrdTerms:
+    case ORD_TERMS:
         if (m_ord_price <= 0) throw ContractTermMissing("Ord price");
         if (!m_ord_commit_mining_fee_rate) throw ContractTermMissing("Ord commit mining fee rate");
         if (!m_swap_script_pk_M) throw ContractTermMissing("Market swap pubkey");
         break;
-    case FundsCommitSig:
+    case FUNDS_COMMIT_SIG:
         if (!m_funds_amount) throw ContractTermMissing("Funds UTXO amount");
         if (*m_funds_amount < (m_ord_price + *m_market_fee)) throw ContractTermMissing("Funds UTXO amount too small");
         if (!m_funds_txid) throw ContractTermMissing("Funds UTXO txid");
@@ -566,7 +566,7 @@ void SwapInscriptionBuilder::CheckContractTerms(SwapInscriptionBuilder::SwapPhas
         if (!m_funds_unspendable_key_factor) throw ContractTermMissing("Funds commit unspendable key factor");
         if (!m_funds_commit_sig) throw ContractTermMissing("Funds commit sig");
         // no break;
-    case FundsTerms:
+    case FUNDS_TERMS:
         if (m_ord_price <= 0) throw ContractTermMissing("Ord price");
         if (!m_market_fee) throw ContractTermMissing("Market fee");
         if (!m_mining_fee_rate) throw ContractTermMissing("Mining fee rate");

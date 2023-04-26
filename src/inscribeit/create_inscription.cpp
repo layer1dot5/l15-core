@@ -73,9 +73,9 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::UTXO(const string &txid, uin
     return *this;
 }
 
-CreateInscriptionBuilder &CreateInscriptionBuilder::FeeRate(const string &rate)
+CreateInscriptionBuilder &CreateInscriptionBuilder::MiningFeeRate(const string &rate)
 {
-    m_mining_fee_rate = ParseAmount(rate);
+    SetMiningFeeRate(rate);
     return *this;
 }
 
@@ -86,7 +86,7 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::Data(const std::string& cont
     return *this;
 }
 
-CreateInscriptionBuilder &CreateInscriptionBuilder::Destination(const string &pk)
+CreateInscriptionBuilder &CreateInscriptionBuilder::DestinationPubKey(const string &pk)
 {
     m_destination_pk = unhex<xonly_pubkey>(pk);
     return *this;

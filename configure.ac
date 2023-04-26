@@ -165,8 +165,6 @@ if test "$enable_python_module" = "yes"; then
     AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
     AX_PYTHON_DEVEL
     AX_SWIG_PYTHON
-
-    AC_CONFIG_FILES([src/python_binding/Makefile])
 fi
 
 dnl Enable debug
@@ -213,8 +211,8 @@ AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was 
 
 if test "$enable_wasm_module" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
-  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions"
-  LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED -lembind"
+  CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -Wno-unqualified-std-cast-call"
+  LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED  -sEXPORTED_FUNCTIONS=['_malloc'] -sEXPORT_NAME='L15' -sMODULARIZE=1 -sNO_FILESYSTEM=1"
 
   if test "$enable_debug" != "yes"; then
       CFLAGS=" -O3 $CFLAGS"
@@ -274,6 +272,14 @@ if test "$enable_build_inscribeit" = "yes"; then
     if test "$enable_build_tools" = "yes"; then
         AC_CONFIG_FILES([test/inscribeit/Makefile])
     fi
+fi
+
+if test "$enable_python_module" = "yes"; then
+    AC_CONFIG_FILES([src/python_binding/Makefile])
+fi
+
+if test "$enable_wasm_module" = "yes"; then
+    AC_CONFIG_FILES([src/wasm_binding/Makefile])
 fi
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
