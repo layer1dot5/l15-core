@@ -47,18 +47,17 @@ protected:
 
     std::optional<CAmount> m_mining_fee_rate;
 
-    virtual CAmount CalculateWholeFee() const;
-
 public:
     ContractBuilder() = default;
     ContractBuilder(const ContractBuilder&) = default;
     ContractBuilder(ContractBuilder&& ) noexcept = default;
-
     ContractBuilder& operator=(const ContractBuilder& ) = default;
+
     ContractBuilder& operator=(ContractBuilder&& ) noexcept = default;
 
     virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const = 0;
     virtual std::string GetMinFundingAmount() const = 0;
+    virtual CAmount CalculateWholeFee() const;
 
     explicit ContractBuilder(const std::string& chain_mode)
     {
