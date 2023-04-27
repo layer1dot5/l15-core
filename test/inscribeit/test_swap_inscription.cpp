@@ -82,7 +82,7 @@ TEST_CASE("FundsPayBack")
 
     //Create ord utxo
     string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
-    string funds_txid = w->btc().SendToAddress(funds_addr, "0.15");
+    string funds_txid = w->btc().SendToAddress(funds_addr, "0.00030");
     auto funds_prevout = w->btc().CheckOutput(funds_txid, funds_addr);
 
     std::string fee_rate;
