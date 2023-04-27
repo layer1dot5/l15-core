@@ -105,12 +105,12 @@ TEST_CASE("inscribe")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder("regtest");
+    CreateInscriptionBuilder builder;
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
-                         .Data("text", hex(GenRandomString(1024 * 20)))
-                         .FeeRate(fee_rate)
-                         .Destination(hex(dest_key.GetLocalPubKey()))
+                         .Data("text", hex(std::string("test")))
+                         .MiningFeeRate(fee_rate)
+                         .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
                          .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     std::string ser_data;
@@ -118,7 +118,7 @@ TEST_CASE("inscribe")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("regtest");
+    CreateInscriptionBuilder builder2;
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -157,7 +157,7 @@ TEST_CASE("inscribe_setters")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder("regtest");
+    CreateInscriptionBuilder builder;
 
     builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
     builder.SetUtxoNOut(get<0>(prevout).n);
@@ -174,7 +174,7 @@ TEST_CASE("inscribe_setters")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("regtest");
+    CreateInscriptionBuilder builder2;
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -213,22 +213,22 @@ TEST_CASE("fallback")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder("regtest");
+    CreateInscriptionBuilder builder;
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
                           .Data("text", hex(std::string("test")))
-                          .FeeRate(fee_rate)
-                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .MiningFeeRate(fee_rate)
+                          .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())));
 
-    ChannelKeys rollback_key(unhex<seckey>(builder.IntermediateTaprootPrivKey()));
+    ChannelKeys rollback_key(unhex<seckey>(builder.getIntermediateTaprootSK()));
 
     std::string ser_data;
     CHECK_NOTHROW(ser_data = builder.Serialize());
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("regtest");
+    CreateInscriptionBuilder builder2;
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -277,13 +277,13 @@ TEST_CASE("NotEnoughAmount")
     }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder("regtest");
+    CreateInscriptionBuilder builder;
 
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(1024));
 
     CHECK_NOTHROW(builder.Data(content_type, content)
-                          .FeeRate(fee_rate));
+                          .MiningFeeRate(fee_rate));
 
     std::string lesser_amount = FormatAmount(ParseAmount(builder.GetMinFundingAmount()) - 1);
 
@@ -292,7 +292,7 @@ TEST_CASE("NotEnoughAmount")
     auto prevout = w->btc().CheckOutput(txid, addr);
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, lesser_amount)
-                         .Destination(hex(dest_key.GetLocalPubKey())));
+                         .DestinationPubKey(hex(dest_key.GetLocalPubKey())));
 
     CHECK_THROWS_AS(builder.Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
 
@@ -337,13 +337,13 @@ TEST_CASE("ExactAmount")
     }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder("regtest");
+    CreateInscriptionBuilder builder;
 
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(1024));
 
     CHECK_NOTHROW(builder.Data(content_type, content)
-                         .FeeRate(fee_rate));
+                         .MiningFeeRate(fee_rate));
 
     std::string exact_amount = builder.GetMinFundingAmount();
 
@@ -351,7 +351,7 @@ TEST_CASE("ExactAmount")
     auto prevout = w->btc().CheckOutput(txid, addr);
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, exact_amount)
-                          .Destination(hex(dest_key.GetLocalPubKey()))
+                          .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
                           .Sign(hex(utxo_key.GetLocalPrivKey())));
 
     std::string ser_data;
@@ -359,7 +359,7 @@ TEST_CASE("ExactAmount")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("regtest");
+    CreateInscriptionBuilder builder2;
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 

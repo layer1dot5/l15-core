@@ -43,8 +43,6 @@ public:
     static const std::string name_mining_fee_rate;
 
 protected:
-    std::shared_ptr<IBech32Coder> m_bech_coder;
-
     std::optional<CAmount> m_mining_fee_rate;
 
 public:
@@ -59,26 +57,10 @@ public:
     virtual std::string GetMinFundingAmount() const = 0;
     virtual CAmount CalculateWholeFee() const;
 
-    explicit ContractBuilder(const std::string& chain_mode)
-    {
-        if (chain_mode == "mainnet") {
-            m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::MAINNET>>();
-        }
-        else if (chain_mode == "testnet") {
-            m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::TESTNET>>();
-        }
-        else if (chain_mode == "regtest") {
-            m_bech_coder = std::make_shared<Bech32Coder<IBech32Coder::ChainType::BTC, IBech32Coder::ChainMode::REGTEST>>();
-        }
-        else {
-            throw std::invalid_argument(std::string("wrong chain mode: ") + chain_mode);
-        }
-    }
-
     virtual uint32_t GetProtocolVersion() const = 0;
 
     std::string GetMiningFeeRate() const { return FormatAmount(m_mining_fee_rate.value()); }
-    void SetMiningFeeRate(std::string v) { m_mining_fee_rate = ParseAmount(v); }
+    void SetMiningFeeRate(const std::string& v) { m_mining_fee_rate = ParseAmount(v); }
 
     static void VerifyTxSignature(const xonly_pubkey& pk, const signature& sig, const CMutableTransaction& tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script);
 

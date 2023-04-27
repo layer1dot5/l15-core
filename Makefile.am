@@ -63,14 +63,3 @@ l15_cli_SOURCES = src/cli.cpp
 l15_cli_LDADD = $(L15_LIBS)
 
 endif
-
-if BUILD_WASM_MODULE
-
-AM_CPPFLAGS += -DWASM_MODULE
-
-bin_PROGRAMS = inscribeit.js
-
-inscribeit_js_SOURCES = src/wasm_plugin.cpp
-inscribeit_js_LDADD = $(L15_LIBS)
-
-endif

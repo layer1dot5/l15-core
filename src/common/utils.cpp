@@ -5,6 +5,7 @@
 #include "univalue.h"
 #include "primitives/transaction.h"
 #include "consensus.h"
+#include "feerate.h"
 
 #include "common_error.hpp"
 
@@ -130,13 +131,19 @@ CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
 
 //    std::clog << ">>>>>>>>>>>>>>>> vsize: " << vsize << std::endl;
 
-    return static_cast<int64_t>(vsize) * fee_rate / 1000;
+    return CFeeRate(fee_rate).GetFee(vsize);
+}
+
+CAmount Dust(CAmount fee_rate)
+{
+    // See bitcoin/src/policy/policy.cpp:57
+    return CFeeRate(fee_rate).GetFee(32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
 }
 
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
     auto fee = CalculateTxFee(fee_rate, tx);
-    if ((fee + fee) >= input_amount) {
+    if ((fee + Dust(fee_rate)) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
         throw TransactionError(buf.str());
