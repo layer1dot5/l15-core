@@ -218,7 +218,7 @@ std::string ChainApi::TestTxSequence(const std::vector<CMutableTransaction>& txs
 
 std::string ChainApi::SpendTx(const CTransaction &tx) const
 {
-    Log(tx);
+    //Log(tx);
 
     ExecHelper btc_exec(m_cli_path, false);
 
@@ -321,58 +321,6 @@ std::string ChainApi::GenerateToAddress(const std::string& address, const std::s
 
     return btc_exec.Run();
 }
-
-template <typename T>
-void ChainApi::Log(const T& tx)
-{
-    std::clog << "Transaction " << tx.GetHash().GetHex() << " {\n"
-        << "\tnLockTime: " << tx.nLockTime << "\n"
-        << "\tvin {\n";
-    bool first_in = true;
-    for(const auto& in: tx.vin)
-    {
-        if(first_in) first_in = false;
-        else std::clog << "\t\t------------------------------------------------\n";
-
-        std::clog << "\t\t" << in.prevout.hash.GetHex() << " : "
-                  << in.prevout.n << "\n"
-                  << "\t\tWitness {\n";
-
-        for(const auto& wel: in.scriptWitness.stack)
-        {
-            std::clog << "\t\t\t{" << HexStr(wel) << "}\n";
-        }
-        std::clog << "\t\t}\n";
-    }
-    std::clog << "\t}\n";
-
-    std::clog << "\tvout {\n";
-    bool first_out = true;
-    for(const auto& out: tx.vout)
-    {
-        if(first_out) first_out = false;
-        else std::clog << "\t\t------------------------------------------------\n";
-
-        std::clog << "\t\tAmount: " << out.nValue << "\n";
-
-        bytevector wp;
-        int wver;
-        if(out.scriptPubKey.IsWitnessProgram(wver, wp))
-        {
-            if(wver == 0 && wp.size() == 20) std::clog << "\t\tPubKeyHash Witness program: "  << HexStr(wp) << "\n";
-            else if (wver == 0 && wp.size() == 32) std::clog << "\t\tScriptHash Witness program: " << HexStr(wp) << "\n";
-            else std::clog << "\t\tWitness program v" << wver << ": " << HexStr(wp) << "\n";
-        } else
-        {
-            std::clog << "\t\tScriptPubKey: "<< HexStr(out.scriptPubKey) << "\n";
-        }
-
-    }
-    std::clog << "\t}\n}" << std::endl;
-}
-
-template void ChainApi::Log<CTransaction>(const CTransaction& );
-template void ChainApi::Log<CMutableTransaction>(const CMutableTransaction& );
 
 
 void ChainApi::StopNode() const

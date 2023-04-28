@@ -26,6 +26,8 @@ bytevector Hash160(const bytevector& preimage);
 CAmount GetOutputAmount(const std::string& txoutstr);
 uint32_t GetCsvInBlocks(uint32_t blocks);
 
+template <typename T> void LogTx(const T& tx);
+
 class IBech32Coder {
 
 public:

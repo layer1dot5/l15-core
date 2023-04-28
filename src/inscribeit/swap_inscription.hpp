@@ -38,12 +38,17 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<CAmount> m_ord_amount;
     std::optional<xonly_pubkey> m_ord_pk;
 
-    std::optional<seckey> m_funds_unspendable_key_factor;
-    std::optional<std::string> m_funds_txid;
-    std::optional<uint32_t> m_funds_nout;
-    std::optional<CAmount> m_funds_amount;
+    struct Utxo
+    {
+        std::string m_txid;
+        uint32_t m_nout;
+        CAmount m_amount;
+        std::optional<xonly_pubkey> m_pubkey;
+        std::optional<signature> m_sig;
+    };
+    std::list<Utxo> m_funds;
 
-    std::optional<signature> m_funds_commit_sig;
+    std::optional<seckey> m_funds_unspendable_key_factor;
 
     std::optional<signature> m_ord_swap_sig_A;
 
@@ -51,6 +56,12 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<signature> m_funds_swap_sig_M;
 
     std::optional<signature> m_ordpayoff_sig;
+
+    mutable std::optional<CMutableTransaction> mFundsCommitTpl;
+    mutable std::optional<CMutableTransaction> mFundsPaybackTpl;
+
+    mutable std::optional<CMutableTransaction> mSwapTpl;
+    mutable std::optional<CMutableTransaction> mOrdPayoffTpl;
 
     mutable std::optional<CMutableTransaction> mFundsCommitTx;
     mutable std::optional<CMutableTransaction> mFundsPaybackTx;
@@ -67,14 +78,16 @@ class SwapInscriptionBuilder : public ContractBuilder
 
     void CheckOrdPayoffSig() const;
 
-    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> TemplateTapRoot() const;
+    std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTemplateTapRoot() const;
 
 public:
     CMutableTransaction CreatePayoffTxTemplate() const;
-    CMutableTransaction CreateSwapTxTemplate(bool with_funds_in) const;
-    CMutableTransaction CreateFundsCommitTxTemplate() const;
+    CMutableTransaction GetSwapTxTemplate() const;
 
+    CMutableTransaction& GetFundsCommitTxTemplate() const;
+    CMutableTransaction MakeFundsCommitTx() const;
     const CMutableTransaction& GetFundsCommitTx() const;
+
     const CMutableTransaction& GetSwapTx() const;
     const CMutableTransaction& GetPayoffTx() const;
 
@@ -90,6 +103,7 @@ public:
     static const std::string name_ord_amount;
     static const std::string name_ord_pk;
 
+    static const std::string name_funds;
     static const std::string name_funds_unspendable_key_factor;
     static const std::string name_funds_txid;
     static const std::string name_funds_nout;
@@ -119,7 +133,7 @@ public:
 
     SwapInscriptionBuilder& MiningFeeRate(const std::string& fee_rate) { SetMiningFeeRate(fee_rate); return *this; }
     SwapInscriptionBuilder& OrdUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
-    SwapInscriptionBuilder& FundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount);
+    SwapInscriptionBuilder& AddFundsUTXO(const std::string& txid, uint32_t nout, const std::string& amount, const std::string& pk);
 
     SwapInscriptionBuilder& SwapScriptPubKeyA(const std::string& v) { m_swap_script_pk_A = unhex<xonly_pubkey>(v); return *this; }
     SwapInscriptionBuilder& SwapScriptPubKeyB(const std::string& v) { m_swap_script_pk_B = unhex<xonly_pubkey>(v); return *this; }
@@ -129,10 +143,7 @@ public:
 
     void SignOrdSwap(const std::string& sk);
 
-    std::string GetFundsCommitSig() const { return hex(m_funds_commit_sig.value()); }
-    void SetFundsCommitSig(std::string v) { m_funds_commit_sig = unhex<signature>(v); }
-
-    void SignFundsCommitment(const std::string& sk);
+    void SignFundsCommitment(uint32_t n, const std::string& sk);
     void SignFundsSwap(const std::string& sk);
     void SignFundsPayBack(const std::string& sk);
 
@@ -143,11 +154,11 @@ public:
     std::string Serialize(SwapPhase phase);
     void Deserialize(const std::string& data);
 
-    std::string FundsCommitRawTransaction();
+    std::string FundsCommitRawTransaction() const;
     std::string FundsPayBackRawTransaction();
 
-    string OrdSwapRawTransaction();
-    string OrdPayoffRawTransaction();
+    std::string OrdSwapRawTransaction() const;
+    std::string OrdPayoffRawTransaction() const;
 
     std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
     std::string GetMinFundingAmount() const override;
