@@ -43,7 +43,6 @@ interface CreateInscriptionBuilder
 enum SwapPhase
 {
     "ORD_TERMS",
-    "ORD_COMMIT_SIG",
     "FUNDS_TERMS",
     "FUNDS_COMMIT_SIG",
     "MARKET_PAYOFF_TERMS",
@@ -59,16 +58,14 @@ interface SwapInscriptionBuilder
     void SwapInscriptionBuilder([Const] DOMString ord_price, [Const] DOMString market_fee);
 
     [Ref] SwapInscriptionBuilder OrdUTXO([Const] DOMString txid, long nout, [Const] DOMString amount);
-    [Ref] SwapInscriptionBuilder FundsUTXO([Const] DOMString txid, long nout, [Const] DOMString amount);
+    [Ref] SwapInscriptionBuilder AddFundsUTXO([Const] DOMString txid, long nout, [Const] DOMString amount, [Const] DOMString pubkey);
 
     [Ref] SwapInscriptionBuilder SwapScriptPubKeyA([Const] DOMString v);
     [Ref] SwapInscriptionBuilder SwapScriptPubKeyB([Const] DOMString v);
 
-    void SignOrdCommitment([Const] DOMString sk);
     void SignOrdSwap([Const] DOMString sk);
-    void SignOrdPayBack([Const] DOMString sk);
 
-    void SignFundsCommitment([Const] DOMString sk);
+    void SignFundsCommitment(long funds_index, [Const] DOMString sk);
     void SignFundsSwap([Const] DOMString sk);
     void SignFundsPayBack([Const] DOMString sk);
 
@@ -76,4 +73,5 @@ interface SwapInscriptionBuilder
     [Value] string Serialize(SwapPhase phase);
     void Deserialize([Const] DOMString data);
 
+    [Value] string GetMinFundingAmount();
 };

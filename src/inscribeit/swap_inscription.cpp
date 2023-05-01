@@ -234,8 +234,8 @@ CMutableTransaction SwapInscriptionBuilder::MakeFundsCommitTx() const
 
     CAmount funds_required = ParseAmount(GetMinFundingAmount());
     CAmount funds_provided = 0;
-    for (const auto &amount: m_funds | std::views::transform([](const auto& utxo){ return utxo.m_amount; })) {
-        funds_provided += amount;
+    for (const auto &utxo: m_funds) {
+        funds_provided += utxo.m_amount;
     }
 
     CAmount change = funds_provided - funds_required;
