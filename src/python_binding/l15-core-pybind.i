@@ -29,6 +29,9 @@ const std::string Version() {
 %exception {
     try {
         $action
+        } catch (l15::Error& e) {
+            PyErr_SetString(PyExc_Exception, (std::string(e.what()) + ": " + e.details()).c_str());
+            SWIG_fail;
         } catch (std::exception& e) {
             PyErr_SetString(PyExc_Exception, e.what());
             SWIG_fail;
