@@ -290,10 +290,10 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
     UniValue contract = dataRoot[name_params];
 
     if (contract[name_version].getInt<uint32_t>() != m_protocol_version) {
-        throw ContractProtocolError("Wrong SwapInscription contract version: " + contract[name_version].getValStr());
+        throw ContractProtocolError("Wrong CreateInscription contract version: " + contract[name_version].getValStr());
     }
     if (contract[name_ord_amount].getInt<CAmount>() != m_ord_amount) {
-        throw ContractTermWrongValue(std::string(name_version));
+        throw ContractTermWrongValue(std::string(name_ord_amount) + ": " + contract[name_ord_amount].getValStr() + ", awaited: " + std::to_string(m_ord_amount));
     }
 
     CheckRestoreArgs(contract);
