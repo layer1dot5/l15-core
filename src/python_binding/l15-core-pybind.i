@@ -103,6 +103,7 @@ const std::string Version() {
     $result = SWIG_Python_AppendOutput($result, obj);
 %}
 
+%include "amount.h"
 %include "common_error.hpp"
 %include "contract_error.hpp"
 %include "create_inscription.hpp"
