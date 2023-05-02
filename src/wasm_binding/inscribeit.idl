@@ -28,7 +28,7 @@ interface Exception
 [Prefix="l15::inscribeit::"]
 interface CreateInscriptionBuilder
 {
-    void CreateInscriptionBuilder();
+    void CreateInscriptionBuilder([Const] DOMString ord_amount);
     [Ref] CreateInscriptionBuilder MiningFeeRate([Const] DOMString rate);
     [Ref] CreateInscriptionBuilder UTXO([Const] DOMString txid, long nout, [Const] DOMString amount);
     [Ref] CreateInscriptionBuilder Data([Const] DOMString content_type, [Const] DOMString hax_data);
