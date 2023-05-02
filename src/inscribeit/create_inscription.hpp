@@ -67,7 +67,7 @@ public:
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder(CreateInscriptionBuilder&&) noexcept = default;
 
-    explicit CreateInscriptionBuilder(CAmount amount) : m_ord_amount(amount) {}
+    explicit CreateInscriptionBuilder(const std::string& amount) : m_ord_amount(ParseAmount(amount)) {}
 
     CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;

@@ -22,7 +22,7 @@ BUILT_SOURCES = $(SWIG_PYTHON_MODULE)
 EXTRA_DIST = $(SWIG_SOURCES)
 
 $(SWIG_PYTHON_MODULE): $(SWIG_SOURCES) $(top_srcdir)/src/inscribeit/contract_error.hpp $(top_srcdir)/src/common/common_error.hpp $(top_srcdir)/src/core/transaction.hpp
-	$(SWIG) -I$(top_srcdir)/src/common  -I$(top_srcdir)/src/core -I$(top_srcdir)/src/inscribeit -I$(top_srcdir)/node/src -I$(top_srcdir)/node/src/primitives -I$(top_srcdir)/node/src/script -I$(top_srcdir)/node/src/consensus -c++ -python -o $@ $<
+	$(SWIG) -I$(top_srcdir)/src/common  -I$(top_srcdir)/src/core -I$(top_srcdir)/src/inscribeit -I$(top_srcdir)/node/src -I$(top_srcdir)/node/src/primitives -I$(top_srcdir)/node/src/script -c++ -python -o $@ $<
 
 
 lib_LTLIBRARIES = _libl15_core_pybind.la
