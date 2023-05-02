@@ -138,6 +138,9 @@ public:
     SwapInscriptionBuilder& SwapScriptPubKeyA(const std::string& v) { m_swap_script_pk_A = unhex<xonly_pubkey>(v); return *this; }
     SwapInscriptionBuilder& SwapScriptPubKeyB(const std::string& v) { m_swap_script_pk_B = unhex<xonly_pubkey>(v); return *this; }
 
+    std::string GetSwapScriptPubKeyA() const { return hex(m_swap_script_pk_A.value()); }
+    std::string GetSwapScriptPubKeyB() const { return hex(m_swap_script_pk_B.value()); }
+
     std::string GetSwapScriptPubKeyM() const { return hex(m_swap_script_pk_M.value()); }
     void SetSwapScriptPubKeyM(const std::string& v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
 
