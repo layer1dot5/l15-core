@@ -18,6 +18,7 @@ class CreateInscriptionBuilder;
 class CreateInscriptionBuilder: public ContractBuilder
 {
     static const uint32_t m_protocol_version;
+    CAmount m_ord_amount;
 
     std::optional<std::string> m_txid;
     std::optional<uint32_t> m_nout;
@@ -49,6 +50,7 @@ private:
 
 public:
 
+    static const std::string name_ord_amount;
     static const std::string name_utxo_txid;
     static const std::string name_utxo_nout;
     static const std::string name_utxo_amount;
@@ -61,9 +63,11 @@ public:
     static const std::string name_inscribe_sig;
     static const std::string name_destination_pk;
 
-    CreateInscriptionBuilder() = default;
+    CreateInscriptionBuilder() : m_ord_amount(0) {}
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder(CreateInscriptionBuilder&&) noexcept = default;
+
+    explicit CreateInscriptionBuilder(CAmount amount) : m_ord_amount(amount) {}
 
     CreateInscriptionBuilder& operator=(const CreateInscriptionBuilder&) = default;
     CreateInscriptionBuilder& operator=(CreateInscriptionBuilder&&) noexcept = default;

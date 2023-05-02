@@ -22,7 +22,7 @@ const std::string val_create_inscription("CreateInscription");
 const size_t chunk_size = 520;
 const bytevector ord_tag {'o', 'r', 'd'};
 const bytevector one_tag {'\1'};
-const CAmount ord_amount = 10000;
+
 
 CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data) {
     CScript script;
@@ -52,6 +52,7 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
 
 const uint32_t CreateInscriptionBuilder::m_protocol_version = 1;
 
+const std::string CreateInscriptionBuilder::name_ord_amount = "ord_amount";
 const std::string CreateInscriptionBuilder::name_utxo_txid = "utxo_txid";
 const std::string CreateInscriptionBuilder::name_utxo_nout = "utxo_nout";
 const std::string CreateInscriptionBuilder::name_utxo_amount = "utxo_amount";
@@ -118,7 +119,7 @@ void CreateInscriptionBuilder::CheckBuildArgs() const
 
 void CreateInscriptionBuilder::CheckAmount() const
 {
-    if (*m_amount < ord_amount + CalculateWholeFee()) {
+    if (*m_amount < m_ord_amount + CalculateWholeFee()) {
         throw l15::TransactionError("UTXO amount is not enough");
     }
 }
@@ -254,6 +255,7 @@ std::string CreateInscriptionBuilder::Serialize() const
 {
     UniValue contract(UniValue::VOBJ);
     contract.pushKV(name_version, (int)m_protocol_version);
+    contract.pushKV(name_ord_amount, m_ord_amount);
     contract.pushKV(name_utxo_txid, m_txid.value());
     contract.pushKV(name_utxo_nout, (int)m_nout.value());
     contract.pushKV(name_utxo_amount, m_amount.value());
@@ -289,6 +291,9 @@ void CreateInscriptionBuilder::Deserialize(const string &data)
 
     if (contract[name_version].getInt<uint32_t>() != m_protocol_version) {
         throw ContractProtocolError("Wrong SwapInscription contract version: " + contract[name_version].getValStr());
+    }
+    if (contract[name_ord_amount].getInt<CAmount>() != m_ord_amount) {
+        throw ContractTermWrongValue(std::string(name_version));
     }
 
     CheckRestoreArgs(contract);
@@ -445,7 +450,7 @@ std::string CreateInscriptionBuilder::GetMinFundingAmount() const {
     if(!m_content) {
         throw l15::TransactionError("content is empty");
     }
-    return FormatAmount(ord_amount + CalculateWholeFee());
+    return FormatAmount(m_ord_amount + CalculateWholeFee());
 }
 
 }

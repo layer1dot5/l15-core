@@ -105,7 +105,7 @@ TEST_CASE("inscribe")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder;
+    CreateInscriptionBuilder builder(3000);
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
                          .Data("text", hex(std::string("test")))
@@ -118,7 +118,7 @@ TEST_CASE("inscribe")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2;
+    CreateInscriptionBuilder builder2(3000);
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -157,7 +157,7 @@ TEST_CASE("inscribe_setters")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder;
+    CreateInscriptionBuilder builder(3000);
 
     builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
     builder.SetUtxoNOut(get<0>(prevout).n);
@@ -174,7 +174,7 @@ TEST_CASE("inscribe_setters")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2;
+    CreateInscriptionBuilder builder2(3000);
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -213,7 +213,7 @@ TEST_CASE("fallback")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder;
+    CreateInscriptionBuilder builder(3000);
 
     CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
                           .Data("text", hex(std::string("test")))
@@ -228,7 +228,7 @@ TEST_CASE("fallback")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2;
+    CreateInscriptionBuilder builder2(3000);
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
@@ -277,7 +277,7 @@ TEST_CASE("NotEnoughAmount")
     }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder;
+    CreateInscriptionBuilder builder(3000);
 
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(1024));
@@ -337,7 +337,7 @@ TEST_CASE("ExactAmount")
     }
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    CreateInscriptionBuilder builder;
+    CreateInscriptionBuilder builder(3000);
 
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(1024));
@@ -359,7 +359,7 @@ TEST_CASE("ExactAmount")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2;
+    CreateInscriptionBuilder builder2(3000);
 
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
