@@ -17,9 +17,19 @@ public:
     static const std::string name_mining_fee_rate;
 
 protected:
+    struct Utxo
+    {
+        std::string m_txid;
+        uint32_t m_nout;
+        CAmount m_amount;
+        std::optional<xonly_pubkey> m_pubkey;
+        std::optional<signature> m_sig;
+    };
+
     std::optional<CAmount> m_mining_fee_rate;
 
-    virtual CAmount CalculateWholeFee() const;
+    CAmount CalculateWholeFee() const;
+    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const = 0;
 
 public:
     ContractBuilder() = default;
@@ -28,8 +38,6 @@ public:
 
     ContractBuilder& operator=(const ContractBuilder& ) = default;
     ContractBuilder& operator=(ContractBuilder&& ) noexcept = default;
-
-    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const = 0;
     virtual std::string GetMinFundingAmount() const = 0;
 
     virtual uint32_t GetProtocolVersion() const = 0;

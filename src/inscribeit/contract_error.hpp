@@ -31,10 +31,10 @@ public:
     { return "ContractTermWrongValue"; }
 };
 
-class ContractTermValueMismatch : public ContractError {
+class ContractValueMismatch : public ContractError {
 public:
-    explicit ContractTermValueMismatch(std::string&& details) : ContractError(move(details)) {}
-    ~ContractTermValueMismatch() override = default;
+    explicit ContractValueMismatch(std::string&& details) : ContractError(move(details)) {}
+    ~ContractValueMismatch() override = default;
 
     const char* what() const noexcept override
     { return "ContractTermValueMismatch"; }
@@ -47,6 +47,15 @@ public:
 
     const char* what() const noexcept override
     { return "ContractTermWrongFormat"; }
+};
+
+class ContractStateError : public ContractError {
+public:
+    explicit ContractStateError(std::string&& details) : ContractError(move(details)) {}
+    ~ContractStateError() override = default;
+
+    const char* what() const noexcept override
+    { return "ContractStateError"; }
 };
 
 class ContractProtocolError : public ContractError {

@@ -38,14 +38,6 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<CAmount> m_ord_amount;
     std::optional<xonly_pubkey> m_ord_pk;
 
-    struct Utxo
-    {
-        std::string m_txid;
-        uint32_t m_nout;
-        CAmount m_amount;
-        std::optional<xonly_pubkey> m_pubkey;
-        std::optional<signature> m_sig;
-    };
     std::list<Utxo> m_funds;
 
     std::optional<seckey> m_funds_unspendable_key_factor;
@@ -79,6 +71,8 @@ class SwapInscriptionBuilder : public ContractBuilder
     void CheckOrdPayoffSig() const;
 
     std::tuple<xonly_pubkey, uint8_t, ScriptMerkleTree> FundsCommitTemplateTapRoot() const;
+protected:
+    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
 
 public:
     CMutableTransaction CreatePayoffTxTemplate() const;
@@ -163,7 +157,6 @@ public:
     std::string OrdSwapRawTransaction() const;
     std::string OrdPayoffRawTransaction() const;
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
     std::string GetMinFundingAmount() const override;
 };
 

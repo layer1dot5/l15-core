@@ -80,20 +80,18 @@ int main(int argc, char* argv[])
     return session.run();
 }
 
+struct CreateCondition
+{
+    std::vector<CAmount> funds;
+};
 
 TEST_CASE("inscribe")
 {
     //get key pair
     ChannelKeys utxo_key;
-    ChannelKeys dest_key;
+    ChannelKeys script_key;
 
-    //create address from key pair
-    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
-
-    //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.0007");
-
-    auto prevout = w->btc().CheckOutput(txid, addr);
+    xonly_pubkey destination_pk = w->bech32().Decode(w->btc().GetNewAddress());
 
     std::string fee_rate;
     try {
@@ -105,121 +103,39 @@ TEST_CASE("inscribe")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
+    std::string content_type = "text/ascii";
+    auto content = hex(GenRandomString(1024));
+
     CreateInscriptionBuilder builder("0.00002");
+    CHECK_NOTHROW(builder.MiningFeeRate(fee_rate).Data(content_type, content));
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
-                         .Data("text", hex(std::string("test")))
-                         .MiningFeeRate(fee_rate)
-                         .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
-                         .Sign(hex(utxo_key.GetLocalPrivKey())));
+    std::string exact_amount = builder.GetMinFundingAmount();
 
-    std::string ser_data;
-    CHECK_NOTHROW(ser_data = builder.Serialize());
+    const CreateCondition fund = {{70000}};
+    const CreateCondition exact_fund = {{ParseAmount(exact_amount)}};
+    const CreateCondition multi_fund = {{ParseAmount(exact_amount), 1500}};
 
-    std::clog << ser_data << std::endl;
-
-    CreateInscriptionBuilder builder2("0.00002");
-
-    CHECK_NOTHROW(builder2.Deserialize(ser_data));
-
-    stringvector rawtx;
-    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
-
-    CMutableTransaction funding_tx, genesis_tx;
-    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
-}
-
-TEST_CASE("inscribe_setters")
-{
-    //get key pair
-    ChannelKeys utxo_key;
-    ChannelKeys dest_key;
+    auto condition = GENERATE_REF(fund, exact_fund, multi_fund);
 
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
 
-    //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00007");
 
-    auto prevout = w->btc().CheckOutput(txid, addr);
+    for (CAmount amount: condition.funds) {
+        const std::string funds_amount = FormatAmount(amount);
 
-    std::string fee_rate;
-    try {
-        fee_rate = w->btc().EstimateSmartFee("1");
-    }
-    catch(...) {
-        fee_rate = "0.000011";
+        string funds_txid = w->btc().SendToAddress(addr, funds_amount);
+        auto prevout = w->btc().CheckOutput(funds_txid, addr);
+
+        CHECK_NOTHROW(builder.AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, funds_amount, hex(utxo_key.GetLocalPubKey())));
     }
 
-    std::clog << "Fee rate: " << fee_rate << std::endl;
+    CHECK_NOTHROW(builder.DestinationPubKey(hex(destination_pk)));
 
-    CreateInscriptionBuilder builder("0.00002");
-
-    builder.SetUtxoTxId(get<0>(prevout).hash.GetHex());
-    builder.SetUtxoNOut(get<0>(prevout).n);
-    builder.SetUtxoAmount(FormatAmount(get<1>(prevout).nValue));
-    builder.SetMiningFeeRate(fee_rate);
-    builder.SetContentType("text");
-    builder.SetContent(hex(GenRandomString(1024 * 10)));
-    builder.SetDestinationPubKey(hex(dest_key.GetLocalPubKey()));
-
-    CHECK_NOTHROW(builder.Sign(hex(utxo_key.GetLocalPrivKey())));
-
-    std::string ser_data;
-    CHECK_NOTHROW(ser_data = builder.Serialize());
-
-    std::clog << ser_data << std::endl;
-
-    CreateInscriptionBuilder builder2("0.00002");
-
-    CHECK_NOTHROW(builder2.Deserialize(ser_data));
-
-    stringvector rawtx;
-    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
-
-    CMutableTransaction funding_tx, genesis_tx;
-    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
-}
-
-TEST_CASE("fallback")
-{
-    //get key pair
-    ChannelKeys utxo_key;
-    ChannelKeys dest_key;
-
-    //create address from key pair
-    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
-
-    //send to the address
-    string txid = w->btc().SendToAddress(addr, "0.00006");
-
-    auto prevout = w->btc().CheckOutput(txid, addr);
-
-    std::string fee_rate;
-    try {
-        fee_rate = w->btc().EstimateSmartFee("1");
+    for (uint32_t n = 0; n < condition.funds.size(); ++n) {
+        CHECK_NOTHROW(builder.SignCommit(n, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
     }
-    catch(...) {
-        fee_rate = "0.000011";
-    }
-
-    std::clog << "Fee rate: " << fee_rate << std::endl;
-
-    CreateInscriptionBuilder builder("0.00002");
-
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(get<1>(prevout).nValue))
-                          .Data("text", hex(std::string("test")))
-                          .MiningFeeRate(fee_rate)
-                          .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
-                          .Sign(hex(utxo_key.GetLocalPrivKey())));
+    CHECK_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
 
     ChannelKeys rollback_key(unhex<seckey>(builder.getIntermediateTaprootSK()));
 
@@ -235,34 +151,45 @@ TEST_CASE("fallback")
     stringvector rawtx;
     CHECK_NOTHROW(rawtx = builder2.RawTransactions());
 
-    CMutableTransaction funding_tx, genesis_tx;
+    CMutableTransaction funding_tx;
     CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
 
-    CScript rollbackpubkeyscript;
-    rollbackpubkeyscript << 1;
-    rollbackpubkeyscript << rollback_key.GetLocalPubKey();
+    SECTION("Inscribe")
+    {
+        CMutableTransaction genesis_tx;
+        CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
 
-    CMutableTransaction rollback_tx;
-    rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
-    rollback_tx.vout.emplace_back(0, rollbackpubkeyscript);
+        CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
+    }
 
-    rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
+    SECTION("Payback")
+    {
+        CScript rollbackpubkeyscript;
+        rollbackpubkeyscript << 1;
+        rollbackpubkeyscript << rollback_key.GetLocalPubKey();
 
-    rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx);
+        CMutableTransaction rollback_tx;
+        rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
+        rollback_tx.vout.emplace_back(0, rollbackpubkeyscript);
 
-    signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
-    rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
+        rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
 
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
+        rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx);
+
+        signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
+        rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
+
+        CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
+    }
 }
+
 
 TEST_CASE("NotEnoughAmount")
 {
     //get key pair
     ChannelKeys utxo_key;
+    ChannelKeys script_key;
     ChannelKeys dest_key;
 
     //create address from key pair
@@ -291,88 +218,9 @@ TEST_CASE("NotEnoughAmount")
     string txid = w->btc().SendToAddress(addr, lesser_amount);
     auto prevout = w->btc().CheckOutput(txid, addr);
 
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, lesser_amount)
+    CHECK_NOTHROW(builder.AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, lesser_amount, hex(utxo_key.GetLocalPubKey()))
                          .DestinationPubKey(hex(dest_key.GetLocalPubKey())));
 
-    CHECK_THROWS_AS(builder.Sign(hex(utxo_key.GetLocalPrivKey())), l15::TransactionError);
+    CHECK_THROWS_AS(builder.SignCommit(0, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())), ContractError);
 
-//    std::string ser_data;
-//    CHECK_NOTHROW(ser_data = builder.Serialize());
-//
-//    std::clog << ser_data << std::endl;
-//
-//    CreateInscriptionBuilder builder2("regtest");
-//
-//    CHECK_NOTHROW(builder2.Deserialize(ser_data));
-//
-//    stringvector rawtx;
-//    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
-//
-//    CMutableTransaction funding_tx, genesis_tx;
-//    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-//    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-//
-//    CHECK(genesis_tx.vout.size() == 1);
-//    CHECK(genesis_tx.vout.front().nValue == 5000);
-//
-//    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
-//    CHECK_THROWS(w->btc().SpendTx(CTransaction(genesis_tx)));
-}
-
-TEST_CASE("ExactAmount")
-{
-    //get key pair
-    ChannelKeys utxo_key;
-    ChannelKeys dest_key;
-
-    //create address from key pair
-    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
-
-    std::string fee_rate;
-    try {
-        fee_rate = w->btc().EstimateSmartFee("1");
-    }
-    catch(...) {
-        fee_rate = "0.000011";
-    }
-    std::clog << "Fee rate: " << fee_rate << std::endl;
-
-    CreateInscriptionBuilder builder("0.00002");
-
-    std::string content_type = "text/ascii";
-    auto content = hex(GenRandomString(1024));
-
-    CHECK_NOTHROW(builder.Data(content_type, content)
-                         .MiningFeeRate(fee_rate));
-
-    std::string exact_amount = builder.GetMinFundingAmount();
-
-    string txid = w->btc().SendToAddress(addr, exact_amount);
-    auto prevout = w->btc().CheckOutput(txid, addr);
-
-    CHECK_NOTHROW(builder.UTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, exact_amount)
-                          .DestinationPubKey(hex(dest_key.GetLocalPubKey()))
-                          .Sign(hex(utxo_key.GetLocalPrivKey())));
-
-    std::string ser_data;
-    CHECK_NOTHROW(ser_data = builder.Serialize());
-
-    std::clog << ser_data << std::endl;
-
-    CreateInscriptionBuilder builder2("0.00002");
-
-    CHECK_NOTHROW(builder2.Deserialize(ser_data));
-
-    stringvector rawtx;
-    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
-
-    CMutableTransaction funding_tx, genesis_tx;
-    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-    CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-
-    CHECK(genesis_tx.vout.size() == 1);
-    //CHECK(genesis_tx.vout.front().nValue == 5000);
-
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 }

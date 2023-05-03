@@ -20,37 +20,36 @@ class CreateInscriptionBuilder: public ContractBuilder
     static const uint32_t m_protocol_version;
     CAmount m_ord_amount;
 
-    std::optional<std::string> m_txid;
-    std::optional<uint32_t> m_nout;
-    std::optional<CAmount> m_amount;
+    std::list<Utxo> m_utxo;
 
     std::optional<std::string> m_content_type;
     std::optional<bytevector> m_content;
 
-    std::optional<xonly_pubkey> m_utxo_pk; //taproot
-    std::optional<signature> m_utxo_sig;
-
-    std::optional<xonly_pubkey> m_insribe_script_pk;
+    std::optional<xonly_pubkey> m_inscribe_script_pk;
     std::optional<signature> m_inscribe_script_sig;
 
     std::optional<seckey> m_inscribe_taproot_sk; // needed in case of a fallback scenario to return funds
+    std::optional<seckey> m_inscribe_int_sk; //taproot
     std::optional<xonly_pubkey> m_inscribe_int_pk; //taproot
 
     std::optional<xonly_pubkey> m_destination_pk;
 
-    std::optional<CMutableTransaction> mFundingTx;
-    std::optional<CMutableTransaction> mGenesisTx;
+    mutable std::optional<CMutableTransaction> mFundingTx;
+    mutable std::optional<CMutableTransaction> mGenesisTx;
 
 private:
     void CheckBuildArgs() const;
-    void CheckRestoreArgs(const UniValue& params) const;
     void CheckAmount() const;
 
     void RestoreTransactions();
 
+protected:
+    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+
 public:
 
     static const std::string name_ord_amount;
+    static const std::string name_utxo;
     static const std::string name_utxo_txid;
     static const std::string name_utxo_nout;
     static const std::string name_utxo_amount;
@@ -75,18 +74,9 @@ public:
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
     CMutableTransaction CreateFundingTxTemplate() const;
-    CMutableTransaction CreateGenesisTxTemplate(const std::string &content_type, const l15::bytevector &content) const;
+    CMutableTransaction CreateGenesisTxTemplate() const;
 
     CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content);
-
-    std::string GetUtxoTxId() const { return m_txid.value(); }
-    void SetUtxoTxId(std::string v) { m_txid = v; }
-
-    uint32_t GetUtxoNOut() const { return m_nout.value(); }
-    void SetUtxoNOut(uint32_t v) { m_nout = v; }
-
-    std::string GetUtxoAmount() const { return FormatAmount( m_amount.value()); }
-    void SetUtxoAmount(std::string v) { m_amount = ParseAmount(v); }
 
     std::string GetContentType() const { return m_content_type.value(); }
     void SetContentType(std::string v) { m_content_type = v; }
@@ -100,31 +90,26 @@ public:
     std::string GetIntermediateSecKey() const { return l15::hex(m_inscribe_taproot_sk.value()); }
 
     CreateInscriptionBuilder& MiningFeeRate(const std::string& rate);
-    CreateInscriptionBuilder& UTXO(const std::string& txid, uint32_t nout, const std::string& amount);
+    CreateInscriptionBuilder& AddUTXO(const string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);
     CreateInscriptionBuilder& DestinationPubKey(const std::string& pk);
 
     std::string getIntermediateTaprootSK() const
     { return hex(m_inscribe_taproot_sk.value()); }
 
-    std::string GetUtxoPubKey() const
-    { return hex(m_utxo_pk.value()); }
-
-    std::string GetUtxoSig() const
-    { return hex(m_utxo_sig.value()); }
-
     std::string GetInscribeScriptPubKey() const
-    { return hex(m_insribe_script_pk.value()); }
+    { return hex(m_inscribe_script_pk.value()); }
 
     std::string GetInscribeScriptSig() const
     { return hex(m_inscribe_script_sig.value()); }
 
-    std::string GetInscribeInternaltPubKey() const
-    { return hex(m_inscribe_int_pk.value()); }
+    std::string GetInscribeInternaltPubKey() const;
 
-    void Sign(std::string utxo_sk);
+    void SignCommit(uint32_t n, const std::string& sk, const std::string& inscribe_script_pk);
+    void SignInscription(const std::string& insribe_script_sk);
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+    const CMutableTransaction& GetCommitTx() const;
+
     std::string GetMinFundingAmount() const override;
 
     std::vector<std::string> RawTransactions() const;
