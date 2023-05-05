@@ -71,7 +71,7 @@ struct TestcaseWrapper
             btc().CreateWallet("testwallet");
         }
         if (mConfFactory.conf[config::option::CHAINMODE].as<std::string>() == "regtest") {
-            btc().GenerateToAddress(btc().GetNewAddress(), "101");
+            btc().GenerateToAddress(btc().GetNewAddress(), "151");
         }
         else if (mConfFactory.conf[config::option::CHAINMODE].as<std::string>() == "testnet") {
             btc().WalletPassPhrase("********", "30");

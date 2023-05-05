@@ -38,7 +38,7 @@ class SwapInscriptionBuilder : public ContractBuilder
     std::optional<CAmount> m_ord_amount;
     std::optional<xonly_pubkey> m_ord_pk;
 
-    std::list<Utxo> m_funds;
+    std::list<Transfer> m_funds;
 
     std::optional<seckey> m_funds_unspendable_key_factor;
 

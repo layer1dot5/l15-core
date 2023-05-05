@@ -20,7 +20,10 @@ class CreateInscriptionBuilder: public ContractBuilder
     static const uint32_t m_protocol_version;
     CAmount m_ord_amount;
 
-    std::list<Utxo> m_utxo;
+    std::list<Transfer> m_utxo;
+
+    std::optional<std::string> m_collection_id;
+    std::optional<Transfer> m_collection_utxo;
 
     std::optional<std::string> m_content_type;
     std::optional<bytevector> m_content;
@@ -34,7 +37,7 @@ class CreateInscriptionBuilder: public ContractBuilder
 
     std::optional<xonly_pubkey> m_destination_pk;
 
-    mutable std::optional<CMutableTransaction> mFundingTx;
+    mutable std::optional<CMutableTransaction> mCommitTx;
     mutable std::optional<CMutableTransaction> mGenesisTx;
 
 private:
@@ -45,6 +48,11 @@ private:
 
 protected:
     std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+
+    CMutableTransaction CreateCommitTxTemplate() const;
+    CMutableTransaction CreateGenesisTxTemplate() const;
+
+    const CMutableTransaction& CommitTx() const;
 
 public:
 
@@ -57,6 +65,8 @@ public:
     static const std::string name_content_type;
     static const std::string name_content;
     static const std::string name_utxo_sig;
+    static const std::string name_collection;
+    static const std::string name_collection_id;
     static const std::string name_inscribe_script_pk;
     static const std::string name_inscribe_int_pk;
     static const std::string name_inscribe_sig;
@@ -73,11 +83,6 @@ public:
 
     uint32_t GetProtocolVersion() const override { return m_protocol_version; }
 
-    CMutableTransaction CreateFundingTxTemplate() const;
-    CMutableTransaction CreateGenesisTxTemplate() const;
-
-    CAmount GetFeeForContent(const std::string &content_type, const std::string &hex_content);
-
     std::string GetContentType() const { return m_content_type.value(); }
     void SetContentType(std::string v) { m_content_type = v; }
 
@@ -93,6 +98,7 @@ public:
     CreateInscriptionBuilder& AddUTXO(const string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);
     CreateInscriptionBuilder& DestinationPubKey(const std::string& pk);
+    CreateInscriptionBuilder& AddToCollection(const std::string& collection_id, const string& utxo_txid, uint32_t utxo_nout, const std::string& utxo_amount);
 
     std::string getIntermediateTaprootSK() const
     { return hex(m_inscribe_taproot_sk.value()); }
@@ -106,9 +112,8 @@ public:
     std::string GetInscribeInternaltPubKey() const;
 
     void SignCommit(uint32_t n, const std::string& sk, const std::string& inscribe_script_pk);
+    void SignCollection(const std::string& sk);
     void SignInscription(const std::string& insribe_script_sk);
-
-    const CMutableTransaction& GetCommitTx() const;
 
     std::string GetMinFundingAmount() const override;
 

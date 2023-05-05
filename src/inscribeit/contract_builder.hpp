@@ -7,6 +7,14 @@
 
 namespace l15::inscribeit {
 
+struct Transfer
+{
+    std::string m_txid;
+    uint32_t m_nout;
+    CAmount m_amount;
+    std::optional<xonly_pubkey> m_pubkey;
+    std::optional<signature> m_sig;
+};
 
 class ContractBuilder
 {
@@ -17,14 +25,6 @@ public:
     static const std::string name_mining_fee_rate;
 
 protected:
-    struct Utxo
-    {
-        std::string m_txid;
-        uint32_t m_nout;
-        CAmount m_amount;
-        std::optional<xonly_pubkey> m_pubkey;
-        std::optional<signature> m_sig;
-    };
 
     std::optional<CAmount> m_mining_fee_rate;
 

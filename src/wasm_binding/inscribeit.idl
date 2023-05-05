@@ -31,15 +31,19 @@ interface CreateInscriptionBuilder
     void CreateInscriptionBuilder([Const] DOMString ord_amount);
     [Ref] CreateInscriptionBuilder MiningFeeRate([Const] DOMString rate);
     [Ref] CreateInscriptionBuilder AddUTXO([Const] DOMString txid, long nout, [Const] DOMString amount, [Const] DOMString pubkey);
-    [Ref] CreateInscriptionBuilder Data([Const] DOMString content_type, [Const] DOMString hax_data);
+    [Ref] CreateInscriptionBuilder Data([Const] DOMString content_type, [Const] DOMString hex_data);
     [Ref] CreateInscriptionBuilder DestinationPubKey([Const] DOMString pk);
+    [Ref] CreateInscriptionBuilder AddToCollection([Const] DOMString collection_id, [Const] DOMString txid, long nout, [Const] DOMString amount);
 
     void SignCommit(long n, [Const] DOMString sk, [Const] DOMString script_pubkey);
+    void SignCollection([Const] DOMString sk);
     void SignInscription([Const] DOMString script_sk);
 
     [Value] string Serialize();
 
     [Value] string getIntermediateTaprootSK();
+
+    [Value] string GetMinFundingAmount();
 };
 
 enum SwapPhase

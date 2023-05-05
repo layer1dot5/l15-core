@@ -26,6 +26,8 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 
 std::unique_ptr<TestcaseWrapper> w;
+std::optional<std::tuple<std::string, Transfer>> collection_out;
+ChannelKeys collection_key;
 
 std::string GenRandomString(const int len) {
     static const char alphanum[] =
@@ -83,6 +85,7 @@ int main(int argc, char* argv[])
 struct CreateCondition
 {
     std::vector<CAmount> funds;
+    bool collection_parent;
 };
 
 TEST_CASE("inscribe")
@@ -90,6 +93,7 @@ TEST_CASE("inscribe")
     //get key pair
     ChannelKeys utxo_key;
     ChannelKeys script_key;
+    bool added_to_collection = false;
 
     xonly_pubkey destination_pk = w->bech32().Decode(w->btc().GetNewAddress());
 
@@ -109,17 +113,22 @@ TEST_CASE("inscribe")
     CreateInscriptionBuilder builder("0.00002");
     CHECK_NOTHROW(builder.MiningFeeRate(fee_rate).Data(content_type, content));
 
+    std::clog << ">>>>> Estimate mining fee <<<<<" << std::endl;
+
     std::string exact_amount = builder.GetMinFundingAmount();
 
-    const CreateCondition fund = {{70000}};
-    const CreateCondition exact_fund = {{ParseAmount(exact_amount)}};
-    const CreateCondition multi_fund = {{ParseAmount(exact_amount), 1500}};
+    const CreateCondition parent = {{ParseAmount(exact_amount)}, true};
+    const CreateCondition fund = {{10000}, false};
+    const CreateCondition exact_fund = {{10000}, false};
+    const CreateCondition multi_fund = {{8500, 1500}, false};
+    const CreateCondition multi_fund_2 = {{7500, 1500, 1000}, false};
 
-    auto condition = GENERATE_REF(fund, exact_fund, multi_fund);
+    auto condition = GENERATE_REF(parent, fund, exact_fund, multi_fund, multi_fund_2);
+
+    CHECK_NOTHROW(builder.DestinationPubKey(hex(condition.collection_parent ? collection_key.GetLocalPubKey() : destination_pk)));
 
     //create address from key pair
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
-
 
     for (CAmount amount: condition.funds) {
         const std::string funds_amount = FormatAmount(amount);
@@ -130,11 +139,27 @@ TEST_CASE("inscribe")
         CHECK_NOTHROW(builder.AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, funds_amount, hex(utxo_key.GetLocalPubKey())));
     }
 
-    CHECK_NOTHROW(builder.DestinationPubKey(hex(destination_pk)));
+    SECTION("Add to collection")
+    {
+        if (!condition.collection_parent) {
+            std::clog << ">>>>> collection id:" << get<0>(*collection_out) << std::endl;
+            const auto &col_utxo = get<1>(*collection_out);
+            CHECK_NOTHROW(builder.AddToCollection(get<0>(*collection_out), col_utxo.m_txid, col_utxo.m_nout, FormatAmount(col_utxo.m_amount)));
+            added_to_collection = true;
+        }
+    }
+
+    std::clog << "Min funding: " << builder.GetMinFundingAmount() << "\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/" << std::endl;
 
     for (uint32_t n = 0; n < condition.funds.size(); ++n) {
+        std::clog << ">>>>> Sign commit <<<<<" << std::endl;
         CHECK_NOTHROW(builder.SignCommit(n, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
     }
+    if (added_to_collection) {
+        std::clog << ">>>>> Sign collection <<<<<" << std::endl;
+        CHECK_NOTHROW(builder.SignCollection(hex(collection_key.GetLocalPrivKey())));
+    }
+    std::clog << ">>>>> Sign inscription <<<<<" << std::endl;
     CHECK_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
 
     ChannelKeys rollback_key(unhex<seckey>(builder.getIntermediateTaprootSK()));
@@ -146,6 +171,7 @@ TEST_CASE("inscribe")
 
     CreateInscriptionBuilder builder2("0.00002");
 
+    std::clog << ">>>>> Deserialize <<<<<" << std::endl;
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
 
     stringvector rawtx;
@@ -160,7 +186,19 @@ TEST_CASE("inscribe")
         CMutableTransaction genesis_tx;
         CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
 
-        CHECK_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
+        LogTx(genesis_tx);
+
+        std::string txid;
+        CHECK_NOTHROW(txid = w->btc().SpendTx(CTransaction(genesis_tx)));
+
+        if (condition.collection_parent) {
+            std::string collection_id = txid + "i0";
+            collection_out = {collection_id, {txid, 0, genesis_tx.vout.front().nValue, destination_pk}};
+        }
+        else if (added_to_collection){
+            get<1>(*collection_out).m_txid = txid;
+            get<1>(*collection_out).m_nout = 1;
+        }
     }
 
     SECTION("Payback")

@@ -489,9 +489,9 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
             utxo_val.pushKV(name_funds_amount, FormatAmount(utxo.m_amount));
             utxo_val.pushKV(name_funds_commit_sig, hex(*utxo.m_sig));
 
-            funds.push_back(utxo_val);
+            funds.push_back(move(utxo_val));
         }
-        contract.pushKV(name_funds, funds);
+        contract.pushKV(name_funds, move(funds));
 
         contract.pushKV(name_funds_unspendable_key_factor, hex(*m_funds_unspendable_key_factor));
         contract.pushKV(name_swap_script_pk_B, hex(*m_swap_script_pk_B));
@@ -511,7 +511,7 @@ string SwapInscriptionBuilder::Serialize(SwapPhase phase)
 
     UniValue dataRoot(UniValue::VOBJ);
     dataRoot.pushKV(name_contract_type, val_swap_inscription);
-    dataRoot.pushKV(name_params, contract);
+    dataRoot.pushKV(name_params, move(contract));
 
     return dataRoot.write();
 }
