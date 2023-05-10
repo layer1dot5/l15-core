@@ -15,6 +15,7 @@ AM_CPPFLAGS = \
 
 noinst_LTLIBRARIES = libl15-inscribeit.la
 libl15_inscribeit_la_SOURCES = \
+	inscription.cpp \
 	contract_builder.cpp \
 	create_inscription.cpp \
 	swap_inscription.cpp

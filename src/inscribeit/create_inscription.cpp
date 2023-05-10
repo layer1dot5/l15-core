@@ -13,17 +13,14 @@
 #include "script_merkle_tree.hpp"
 #include "channel_keys.hpp"
 
+#include "inscription_common.hpp"
+
 namespace l15::inscribeit {
 
 namespace {
 
 const std::string val_create_inscription("CreateInscription");
 
-const size_t chunk_size = 520;
-const bytevector ORD_TAG {'o', 'r', 'd'};
-const opcodetype CONTENT_TAG {OP_0};
-const bytevector CONTENT_TYPE_TAG {'\1'};
-const bytevector COLLECTION_ID_TAG {'\2'};
 
 CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data, const std::optional<std::string>& collection_id = {})
 {
@@ -53,18 +50,6 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
     script << OP_ENDIF;
 
     return script;
-}
-
-void CheckCollectionId(const std::string& collection_id)
-{
-    if (collection_id[64] != 'i') throw ContractTermWrongValue("collection id: " + collection_id);
-    try {
-        unhex<bytevector>(collection_id.substr(0, 64));
-        std::stoul(collection_id.substr(65));
-    }
-    catch (const std::exception& e) {
-        std::throw_with_nested(ContractTermWrongValue("collection id: " + collection_id));
-    }
 }
 
 }

@@ -8,13 +8,19 @@
 
 %apply unsigned int { uint32_t }
 %apply unsigned long long { uint64_t }
+%apply unsigned char { uint8_t }
 
 %template(StringVector) std::vector<std::string>;
+%template(ByteVector) std::vector<uint8_t>;
 %template(SharedL15Error) std::shared_ptr<l15::Error>;
+
+%apply std::vector<uint8_t> { l15::bytevector }
 
 %{
 
+#include "inscription_common.hpp"
 #include "transaction.hpp"
+#include "inscription.hpp"
 #include "create_inscription.hpp"
 #include "swap_inscription.hpp"
 #include "common_error.hpp"
@@ -105,6 +111,7 @@ const std::string Version() {
 
 %include "common_error.hpp"
 %include "contract_error.hpp"
+%include "inscription.hpp"
 %include "create_inscription.hpp"
 %include "swap_inscription.hpp"
 %include "transaction.hpp"

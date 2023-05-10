@@ -13,6 +13,7 @@
 #include "channel_keys.hpp"
 #include "exechelper.hpp"
 #include "create_inscription.hpp"
+#include "inscription.hpp"
 #include "core_io.h"
 #include "serialize.h"
 
@@ -198,6 +199,16 @@ TEST_CASE("inscribe")
         else if (added_to_collection){
             get<1>(*collection_out).m_txid = txid;
             get<1>(*collection_out).m_nout = 1;
+        }
+
+        std::optional<Inscription> inscription;
+        CHECK_NOTHROW(inscription = Inscription(rawtx.back(), 0));
+        CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
+        CHECK(inscription->GetContentType() == content_type);
+        CHECK(inscription->GetContent() == unhex<bytevector>(content));
+
+        if (added_to_collection) {
+            CHECK(inscription->GetCollectionId() == get<0>(*collection_out));
         }
     }
 
