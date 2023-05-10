@@ -25,7 +25,7 @@ const opcodetype CONTENT_TAG {OP_0};
 const bytevector CONTENT_TYPE_TAG {'\1'};
 const bytevector COLLECTION_ID_TAG {'\2'};
 
-CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data, const std::optional<std::string>& inscription_id = {})
+CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content_type, const bytevector& data, const std::optional<std::string>& collection_id = {})
 {
     CScript script;
     script << pk;
@@ -36,11 +36,6 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
     script << CONTENT_TYPE_TAG;
     script << bytevector(content_type.begin(), content_type.end());
 
-    if (inscription_id) {
-        script << COLLECTION_ID_TAG;
-        script << bytevector(inscription_id->begin(), inscription_id->end());
-    }
-
     script << CONTENT_TAG;
     auto pos = data.begin();
     for ( ; pos + chunk_size < data.end(); pos += chunk_size) {
@@ -49,6 +44,12 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
     if (pos != data.end()) {
         script << bytevector(pos, data.end());
     }
+
+    if (collection_id) {
+        script << COLLECTION_ID_TAG;
+        script << bytevector(collection_id->begin(), collection_id->end());
+    }
+
     script << OP_ENDIF;
 
     return script;
