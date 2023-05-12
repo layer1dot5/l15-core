@@ -137,7 +137,7 @@ Returns hex-encoded inscription script public key
 ### `GetInscribeScriptSig() -> str`
 Returns hex-encoded inscription script signature
 
-### `GetInscribeInternaltPubKey() -> str`
+### `GetInscribeInternalPubKey() -> str`
 Returns hex-encoded inscription internal public key
 
 ### `Sign(utxo_sk: str)`
