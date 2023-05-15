@@ -106,7 +106,11 @@ Inscription::Inscription(const std::string &hex_tx, uint32_t input)
         std::throw_with_nested(TransactionError("Genesis transaction parse error"));
     }
 
-    CScript script(tx.vin[input].scriptWitness.stack[1].begin(), tx.vin[input].scriptWitness.stack[1].end());
+    if (input >= tx.vin.size()) throw IllegalArgumentError("input #" + std::to_string(input));
+    if (tx.vin[input].scriptWitness.stack.size() < 3) throw InscriptionFormatError("no witness script");
+
+    const auto& witness_stack = tx.vin[input].scriptWitness.stack;
+    CScript script(witness_stack[witness_stack.size() - 2].begin(), witness_stack[witness_stack.size() - 2].end());
 
     ParseEnvelopeScript(script);
 
