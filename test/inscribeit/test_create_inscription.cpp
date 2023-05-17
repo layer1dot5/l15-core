@@ -115,7 +115,7 @@ TEST_CASE("inscribe")
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(2048));
 
-    CreateInscriptionBuilder builder("0.000006");
+    CreateInscriptionBuilder builder("0.00000546");
     CHECK_NOTHROW(builder.MiningFeeRate(fee_rate).Data(content_type, content));
 
     std::clog << ">>>>> Estimate mining fee <<<<<" << std::endl;
@@ -131,8 +131,8 @@ TEST_CASE("inscribe")
     const CreateCondition parent = {{ParseAmount(exact_amount)}, true};
     const CreateCondition fund = {{ParseAmount(exact_amount_w_collection)}, false};
     const CreateCondition multi_fund = {{ParseAmount(exact_amount_w_collection) - 800, 800 + vin_cost}, false};
-    //const CreateCondition multi_fund_2 = {{ParseAmount(exact_amount_w_collection) - 1300, 600 + vin_cost, 700 + vin_cost}, false};
     const CreateCondition fund_change = {{10000}, false};
+    const CreateCondition multi_fund_2 = {{546, ParseAmount(exact_amount_w_collection), 600, 700}, false};
 
     auto condition = GENERATE_REF(parent, fund, multi_fund, fund_change);
 
@@ -184,7 +184,7 @@ TEST_CASE("inscribe")
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("0.000006");
+    CreateInscriptionBuilder builder2("0.00000546");
 
     std::clog << ">>>>> Deserialize <<<<<" << std::endl;
     CHECK_NOTHROW(builder2.Deserialize(ser_data));
@@ -196,8 +196,8 @@ TEST_CASE("inscribe")
     CHECK(DecodeHexTx(funding_tx, rawtx.front()));
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
 
-//    SECTION("Inscribe")
-//    {
+    SECTION("Inscribe")
+    {
         CMutableTransaction commit_tx;
         CHECK(DecodeHexTx(commit_tx, rawtx.front()));
         CMutableTransaction genesis_tx;
@@ -215,6 +215,8 @@ TEST_CASE("inscribe")
         std::string txid;
         CHECK_NOTHROW(txid = w->btc().SpendTx(CTransaction(genesis_tx)));
 
+        CHECK(genesis_tx.vout[0].nValue == 546);
+
         if (condition.collection_parent) {
             std::string collection_id = txid + "i0";
             collection_out = {collection_id, {txid, 0, genesis_tx.vout.front().nValue, destination_pk}};
@@ -223,11 +225,10 @@ TEST_CASE("inscribe")
             get<1>(*collection_out).m_txid = txid;
             get<1>(*collection_out).m_nout = 1;
             get<1>(*collection_out).m_amount = genesis_tx.vout[1].nValue;
-        }
 
-        std::clog << "============================================================================" << std::endl;
-        std::clog << "Collection output amount: " << get<1>(*collection_out).m_amount << std::endl;
-        std::clog << "============================================================================" << std::endl;
+            CHECK(commit_tx.vout[0].nValue == 546);
+            CHECK(genesis_tx.vout[1].nValue == 546);
+        }
 
         std::optional<Inscription> inscription;
         CHECK_NOTHROW(inscription = Inscription(rawtx.back(), 0));
@@ -238,27 +239,27 @@ TEST_CASE("inscribe")
         if (added_to_collection) {
             CHECK(inscription->GetCollectionId() == get<0>(*collection_out));
         }
-//    }
-//
-//    SECTION("Payback")
-//    {
-//        CScript rollbackpubkeyscript;
-//        rollbackpubkeyscript << 1;
-//        rollbackpubkeyscript << rollback_key.GetLocalPubKey();
-//
-//        CMutableTransaction rollback_tx;
-//        rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
-//        rollback_tx.vout.emplace_back(0, rollbackpubkeyscript);
-//
-//        rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
-//
-//        rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx);
-//
-//        signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
-//        rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
-//
-//        CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
-//    }
+    }
+
+    SECTION("Payback")
+    {
+        CScript rollbackpubkeyscript;
+        rollbackpubkeyscript << 1;
+        rollbackpubkeyscript << rollback_key.GetLocalPubKey();
+
+        CMutableTransaction rollback_tx;
+        rollback_tx.vin.emplace_back(COutPoint(funding_tx.GetHash(), 0));
+        rollback_tx.vout.emplace_back(0, rollbackpubkeyscript);
+
+        rollback_tx.vin.front().scriptWitness.stack.emplace_back(64);
+
+        rollback_tx.vout.front().nValue = CalculateOutputAmount(funding_tx.vout.front().nValue, ParseAmount(fee_rate), rollback_tx);
+
+        signature rollback_sig = rollback_key.SignTaprootTx(rollback_tx, 0, {funding_tx.vout.front()}, {});
+        rollback_tx.vin.front().scriptWitness.stack.front() = static_cast<bytevector&>(rollback_sig);
+
+        CHECK_NOTHROW(w->btc().SpendTx(CTransaction(rollback_tx)));
+    }
 
     w->btc().GenerateToAddress(w->btc().GetNewAddress(), "1");
 }

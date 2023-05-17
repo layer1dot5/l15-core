@@ -21,6 +21,8 @@ class CreateInscriptionBuilder: public ContractBuilder
     static const std::string FEE_OPT_HAS_COLLECTION;
     static const std::string FEE_OPT_HAS_XTRA_UTXO;
 
+    static const CAmount COLLECTION_SCRIPT_ADD_VSIZE = 18;
+
     static const uint32_t m_protocol_version;
     CAmount m_ord_amount;
 

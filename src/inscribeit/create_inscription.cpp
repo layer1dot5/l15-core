@@ -715,6 +715,7 @@ CAmount CreateInscriptionBuilder::CalculateWholeFee(const std::string& params) c
     CAmount genesis_fee = CalculateTxFee(*m_mining_fee_rate, genesisTxTpl);
 
     CAmount genesis_vsize_add = 0;
+    if (collection && !m_collection_id) genesis_vsize_add += COLLECTION_SCRIPT_ADD_VSIZE;
     if (collection || m_collection_id) genesis_vsize_add += TAPROOT_KEYSPEND_VIN_VSIZE + TAPROOT_VOUT_VSIZE + TAPROOT_KEYSPEND_VIN_VSIZE; // Collection in/out + mining fee in
     if (m_xtra_utxo.size() > 1) genesis_vsize_add += TAPROOT_KEYSPEND_VIN_VSIZE * (m_xtra_utxo.size() - 1);
 
