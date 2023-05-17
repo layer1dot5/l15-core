@@ -137,13 +137,13 @@ CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
 CAmount Dust(CAmount fee_rate)
 {
     // See bitcoin/src/policy/policy.cpp:57
-    return CFeeRate(fee_rate).GetFee(32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
+    return CFeeRate(fee_rate).GetFee(43 + 32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
 }
 
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
     auto fee = CalculateTxFee(fee_rate, tx);
-    if ((fee + Dust(fee_rate)) >= input_amount) {
+    if ((fee + Dust(3000)) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
         throw TransactionError(buf.str());

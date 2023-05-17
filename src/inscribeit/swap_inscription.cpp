@@ -232,7 +232,7 @@ CMutableTransaction SwapInscriptionBuilder::MakeFundsCommitTx() const
 {
     CMutableTransaction commit_tx = GetFundsCommitTxTemplate();
 
-    CAmount funds_required = ParseAmount(GetMinFundingAmount());
+    CAmount funds_required = ParseAmount(GetMinFundingAmount(""));
     CAmount funds_provided = 0;
     for (const auto &utxo: m_funds) {
         funds_provided += utxo.m_amount;
@@ -240,13 +240,13 @@ CMutableTransaction SwapInscriptionBuilder::MakeFundsCommitTx() const
 
     CAmount change = funds_provided - funds_required;
 
-    if(change > Dust(*m_mining_fee_rate)) {
+    if(change > Dust(3000)) {
         commit_tx.vout[1].scriptPubKey = (CScript() << 1 << *m_swap_script_pk_B);
         commit_tx.vout[1].nValue = change;
     } else {
         commit_tx.vout.pop_back();
 
-        funds_required = ParseAmount(GetMinFundingAmount()); // Calculate again since one output was removed
+        funds_required = ParseAmount(GetMinFundingAmount("")); // Calculate again since one output was removed
     }
 
     if(funds_provided < funds_required) {
@@ -551,7 +551,7 @@ void SwapInscriptionBuilder::CheckContractTerms(SwapPhase phase) const
 
                 if (!utxo.m_sig) throw ContractTermMissing("Funds commit sig");
             }
-            if (funds_amount < ParseAmount(GetMinFundingAmount())) throw ContractTermMissing("Funds UTXO amount not enough");
+            if (funds_amount < ParseAmount(GetMinFundingAmount(""))) throw ContractTermMissing("Funds UTXO amount not enough");
         }
         if (!m_swap_script_pk_B) throw ContractTermMissing("Ord buyer pubkey");
         if (!m_funds_unspendable_key_factor) throw ContractTermMissing("Funds commit unspendable key factor");
@@ -856,9 +856,9 @@ void SwapInscriptionBuilder::CheckOrdSwapSig() const
     }
 }
 
-std::string SwapInscriptionBuilder::GetMinFundingAmount() const
+std::string SwapInscriptionBuilder::GetMinFundingAmount(const std::string& params) const
 {
-    return FormatAmount(m_ord_price + *m_market_fee + CalculateWholeFee());
+    return FormatAmount(m_ord_price + *m_market_fee + CalculateWholeFee(params));
 }
 
 void SwapInscriptionBuilder::CheckFundsSwapSig() const

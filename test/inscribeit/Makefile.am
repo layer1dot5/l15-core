@@ -35,7 +35,10 @@ $(top_builddir)/node/src/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_create_inscription test_swap_inscription test_signing
+bin_PROGRAMS = test_contract_builder test_create_inscription test_swap_inscription test_signing
+
+test_contract_builder_SOURCES = test_contract_builder.cpp
+test_contract_builder_LDADD = $(L15_LIBS)
 
 test_signing_SOURCES = test_signing.cpp
 test_signing_LDADD = $(L15_LIBS)

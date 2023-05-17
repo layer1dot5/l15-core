@@ -132,8 +132,8 @@ TEST_CASE("Swap")
     SwapInscriptionBuilder builderOrdBuyer(ORD_PRICE, MARKET_FEE);
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
-    CAmount min_funding = ParseAmount(builderOrdBuyer.GetMinFundingAmount());
-    CAmount dust = Dust(ParseAmount(fee_rate));
+    CAmount min_funding = ParseAmount(builderOrdBuyer.GetMinFundingAmount(""));
+    CAmount dust = Dust(3000);
 
     const SwapCondition fund_min_cond = {{min_funding}, false};
     const SwapCondition fund_min_3000_cond = {{min_funding + 3000}, true};
@@ -308,7 +308,7 @@ TEST_CASE("Swap")
             ord_change_spend_tx.vout = {CTxOut(funds_commit_tx.vout[1].nValue, buyer_change_pubkey_script)};
 
 
-            if (CalculateTxFee(ParseAmount(fee_rate), ord_change_spend_tx) > funds_commit_tx.vout[1].nValue + Dust(ParseAmount(fee_rate))) {
+            if (CalculateTxFee(ParseAmount(fee_rate), ord_change_spend_tx) + Dust(3000) < funds_commit_tx.vout[1].nValue) {
                 ord_change_spend_tx.vout.front().nValue = CalculateOutputAmount(funds_commit_tx.vout[1].nValue, ParseAmount(fee_rate), ord_change_spend_tx);
 
                 REQUIRE_NOTHROW(ord_change_spend_tx.vin.front().scriptWitness.stack[0] = swap_script_key_B.SignTaprootTx(ord_change_spend_tx, 0, {funds_commit_tx.vout[1]}, {}));
@@ -383,7 +383,7 @@ TEST_CASE("FundsNotEnough")
     builderOrdBuyer.Deserialize(marketFundsConditions);
 
     //Create insufficient funds utxo
-    std::string funds_amount = FormatAmount(ParseAmount(builderOrdBuyer.GetMinFundingAmount()) - Dust(ParseAmount(fee_rate)));
+    std::string funds_amount = FormatAmount(ParseAmount(builderOrdBuyer.GetMinFundingAmount("")) - Dust(3000));
     std::string funds_addr = w->bech32().Encode(funds_utxo_key.GetLocalPubKey());
     std::string funds_txid = w->btc().SendToAddress(funds_addr, funds_amount);
 

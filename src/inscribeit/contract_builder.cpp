@@ -1,5 +1,6 @@
 #include "contract_builder.hpp"
 #include "interpreter.h"
+#include "feerate.h"
 #include "script_merkle_tree.hpp"
 #include "channel_keys.hpp"
 
@@ -10,7 +11,7 @@ const std::string ContractBuilder::name_params = "params";
 const std::string ContractBuilder::name_version = "protocol_version";
 const std::string ContractBuilder::name_mining_fee_rate = "mining_fee_rate";
 
-CAmount ContractBuilder::CalculateWholeFee() const {
+CAmount ContractBuilder::CalculateWholeFee(const std::string& params) const {
     auto txs = GetTransactions();
     return std::accumulate(txs.begin(), txs.end(), CAmount(0), [](CAmount sum, const auto &tx) {
         return sum + l15::CalculateTxFee(tx.first, tx.second);
@@ -52,6 +53,16 @@ void ContractBuilder::VerifyTxSignature(const xonly_pubkey& pk, const signature&
     if (!pk.verify(core::ChannelKeys::GetStaticSecp256k1Context(), sig, sighash)) {
         throw SignatureError("sig");
     }
+}
+
+std::string ContractBuilder::GetNewInputMiningFee()
+{
+    return FormatAmount(CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_KEYSPEND_VIN_VSIZE));
+}
+
+std::string ContractBuilder::GetNewOutMiningFee()
+{
+    return FormatAmount(CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_VOUT_VSIZE));
 }
 
 } // inscribeit

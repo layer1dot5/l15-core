@@ -17,6 +17,10 @@ class CreateInscriptionBuilder;
 
 class CreateInscriptionBuilder: public ContractBuilder
 {
+    static const std::string FEE_OPT_HAS_CHANGE;
+    static const std::string FEE_OPT_HAS_COLLECTION;
+    static const std::string FEE_OPT_HAS_XTRA_UTXO;
+
     static const uint32_t m_protocol_version;
     CAmount m_ord_amount;
 
@@ -32,18 +36,22 @@ class CreateInscriptionBuilder: public ContractBuilder
     std::optional<xonly_pubkey> m_inscribe_script_pk;
     std::optional<signature> m_inscribe_script_sig;
 
+    std::optional<signature> m_collection_mining_fee_sig;
+
     std::optional<seckey> m_inscribe_taproot_sk; // needed in case of a fallback scenario to return funds
     std::optional<seckey> m_inscribe_int_sk; //taproot
     std::optional<xonly_pubkey> m_inscribe_int_pk; //taproot
 
     std::optional<xonly_pubkey> m_destination_pk;
+    std::optional<xonly_pubkey> m_change_pk;
 
     mutable bool mInscriptionScriptHasCollectionId = false;
     mutable std::optional<CScript> mInscriptionScript;
     mutable std::optional<CMutableTransaction> mCommitTx;
     mutable std::optional<CMutableTransaction> mGenesisTx;
 
-private:
+//private:
+public:
     void CheckBuildArgs() const;
 
     void RestoreTransactions();
@@ -52,9 +60,11 @@ private:
     std::vector<CTxOut> GetGenesisTxSpends() const;
     CMutableTransaction PrepaireGenesisTx(bool to_sign);
 
-    std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const override;
+    CAmount CalculateWholeFee(const std::string& params) const override;
 
-    CMutableTransaction CreateCommitTxTemplate() const;
+    CMutableTransaction MakeCommitTx() const;
+    CMutableTransaction MakeGenesisTx() const;
+
     CMutableTransaction CreateGenesisTxTemplate() const;
 
     const CMutableTransaction& CommitTx() const;
@@ -73,10 +83,12 @@ public:
     static const std::string name_content;
     static const std::string name_collection;
     static const std::string name_collection_id;
+    static const std::string name_collection_mining_fee_sig;
     static const std::string name_inscribe_script_pk;
     static const std::string name_inscribe_int_pk;
     static const std::string name_inscribe_sig;
     static const std::string name_destination_pk;
+    static const std::string name_change_pk;
 
     CreateInscriptionBuilder() : m_ord_amount(0) {}
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
@@ -99,6 +111,7 @@ public:
     CreateInscriptionBuilder& AddUTXO(const std::string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);
     CreateInscriptionBuilder& DestinationPubKey(const std::string& pk);
+    CreateInscriptionBuilder& ChangePubKey(const std::string& pk);
     CreateInscriptionBuilder& AddToCollection(const std::string& collection_id, const std::string& utxo_txid, uint32_t utxo_nout, const std::string& utxo_amount);
     CreateInscriptionBuilder& AddFundMiningFee(const std::string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
 
@@ -120,7 +133,7 @@ public:
     void SignInscription(const std::string& insribe_script_sk);
     void SignFundMiningFee(uint32_t n, const std::string& sk);
 
-    std::string GetMinFundingAmount() const override;
+    std::string GetMinFundingAmount(const std::string& params) const override;
 
     std::vector<std::string> RawTransactions() const;
 

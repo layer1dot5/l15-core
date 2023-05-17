@@ -157,7 +157,7 @@ public:
     std::string OrdSwapRawTransaction() const;
     std::string OrdPayoffRawTransaction() const;
 
-    std::string GetMinFundingAmount() const override;
+    std::string GetMinFundingAmount(const std::string& params) const override;
 };
 
 } // namespace l15::inscribeit

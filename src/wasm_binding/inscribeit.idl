@@ -33,6 +33,7 @@ interface CreateInscriptionBuilder
     [Ref] CreateInscriptionBuilder AddUTXO([Const] DOMString txid, long nout, [Const] DOMString amount, [Const] DOMString pubkey);
     [Ref] CreateInscriptionBuilder Data([Const] DOMString content_type, [Const] DOMString hex_data);
     [Ref] CreateInscriptionBuilder DestinationPubKey([Const] DOMString pk);
+    [Ref] CreateInscriptionBuilder ChangePubKey([Const] DOMString pk);
     [Ref] CreateInscriptionBuilder AddToCollection([Const] DOMString collection_id, [Const] DOMString txid, long nout, [Const] DOMString amount);
     [Ref] CreateInscriptionBuilder AddFundMiningFee([Const] DOMString txid, long nout, [Const] DOMString amount, [Const] DOMString pubkey);
 
@@ -45,8 +46,11 @@ interface CreateInscriptionBuilder
 
     [Value] string getIntermediateTaprootSK();
 
-    [Value] string GetMinFundingAmount();
+    [Value] string GetMinFundingAmount([Const] DOMString params);
     [Value] string GetGenesisTxMiningFee();
+
+    [Value] string GetNewInputMiningFee();
+    [Value] string GetNewOutMiningFee();
 
 };
 
@@ -83,5 +87,5 @@ interface SwapInscriptionBuilder
     [Value] string Serialize(SwapPhase phase);
     void Deserialize([Const] DOMString data);
 
-    [Value] string GetMinFundingAmount();
+    [Value] string GetMinFundingAmount([Const] DOMString params);
 };

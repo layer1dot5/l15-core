@@ -25,11 +25,17 @@ public:
     static const std::string name_mining_fee_rate;
 
 protected:
+    static const CAmount TX_BASE_VSIZE = 10;
+    static const CAmount TAPROOT_VOUT_VSIZE = 43;
+    static const CAmount TAPROOT_KEYSPEND_VIN_VSIZE = 58;
+    static const CAmount MIN_TAPROOT_TX_VSIZE = TX_BASE_VSIZE + TAPROOT_VOUT_VSIZE + TAPROOT_KEYSPEND_VIN_VSIZE;
 
     std::optional<CAmount> m_mining_fee_rate;
 
-    CAmount CalculateWholeFee() const;
-    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const = 0;
+    virtual CAmount CalculateWholeFee(const std::string& params) const;
+
+    ///deprecated
+    virtual std::vector<std::pair<CAmount,CMutableTransaction>> GetTransactions() const { return {}; };
 
 public:
     ContractBuilder() = default;
@@ -38,7 +44,10 @@ public:
 
     ContractBuilder& operator=(const ContractBuilder& ) = default;
     ContractBuilder& operator=(ContractBuilder&& ) noexcept = default;
-    virtual std::string GetMinFundingAmount() const = 0;
+    virtual std::string GetMinFundingAmount(const std::string& params) const = 0;
+
+    std::string GetNewInputMiningFee();
+    std::string GetNewOutMiningFee();
 
     virtual uint32_t GetProtocolVersion() const = 0;
 
