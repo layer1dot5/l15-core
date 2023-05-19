@@ -55,7 +55,7 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
 
 }
 
-const uint32_t CreateInscriptionBuilder::m_protocol_version = 4;
+const uint32_t CreateInscriptionBuilder::m_protocol_version = 5;
 
 const std::string CreateInscriptionBuilder::name_ord_amount = "ord_amount";
 const std::string CreateInscriptionBuilder::name_utxo = "utxo";
@@ -576,8 +576,8 @@ CMutableTransaction CreateInscriptionBuilder::MakeCommitTx() const {
     }
 
     result.vout.emplace_back(m_ord_amount, pubkey_script);
-
     CAmount genesis_fee = CalculateTxFee(*m_mining_fee_rate, CreateGenesisTxTemplate());
+
     if (m_collection_id) {
         CAmount add_vsize = TAPROOT_KEYSPEND_VIN_VSIZE + TAPROOT_VOUT_VSIZE;
         if (m_xtra_utxo.empty()) {
@@ -589,20 +589,22 @@ CMutableTransaction CreateInscriptionBuilder::MakeCommitTx() const {
         genesis_fee += CFeeRate(*m_mining_fee_rate).GetFee(add_vsize);
 
         result.vout.emplace_back(genesis_fee, CScript() << 1 << m_inscribe_script_pk.value_or(xonly_pubkey()));
-
-        try {
-            result.vout.emplace_back(0, CScript() << 1 << m_change_pk.value_or(xonly_pubkey()));
-            CAmount change_amount = CalculateOutputAmount(total_funds - m_ord_amount - genesis_fee, *m_mining_fee_rate, result);
-            result.vout.back().nValue = change_amount;
-        }
-        catch(const TransactionError& ) {
-            // Spend all the excessive funds to inscription if less then dust
-            result.vout.pop_back();
-            result.vout.front().nValue = CalculateOutputAmount(total_funds - genesis_fee, *m_mining_fee_rate, result);
-        }
     }
     else {
-        result.vout.front().nValue = CalculateOutputAmount(total_funds, *m_mining_fee_rate, result);
+        result.vout.back().nValue += genesis_fee;
+    }
+
+    try {
+        result.vout.emplace_back(0, CScript() << 1 << m_change_pk.value_or(xonly_pubkey()));
+        CAmount change_amount = CalculateOutputAmount(total_funds - m_ord_amount - genesis_fee, *m_mining_fee_rate, result);
+        result.vout.back().nValue = change_amount;
+    }
+    catch(const TransactionError& ) {
+        // Spend all the excessive funds to inscription or collection if less then dust
+        result.vout.pop_back();
+        CAmount mining_fee = CalculateTxFee(*m_mining_fee_rate, result);
+        result.vout.back().nValue += total_funds - m_ord_amount - genesis_fee - mining_fee;
+                //CalculateOutputAmount(total_funds - genesis_fee, *m_mining_fee_rate, result);
     }
 
     return result;

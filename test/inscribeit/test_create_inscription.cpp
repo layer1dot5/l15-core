@@ -87,6 +87,7 @@ struct CreateCondition
 {
     std::vector<CAmount> funds;
     bool collection_parent;
+    bool has_change;
 };
 
 TEST_CASE("inscribe")
@@ -128,11 +129,12 @@ TEST_CASE("inscribe")
 
     CAmount vin_cost = ParseAmount(builder.GetNewInputMiningFee());
 
-    const CreateCondition parent = {{ParseAmount(exact_amount)}, true};
-    const CreateCondition fund = {{ParseAmount(exact_amount_w_collection)}, false};
-    const CreateCondition multi_fund = {{ParseAmount(exact_amount_w_collection) - 800, 800 + vin_cost}, false};
-    const CreateCondition fund_change = {{10000}, false};
-    const CreateCondition multi_fund_2 = {{546, ParseAmount(exact_amount_w_collection), 600, 700}, false};
+    const CreateCondition single = {{10000}, true, true};
+    const CreateCondition parent = {{ParseAmount(exact_amount)}, true, false};
+    const CreateCondition fund = {{ParseAmount(exact_amount_w_collection)}, false, false};
+    const CreateCondition multi_fund = {{ParseAmount(exact_amount_w_collection) - 800, 800 + vin_cost}, false, false};
+    const CreateCondition fund_change = {{10000}, false, true};
+    const CreateCondition multi_fund_2 = {{546, ParseAmount(exact_amount_w_collection), 600, 700}, false, false};
 
     auto condition = GENERATE_REF(parent, fund, multi_fund, fund_change);
 
@@ -196,6 +198,8 @@ TEST_CASE("inscribe")
     CHECK(DecodeHexTx(funding_tx, rawtx.front()));
     CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
 
+    CHECK(funding_tx.vout.size() == (1 + (condition.collection_parent ? 0 : 1) + (condition.has_change ? 1 : 0)));
+
     SECTION("Inscribe")
     {
         CMutableTransaction commit_tx;
@@ -206,8 +210,8 @@ TEST_CASE("inscribe")
         std::clog << "Commit fee: " << CalculateTxFee(ParseAmount(fee_rate), commit_tx) << std::endl;
         std::clog << "Genesis fee: " << CalculateTxFee(ParseAmount(fee_rate), genesis_tx) << std::endl;
 
-        std::clog << "Builder Genesis template fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.CreateGenesisTxTemplate()) << std::endl;
-        std::clog << "Builder Genesis tx fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.MakeGenesisTx()) << std::endl;
+//        std::clog << "Builder Genesis template fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.CreateGenesisTxTemplate()) << std::endl;
+//        std::clog << "Builder Genesis tx fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.MakeGenesisTx()) << std::endl;
 
         LogTx(commit_tx);
         LogTx(genesis_tx);

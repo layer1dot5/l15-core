@@ -60,7 +60,7 @@ std::string ContractBuilder::GetNewInputMiningFee()
     return FormatAmount(CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_KEYSPEND_VIN_VSIZE));
 }
 
-std::string ContractBuilder::GetNewOutMiningFee()
+std::string ContractBuilder::GetNewOutputMiningFee()
 {
     return FormatAmount(CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_VOUT_VSIZE));
 }

@@ -47,7 +47,7 @@ public:
     virtual std::string GetMinFundingAmount(const std::string& params) const = 0;
 
     std::string GetNewInputMiningFee();
-    std::string GetNewOutMiningFee();
+    std::string GetNewOutputMiningFee();
 
     virtual uint32_t GetProtocolVersion() const = 0;
 
@@ -55,7 +55,6 @@ public:
     void SetMiningFeeRate(const std::string& v) { m_mining_fee_rate = ParseAmount(v); }
 
     static void VerifyTxSignature(const xonly_pubkey& pk, const signature& sig, const CMutableTransaction& tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script);
-
 
 };
 

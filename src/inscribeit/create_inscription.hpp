@@ -52,8 +52,7 @@ class CreateInscriptionBuilder: public ContractBuilder
     mutable std::optional<CMutableTransaction> mCommitTx;
     mutable std::optional<CMutableTransaction> mGenesisTx;
 
-//private:
-public:
+private:
     void CheckBuildArgs() const;
 
     void RestoreTransactions();
@@ -72,7 +71,6 @@ public:
     const CMutableTransaction& CommitTx() const;
 
 public:
-
     static const std::string name_ord_amount;
     static const std::string name_utxo;
     static const std::string name_xtra_utxo;
