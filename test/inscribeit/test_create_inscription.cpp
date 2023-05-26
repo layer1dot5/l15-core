@@ -27,8 +27,6 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 
 std::unique_ptr<TestcaseWrapper> w;
-std::optional<std::tuple<std::string, Transfer>> collection_out;
-ChannelKeys collection_key;
 
 std::string GenRandomString(const int len) {
     static const char alphanum[] =
@@ -86,20 +84,23 @@ int main(int argc, char* argv[])
 struct CreateCondition
 {
     std::vector<CAmount> funds;
-    bool collection_parent;
+    InscribeType type;
     bool has_change;
+    bool has_parent;
 };
 
-TEST_CASE("inscribe")
+std::string collection_id;
+seckey collection_script_sk;
+xonly_pubkey collection_int_pk;
+Transfer collection_utxo;
+
+TEST_CASE("single inscribe")
 {
-    //get key pair
     ChannelKeys utxo_key;
-    ChannelKeys script_key;
-    ChannelKeys extra_key;
-    bool added_to_collection = false;
+    ChannelKeys script_key, inscribe_key;
+    ChannelKeys collection_script_key, collection_int_key;
 
     string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
-    string extra_addr = w->bech32().Encode(extra_key.GetLocalPubKey());
 
     xonly_pubkey destination_pk = w->bech32().Decode(w->btc().GetNewAddress());
 
@@ -116,31 +117,226 @@ TEST_CASE("inscribe")
     std::string content_type = "text/ascii";
     auto content = hex(GenRandomString(2048));
 
-    CreateInscriptionBuilder builder("0.00000546");
-    CHECK_NOTHROW(builder.MiningFeeRate(fee_rate).Data(content_type, content));
+    CreateInscriptionBuilder test_inscription(INSCRIPTION, "0.00000546");
+    REQUIRE_NOTHROW(test_inscription.MiningFeeRate(fee_rate).Data(content_type, content));
+    std::string inscription_amount = test_inscription.GetMinFundingAmount("");
+
+    CreateInscriptionBuilder test_collection(COLLECTION, "0.00000546");
+    REQUIRE_NOTHROW(test_collection.MiningFeeRate(fee_rate).Data(content_type, content));
+    std::string collection_amount = test_collection.GetMinFundingAmount("");
+
+    CreateCondition inscription {{10000}, INSCRIPTION, true, false};
+    CreateCondition collection {{10000}, COLLECTION, true, false};
+    CreateCondition exact_inscription {{ParseAmount(inscription_amount)}, INSCRIPTION, false, false};
+    CreateCondition exact_collection {{ParseAmount(collection_amount)}, COLLECTION, false, false};
+
+    std::clog << "Inscription ord amount: " << inscription_amount << '\n';
+    std::clog << "Collection root ord amount: " << collection_amount << std::endl;
+
+    auto condition = GENERATE_REF(move(inscription), move(collection), move(exact_inscription), move(exact_collection));
+
+    string funds_txid = w->btc().SendToAddress(addr, FormatAmount(condition.funds[0]));
+    auto prevout = w->btc().CheckOutput(funds_txid, addr);
+
+    CreateInscriptionBuilder builder(condition.type, "0.00000546");
+    CHECK_NOTHROW(builder.MiningFeeRate(fee_rate)
+                         .Data(content_type, content)
+                         .InscribePubKey(hex((condition.type == INSCRIPTION) ? destination_pk : inscribe_key.GetLocalPubKey()))
+                         .ChangePubKey(hex(destination_pk))
+                         .AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(condition.funds[0]), hex(utxo_key.GetLocalPubKey())));
+
+    if (condition.type == COLLECTION) {
+        CHECK_NOTHROW(builder.CollectionCommitPubKeys(hex(collection_script_key.GetLocalPubKey()), hex(collection_int_key.GetLocalPubKey())));
+    }
+
+    CHECK_NOTHROW(builder.SignCommit(0, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
+    CHECK_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
+    if (condition.type == COLLECTION) {
+        CHECK_NOTHROW(builder.SignCollectionRootCommit(hex(inscribe_key.GetLocalPrivKey())));
+    }
+
+    std::string contract = builder.Serialize();
+    std::clog << contract << std::endl;
+
+    CreateInscriptionBuilder builder2(condition.type, "0.00000546");
+    builder2.Deserialize(contract);
+
+    stringvector rawtxs;
+    CHECK_NOTHROW(rawtxs = builder2.RawTransactions());
+
+    CMutableTransaction commitTx, revealTx, collectionCommitTx;
+    if (condition.type == INSCRIPTION) {
+        REQUIRE(rawtxs.size() == 2);
+        REQUIRE(DecodeHexTx(commitTx, rawtxs[0]));
+        REQUIRE(DecodeHexTx(revealTx, rawtxs[1]));
+        CHECK(revealTx.vout[0].nValue == 546);
+    }
+    else if (condition.type == COLLECTION) {
+        REQUIRE(rawtxs.size() == 3);
+        REQUIRE(DecodeHexTx(commitTx, rawtxs[0]));
+        REQUIRE(DecodeHexTx(revealTx, rawtxs[1]));
+        REQUIRE(DecodeHexTx(collectionCommitTx, rawtxs[2]));
+        CHECK(collectionCommitTx.vout[0].nValue == 546);
+
+        collection_script_sk = collection_script_key.GetLocalPrivKey();
+        collection_int_pk = collection_int_key.GetLocalPubKey();
+
+        collection_id = revealTx.GetHash().GetHex() + "i0";
+        std::string collection_taproot_pk = Collection::GetCollectionTapRootPubKey(collection_id,
+                                                                                   hex(collection_script_key.GetLocalPrivKey()),
+                                                                                   hex(collection_int_key.GetLocalPrivKey()));
+
+        collection_utxo = {collectionCommitTx.GetHash().GetHex(), 0, 546, unhex<xonly_pubkey>(collection_taproot_pk)};
+    }
+    else {
+        FAIL();
+    }
+
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(commitTx)));
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(revealTx)));
+
+    if (condition.type == COLLECTION) {
+        REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(collectionCommitTx)));
+    }
+}
+
+TEST_CASE("collection child")
+{
+    ChannelKeys utxo_key;
+    ChannelKeys script_key, inscribe_key;
+    ChannelKeys collection_script_key(collection_script_sk);
+    ChannelKeys new_collection_script_key, new_collection_int_key;
+
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
+
+    xonly_pubkey destination_pk = w->bech32().Decode(w->btc().GetNewAddress());
+
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.00001";
+    }
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    std::string content_type = "text/ascii";
+    auto content = hex(GenRandomString(2048));
+
+    CreateInscriptionBuilder test_inscription(INSCRIPTION, "0.00000546");
+    REQUIRE_NOTHROW(test_inscription.MiningFeeRate(fee_rate).Data(content_type, content));
+    std::string inscription_amount = test_inscription.GetMinFundingAmount("");
+
+    CreateInscriptionBuilder test_collection(COLLECTION, "0.00000546");
+    REQUIRE_NOTHROW(test_collection.MiningFeeRate(fee_rate).Data(content_type, content));
+    std::string collection_amount = test_collection.GetMinFundingAmount("");
+
+    CreateCondition inscription {{10000}, INSCRIPTION, true, false};
+    CreateCondition collection {{10000}, COLLECTION, true, false};
+    CreateCondition exact_inscription {{ParseAmount(inscription_amount)}, INSCRIPTION, false, false};
+    CreateCondition exact_collection {{ParseAmount(collection_amount)}, COLLECTION, false, false};
+
+//    auto condition = GENERATE_REF(move(inscription), move(collection), move(exact_inscription), move(exact_collection));
+
+    string funds_txid = w->btc().SendToAddress(addr, FormatAmount(10000));
+    auto prevout = w->btc().CheckOutput(funds_txid, addr);
+
+    std::string collection_out_pk = Collection::GetCollectionTapRootPubKey(collection_id, hex(new_collection_script_key.GetLocalPrivKey()), hex(new_collection_int_key.GetLocalPrivKey()));
+
+    CreateInscriptionBuilder builder(INSCRIPTION, "0.00000546");
+    CHECK_NOTHROW(builder.MiningFeeRate(fee_rate)
+                          .Data(content_type, content)
+                          .InscribePubKey(hex(destination_pk))
+                          .ChangePubKey(hex(destination_pk))
+                          .AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, FormatAmount(10000), hex(utxo_key.GetLocalPubKey()))
+                          .AddToCollection(collection_id, collection_utxo.m_txid, 0, FormatAmount(546),
+                                           hex(collection_script_key.GetLocalPubKey()), hex(collection_int_pk),
+                                           collection_out_pk));
+
+    CHECK_NOTHROW(builder.SignCommit(0, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
+    CHECK_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
+    CHECK_NOTHROW(builder.SignCollection(hex(collection_script_sk)));
+
+    std::string contract = builder.Serialize();
+    std::clog << contract << std::endl;
+
+    CreateInscriptionBuilder builder2(INSCRIPTION, "0.00000546");
+    builder2.Deserialize(contract);
+
+    stringvector rawtxs;
+    CHECK_NOTHROW(rawtxs = builder2.RawTransactions());
+
+    CMutableTransaction commitTx, revealTx;
+
+
+    REQUIRE(rawtxs.size() == 2);
+    REQUIRE(DecodeHexTx(commitTx, rawtxs[0]));
+    REQUIRE(DecodeHexTx(revealTx, rawtxs[1]));
+
+    CHECK(revealTx.vout[0].nValue == 546);
+    CHECK(revealTx.vout[1].nValue == 546);
+
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(commitTx)));
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(revealTx)));
+
+    collection_utxo = {revealTx.GetHash().GetHex(), 1, 546};
+    collection_script_sk = new_collection_script_key.GetLocalPrivKey();
+    collection_int_pk = new_collection_int_key.GetLocalPubKey();
+}
+
+TEST_CASE("inscribe")
+{
+    ChannelKeys utxo_key;
+    ChannelKeys script_key, inscribe_key;
+    ChannelKeys collection_script_key(collection_script_sk);
+    ChannelKeys new_collection_script_key, new_collection_int_key;
+
+    string addr = w->bech32().Encode(utxo_key.GetLocalPubKey());
+
+    xonly_pubkey destination_pk = w->bech32().Decode(w->btc().GetNewAddress());
+
+    std::string fee_rate;
+    try {
+        fee_rate = w->btc().EstimateSmartFee("1");
+    }
+    catch(...) {
+        fee_rate = "0.00001";
+    }
+
+    std::clog << "Fee rate: " << fee_rate << std::endl;
+
+    std::string content_type = "text/ascii";
+    auto content = hex(GenRandomString(2048));
+
+    CreateInscriptionBuilder test_builder(INSCRIPTION, "0.00000546");
+    REQUIRE_NOTHROW(test_builder.MiningFeeRate(fee_rate).Data(content_type, content));
 
     std::clog << ">>>>> Estimate mining fee <<<<<" << std::endl;
 
-    std::string exact_amount = builder.GetMinFundingAmount("");
-    std::string exact_amount_w_collection = builder.GetMinFundingAmount("collection");
+    std::string exact_amount = test_builder.GetMinFundingAmount("");
+    std::string exact_amount_w_collection = test_builder.GetMinFundingAmount("collection");
+
+    CreateInscriptionBuilder test_collection(COLLECTION, "0.00000546");
+    REQUIRE_NOTHROW(test_collection.MiningFeeRate(fee_rate).Data(content_type, content));
+    std::string exact_collection_root_amount = test_collection.GetMinFundingAmount("collection");
 
     std::clog << "Amount for collection: " << exact_amount_w_collection << std::endl;
 
 
-    CAmount vin_cost = ParseAmount(builder.GetNewInputMiningFee());
+    CAmount vin_cost = ParseAmount(test_builder.GetNewInputMiningFee());
 
-    const CreateCondition single = {{10000}, true, true};
-    const CreateCondition parent = {{ParseAmount(exact_amount)}, true, false};
-    const CreateCondition fund = {{ParseAmount(exact_amount_w_collection)}, false, false};
-    const CreateCondition multi_fund = {{ParseAmount(exact_amount_w_collection) - 800, 800 + vin_cost}, false, false};
-    const CreateCondition fund_change = {{10000}, false, true};
-    const CreateCondition multi_fund_2 = {{546, ParseAmount(exact_amount_w_collection), 600, 700}, false, false};
+    const CreateCondition parent = {{ParseAmount(exact_collection_root_amount)}, COLLECTION, false, true};
+    const CreateCondition fund = {{ParseAmount(exact_amount_w_collection)}, INSCRIPTION, false, true};
+    const CreateCondition multi_fund = {{ParseAmount(exact_amount_w_collection) - 800, 800 + vin_cost}, INSCRIPTION, false, true};
+    const CreateCondition fund_change = {{10000}, INSCRIPTION, true, true};
 
     auto condition = GENERATE_REF(parent, fund, multi_fund, fund_change);
 
-    CHECK_NOTHROW(builder.DestinationPubKey(hex(condition.collection_parent ? collection_key.GetLocalPubKey() : destination_pk)));
-    CHECK_NOTHROW(builder.ChangePubKey(hex(destination_pk)));
-
+    CreateInscriptionBuilder builder(condition.type, "0.00000546");
+    REQUIRE_NOTHROW(builder.MiningFeeRate(fee_rate).Data(content_type, content));
+    REQUIRE_NOTHROW(builder.InscribePubKey(hex(condition.type == COLLECTION ? inscribe_key.GetLocalPubKey() : destination_pk)));
+    REQUIRE_NOTHROW(builder.ChangePubKey(hex(destination_pk)));
 
     for (CAmount amount: condition.funds) {
         const std::string funds_amount = FormatAmount(amount);
@@ -148,101 +344,107 @@ TEST_CASE("inscribe")
         string funds_txid = w->btc().SendToAddress(addr, funds_amount);
         auto prevout = w->btc().CheckOutput(funds_txid, addr);
 
-        CHECK_NOTHROW(builder.AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, funds_amount, hex(utxo_key.GetLocalPubKey())));
+        REQUIRE_NOTHROW(builder.AddUTXO(get<0>(prevout).hash.GetHex(), get<0>(prevout).n, funds_amount, hex(utxo_key.GetLocalPubKey())));
     }
 
-    if (!condition.collection_parent) {
-        std::clog << ">>>>> collection id:" << get<0>(*collection_out) << std::endl;
-        const auto &col_utxo = get<1>(*collection_out);
-        CHECK_NOTHROW(builder.AddToCollection(get<0>(*collection_out), col_utxo.m_txid, col_utxo.m_nout, FormatAmount(col_utxo.m_amount)));
-        added_to_collection = true;
-
-//        std::string mining_fee = builder.GetGenesisTxMiningFee();
-//
-//        string extra_txid = w->btc().SendToAddress(extra_addr, mining_fee);
-//        auto extra_prevout = w->btc().CheckOutput(extra_txid, extra_addr);
-//
-//        CHECK_NOTHROW(builder.AddFundMiningFee(get<0>(extra_prevout).hash.GetHex(), get<0>(extra_prevout).n, mining_fee, hex(extra_key.GetLocalPubKey())));
+    if (condition.type == COLLECTION) {
+        REQUIRE_NOTHROW(builder.CollectionCommitPubKeys(hex(new_collection_script_key.GetLocalPubKey()), hex(new_collection_int_key.GetLocalPubKey())));
     }
 
-    std::clog << "Min funding: " << builder.GetMinFundingAmount("") << "\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/" << std::endl;
+    if (condition.has_parent) {
+        std::string collection_out_pk = Collection::GetCollectionTapRootPubKey(collection_id, hex(new_collection_script_key.GetLocalPrivKey()), hex(new_collection_int_key.GetLocalPrivKey()));
+
+        REQUIRE_NOTHROW(builder.AddToCollection(collection_id, collection_utxo.m_txid, collection_utxo.m_nout, FormatAmount(collection_utxo.m_amount),
+                                              hex(collection_script_key.GetLocalPubKey()), hex(collection_int_pk),
+                                              collection_out_pk));
+    }
 
     for (uint32_t n = 0; n < condition.funds.size(); ++n) {
         std::clog << ">>>>> Sign commit <<<<<" << std::endl;
-        CHECK_NOTHROW(builder.SignCommit(n, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
+        REQUIRE_NOTHROW(builder.SignCommit(n, hex(utxo_key.GetLocalPrivKey()), hex(script_key.GetLocalPubKey())));
     }
-    if (added_to_collection) {
+    if (condition.has_parent) {
         std::clog << ">>>>> Sign collection <<<<<" << std::endl;
-        CHECK_NOTHROW(builder.SignCollection(hex(collection_key.GetLocalPrivKey())));
+        REQUIRE_NOTHROW(builder.SignCollection(hex(collection_script_sk)));
 //        CHECK_NOTHROW(builder.SignFundMiningFee(0, hex(extra_key.GetLocalPrivKey())));
     }
     std::clog << ">>>>> Sign inscription <<<<<" << std::endl;
-    CHECK_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
+    REQUIRE_NOTHROW(builder.SignInscription(hex(script_key.GetLocalPrivKey())));
+    if (condition.type == COLLECTION) {
+        REQUIRE_NOTHROW(builder.SignCollectionRootCommit(hex(inscribe_key.GetLocalPrivKey())));
+    }
 
     ChannelKeys rollback_key(unhex<seckey>(builder.getIntermediateTaprootSK()));
 
     std::string ser_data;
-    CHECK_NOTHROW(ser_data = builder.Serialize());
+    REQUIRE_NOTHROW(ser_data = builder.Serialize());
 
     std::clog << ser_data << std::endl;
 
-    CreateInscriptionBuilder builder2("0.00000546");
+    CreateInscriptionBuilder builder2(condition.type, "0.00000546");
 
     std::clog << ">>>>> Deserialize <<<<<" << std::endl;
-    CHECK_NOTHROW(builder2.Deserialize(ser_data));
+    REQUIRE_NOTHROW(builder2.Deserialize(ser_data));
 
     stringvector rawtx;
-    CHECK_NOTHROW(rawtx = builder2.RawTransactions());
+    REQUIRE_NOTHROW(rawtx = builder2.RawTransactions());
 
-    CMutableTransaction funding_tx;
-    CHECK(DecodeHexTx(funding_tx, rawtx.front()));
-    CHECK_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
+    CMutableTransaction funding_tx, genesis_tx, collection_commit_tx;;
+    REQUIRE(DecodeHexTx(funding_tx, rawtx.front()));
+    std::clog << "Funding TX ============================================================" << '\n';
+    LogTx(funding_tx);
+    CHECK(funding_tx.vout.size() == (1 + (condition.has_parent ? 1 : 0) + (condition.has_change ? 1 : 0)));
 
-    CHECK(funding_tx.vout.size() == (1 + (condition.collection_parent ? 0 : 1) + (condition.has_change ? 1 : 0)));
+    REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funding_tx)));
 
     SECTION("Inscribe")
     {
-        CMutableTransaction commit_tx;
-        CHECK(DecodeHexTx(commit_tx, rawtx.front()));
-        CMutableTransaction genesis_tx;
-        CHECK(DecodeHexTx(genesis_tx, rawtx.back()));
-
-        std::clog << "Commit fee: " << CalculateTxFee(ParseAmount(fee_rate), commit_tx) << std::endl;
-        std::clog << "Genesis fee: " << CalculateTxFee(ParseAmount(fee_rate), genesis_tx) << std::endl;
-
-//        std::clog << "Builder Genesis template fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.CreateGenesisTxTemplate()) << std::endl;
-//        std::clog << "Builder Genesis tx fee: " << CalculateTxFee(ParseAmount(fee_rate), builder.MakeGenesisTx()) << std::endl;
-
-        LogTx(commit_tx);
+        REQUIRE(DecodeHexTx(genesis_tx, rawtx[1]));
+        std::clog << "Reveal TX ============================================================" << '\n';
         LogTx(genesis_tx);
-
-        std::string txid;
-        CHECK_NOTHROW(txid = w->btc().SpendTx(CTransaction(genesis_tx)));
-
-        CHECK(genesis_tx.vout[0].nValue == 546);
-
-        if (condition.collection_parent) {
-            std::string collection_id = txid + "i0";
-            collection_out = {collection_id, {txid, 0, genesis_tx.vout.front().nValue, destination_pk}};
+        if (condition.type == COLLECTION) {
+            REQUIRE(DecodeHexTx(collection_commit_tx, rawtx[2]));
+            std::clog << "Collection commit TX ============================================================" << '\n';
+            LogTx(collection_commit_tx);
         }
-        else if (added_to_collection){
-            get<1>(*collection_out).m_txid = txid;
-            get<1>(*collection_out).m_nout = 1;
-            get<1>(*collection_out).m_amount = genesis_tx.vout[1].nValue;
+        REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(genesis_tx)));
 
-            CHECK(commit_tx.vout[0].nValue == 546);
+        if (condition.type == COLLECTION) {
+            REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(collection_commit_tx)));
+            CHECK(collection_commit_tx.vout[0].nValue == 546);
+        }
+        else {
+            CHECK(genesis_tx.vout[0].nValue == 546);
+        }
+
+        if (condition.type == COLLECTION) {
+            collection_id = genesis_tx.GetHash().GetHex() + "i0";
+            collection_utxo = {collection_commit_tx.GetHash().GetHex(), 0, collection_commit_tx.vout.front().nValue};
+        }
+        else if (condition.has_parent){
+            collection_utxo = {genesis_tx.GetHash().GetHex(), 1, genesis_tx.vout[1].nValue};
+        }
+
+        if (condition.has_parent) {
+            if (condition.type == INSCRIPTION) {
+                CHECK(funding_tx.vout[0].nValue == 546);
+            }
+
             CHECK(genesis_tx.vout[1].nValue == 546);
+
+            collection_script_sk = new_collection_script_key.GetLocalPrivKey();
+            collection_int_pk = new_collection_int_key.GetLocalPubKey();
         }
 
-        std::optional<Inscription> inscription;
-        CHECK_NOTHROW(inscription = Inscription(rawtx.back(), 0));
-        CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
-        CHECK(inscription->GetContentType() == content_type);
-        CHECK(inscription->GetContent() == unhex<bytevector>(content));
-
-        if (added_to_collection) {
-            CHECK(inscription->GetCollectionId() == get<0>(*collection_out));
-        }
+//        std::optional<Inscription> inscription;
+//        CHECK_NOTHROW(inscription = Inscription(rawtx[1], 0));
+//        CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
+//        CHECK(inscription->GetContentType() == content_type);
+//        CHECK(inscription->GetContent() == unhex<bytevector>(content));
+//
+//        if (condition.has_parent) {
+//            CHECK(inscription->GetCollectionId() == collection_id);
+//        }
     }
 
     SECTION("Payback")

@@ -10,6 +10,11 @@ const std::string ContractBuilder::name_contract_type = "contract_type";
 const std::string ContractBuilder::name_params = "params";
 const std::string ContractBuilder::name_version = "protocol_version";
 const std::string ContractBuilder::name_mining_fee_rate = "mining_fee_rate";
+const std::string ContractBuilder::name_txid = "txid";
+const std::string ContractBuilder::name_nout = "nout";
+const std::string ContractBuilder::name_amount = "amount";
+const std::string ContractBuilder::name_pk = "pubkey";
+const std::string ContractBuilder::name_sig = "sig";
 
 CAmount ContractBuilder::CalculateWholeFee(const std::string& params) const {
     auto txs = GetTransactions();

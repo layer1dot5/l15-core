@@ -24,6 +24,12 @@ public:
     static const std::string name_version;
     static const std::string name_mining_fee_rate;
 
+    static const std::string name_txid;
+    static const std::string name_nout;
+    static const std::string name_amount;
+    static const std::string name_pk;
+    static const std::string name_sig;
+
 protected:
     static const CAmount TX_BASE_VSIZE = 10;
     static const CAmount TAPROOT_VOUT_VSIZE = 43;
