@@ -34,7 +34,7 @@ class Inscription
 
     void ParseEnvelopeScript(const CScript& script);
 public:
-    explicit Inscription(const std::string& hex_tx, uint32_t input);
+    explicit Inscription(const std::string& hex_tx);
     Inscription(const Inscription& ) = default;
     Inscription(Inscription&& ) noexcept = default;
 

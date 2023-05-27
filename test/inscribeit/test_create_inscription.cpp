@@ -417,6 +417,16 @@ TEST_CASE("inscribe")
             CHECK(genesis_tx.vout[0].nValue == 546);
         }
 
+        std::optional<Inscription> inscription;
+        CHECK_NOTHROW(inscription = Inscription(rawtx[1]));
+        CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
+        CHECK(inscription->GetContentType() == content_type);
+        CHECK(inscription->GetContent() == unhex<bytevector>(content));
+
+        if (condition.has_parent) {
+            CHECK(inscription->GetCollectionId() == collection_id);
+        }
+
         if (condition.type == COLLECTION) {
             collection_id = genesis_tx.GetHash().GetHex() + "i0";
             collection_utxo = {collection_commit_tx.GetHash().GetHex(), 0, collection_commit_tx.vout.front().nValue};
@@ -435,16 +445,6 @@ TEST_CASE("inscribe")
             collection_script_sk = new_collection_script_key.GetLocalPrivKey();
             collection_int_pk = new_collection_int_key.GetLocalPubKey();
         }
-
-//        std::optional<Inscription> inscription;
-//        CHECK_NOTHROW(inscription = Inscription(rawtx[1], 0));
-//        CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
-//        CHECK(inscription->GetContentType() == content_type);
-//        CHECK(inscription->GetContent() == unhex<bytevector>(content));
-//
-//        if (condition.has_parent) {
-//            CHECK(inscription->GetCollectionId() == collection_id);
-//        }
     }
 
     SECTION("Payback")

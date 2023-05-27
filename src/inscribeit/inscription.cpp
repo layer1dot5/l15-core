@@ -33,22 +33,26 @@ void Inscription::ParseEnvelopeScript(const CScript &script)
     opcodetype prev_opcode = OP_INVALIDOPCODE;
     opcodetype opcode = OP_INVALIDOPCODE;
     bytevector data;
-    bool has_ord_envelop = false;
+    bool has_ord_envelope = false;
+    bool has_ord_parent_envelope = false;
 
-    while (it < end && !has_ord_envelop) {
+    while (it < end && !has_ord_envelope && !has_ord_parent_envelope) {
         prev_opcode_2 = prev_opcode;
         prev_opcode = opcode;
 
         if (!script.GetOp(it, opcode, data))
             throw TransactionError("script");
 
-        has_ord_envelop = (prev_opcode_2 == OP_0 &&
+        has_ord_envelope = (prev_opcode_2 == OP_0 &&
             prev_opcode == OP_IF &&
             opcode == ORD_TAG.size() &&
             data == ORD_TAG);
-    }
 
-    if (!has_ord_envelop) throw InscriptionError("not inscription");
+        has_ord_parent_envelope = (prev_opcode_2 == OP_0 &&
+            prev_opcode == OP_IF &&
+            opcode == ORD_PARENT_TAG.size() &&
+            data == ORD_PARENT_TAG);
+    }
 
     bool fetching_content = false;
 
@@ -88,12 +92,9 @@ void Inscription::ParseEnvelopeScript(const CScript &script)
             m_content.insert(m_content.end(), data.begin(), data.end());
         }
     }
-
-    if (m_content.empty()) throw InscriptionFormatError("no content");
-    if (m_content_type.empty()) throw InscriptionFormatError("no content type");
 }
 
-Inscription::Inscription(const std::string &hex_tx, uint32_t input)
+Inscription::Inscription(const std::string &hex_tx)
 {
     CDataStream stream(unhex<bytevector>(hex_tx), SER_NETWORK, PROTOCOL_VERSION);
 
@@ -103,18 +104,26 @@ Inscription::Inscription(const std::string &hex_tx, uint32_t input)
         stream >> tx;
     }
     catch (const std::exception& e) {
-        std::throw_with_nested(TransactionError("Genesis transaction parse error"));
+        std::throw_with_nested(TransactionError("TX parse error"));
     }
 
-    if (input >= tx.vin.size()) throw IllegalArgumentError("input #" + std::to_string(input));
-    if (tx.vin[input].scriptWitness.stack.size() < 3) throw InscriptionFormatError("no witness script");
+    if (tx.vin[0].scriptWitness.stack.size() < 3) throw InscriptionFormatError("no witness script");
 
-    const auto& witness_stack = tx.vin[input].scriptWitness.stack;
+    const auto& witness_stack = tx.vin[0].scriptWitness.stack;
     CScript script(witness_stack[witness_stack.size() - 2].begin(), witness_stack[witness_stack.size() - 2].end());
 
     ParseEnvelopeScript(script);
 
-    m_inscription_id = tx.GetHash().GetHex() + 'i' + std::to_string(input);
+    if (m_content.empty()) throw InscriptionError("no content");
+
+    if (tx.vin[1].scriptWitness.stack.size() >= 3) {
+        const auto &witness_stack = tx.vin[1].scriptWitness.stack;
+        CScript script(witness_stack[witness_stack.size() - 2].begin(), witness_stack[witness_stack.size() - 2].end());
+
+        ParseEnvelopeScript(script);
+    }
+
+    m_inscription_id = tx.GetHash().GetHex() + "i0";
 }
 
 
