@@ -62,6 +62,7 @@ interface CreateInscriptionBuilder
     [Value] string Serialize();
 
     [Value] string getIntermediateTaprootSK();
+    [Value] string MakeInscriptionId();
 
     [Value] string GetMinFundingAmount([Const] DOMString params);
     [Value] string GetGenesisTxMiningFee();

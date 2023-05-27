@@ -376,6 +376,8 @@ TEST_CASE("inscribe")
 
     ChannelKeys rollback_key(unhex<seckey>(builder.getIntermediateTaprootSK()));
 
+    std::string inscription_id = builder.MakeInscriptionId();
+
     std::string ser_data;
     REQUIRE_NOTHROW(ser_data = builder.Serialize());
 
@@ -400,6 +402,7 @@ TEST_CASE("inscribe")
     SECTION("Inscribe")
     {
         REQUIRE(DecodeHexTx(genesis_tx, rawtx[1]));
+        CHECK(inscription_id == (genesis_tx.GetHash().GetHex() + "i0"));
         std::clog << "Reveal TX ============================================================" << '\n';
         LogTx(genesis_tx);
         if (condition.type == COLLECTION) {

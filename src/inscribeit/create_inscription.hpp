@@ -147,6 +147,8 @@ public:
                                               const std::string& collection_out_pk);
     CreateInscriptionBuilder& AddFundMiningFee(const std::string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
 
+    std::string MakeInscriptionId() const;
+
     std::string getIntermediateTaprootSK() const
     { return hex(m_inscribe_taproot_sk.value()); }
 

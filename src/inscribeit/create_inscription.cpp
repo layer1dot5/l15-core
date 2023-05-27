@@ -902,6 +902,11 @@ CMutableTransaction CreateInscriptionBuilder::MakeCollectionRootCommitTx() const
     return tx;
 }
 
+std::string CreateInscriptionBuilder::MakeInscriptionId() const
+{
+    return MakeGenesisTx(false).GetHash().GetHex() + "i0";
+}
+
 std::string CreateInscriptionBuilder::GetMinFundingAmount(const std::string& params) const {
     if(!m_content_type) throw l15::TransactionError("content type is empty");
     if(!m_content) throw l15::TransactionError("content is empty");
