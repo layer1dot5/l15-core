@@ -82,12 +82,9 @@ std::pair<xonly_pubkey, uint8_t> MakeCollectionTapRootPubKey(const string &colle
 
 }
 
-std::string Collection::GetCollectionTapRootPubKey(const string &collection_id, const string &script_sk, const string &internal_sk)
+std::string Collection::GetCollectionTapRootPubKey(const string &collection_id, const string &script_pk, const string &internal_pk)
 {
-    core::ChannelKeys script_keypair(unhex<seckey>(script_sk));
-    core::ChannelKeys internal_keypair(unhex<seckey>(internal_sk));
-
-    auto taproot = MakeCollectionTapRootPubKey(collection_id, script_keypair.GetLocalPubKey(), internal_keypair.GetLocalPubKey());
+    auto taproot = MakeCollectionTapRootPubKey(collection_id, unhex<xonly_pubkey>(script_pk), unhex<xonly_pubkey>(internal_pk));
     return hex(taproot.first);
 }
 

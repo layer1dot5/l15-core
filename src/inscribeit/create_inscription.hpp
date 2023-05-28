@@ -17,8 +17,8 @@ class Collection
 {
 public:
     static std::string GetCollectionTapRootPubKey(const std::string& collection_id,
-                                                  const std::string& script_sk,
-                                                  const std::string& internal_sk);
+                                                  const std::string& script_pk,
+                                                  const std::string& internal_pk);
 };
 
 

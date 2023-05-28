@@ -94,6 +94,19 @@ seckey collection_script_sk;
 xonly_pubkey collection_int_pk;
 Transfer collection_utxo;
 
+TEST_CASE("collectiontaproot")
+{
+    std::string collectionid = "c730b2db411564b74432473f6789908623eca451a57158dc9de430b30ac7b3f9i0";
+
+    std::string coll_scr_pk = "7d5f939cb50067da99c4b17d7ad4bdcd419af6668ad2fbb64c17272db1964584";
+    std::string coll_int_pk = "6f5600a6f726f23ced3047c04d026b7df3ace31d9e3a3abfc51131c0e4d95142";
+
+    std::string coll_tr = Collection::GetCollectionTapRootPubKey(collectionid, coll_scr_pk, coll_int_pk);
+
+    CHECK(coll_tr == "8beaf837645995a1e4c0a8a7c68f20770ffc8a5ea8202821e60d4704696f79bb");
+}
+
+
 TEST_CASE("single inscribe")
 {
     ChannelKeys utxo_key;
