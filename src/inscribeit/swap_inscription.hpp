@@ -29,6 +29,8 @@ class SwapInscriptionBuilder : public ContractBuilder
     CAmount m_ord_price;
     std::optional<CAmount> m_market_fee;
 
+    std::optional<CAmount> m_ord_mining_fee_rate;
+
     std::optional<xonly_pubkey> m_swap_script_pk_A;
     std::optional<xonly_pubkey> m_swap_script_pk_B;
     std::optional<xonly_pubkey> m_swap_script_pk_M;
@@ -88,6 +90,8 @@ public:
     static const std::string name_ord_price;
     static const std::string name_market_fee;
 
+    static const std::string name_ord_mining_fee_rate;
+
     static const std::string name_swap_script_pk_A;
     static const std::string name_swap_script_pk_B;
     static const std::string name_swap_script_pk_M;
@@ -98,7 +102,7 @@ public:
     static const std::string name_ord_pk;
 
     static const std::string name_funds;
-    static const std::string name_funds_unspendable_key_factor;
+    static const std::string name_funds_unspendable_key;
     static const std::string name_funds_txid;
     static const std::string name_funds_nout;
     static const std::string name_funds_amount;
@@ -134,6 +138,8 @@ public:
 
     std::string GetSwapScriptPubKeyA() const { return hex(m_swap_script_pk_A.value()); }
     std::string GetSwapScriptPubKeyB() const { return hex(m_swap_script_pk_B.value()); }
+
+    void SetOrdMiningFeeRate(const std::string& fee_rate) { m_ord_mining_fee_rate = ParseAmount(fee_rate); }
 
     std::string GetSwapScriptPubKeyM() const { return hex(m_swap_script_pk_M.value()); }
     void SetSwapScriptPubKeyM(const std::string& v) { m_swap_script_pk_M = unhex<xonly_pubkey>(v); }
