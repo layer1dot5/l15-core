@@ -108,7 +108,7 @@ TEST_CASE("TapRoot single script")
     ScriptMerkleTree tap_tree (TreeBalanceType::WEIGHTED, {script});
     uint256 root = tap_tree.CalculateRoot();
 
-    auto tap_root = internal_sk.AddTapTweak(std::make_optional(root));
+    auto tap_root = internal_sk.AddTapTweak(root);
 
 
     XOnlyPubKey xonly_internal_pubkey(internal_pk);

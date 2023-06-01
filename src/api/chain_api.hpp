@@ -20,9 +20,9 @@ private:
     static std::regex sNewlineRegExp;
 
     std::vector<std::string> m_default;
-    const char* m_cli_path;
+    std::string m_cli_path;
 public:
-    ChainApi(std::vector<std::string> &&default_opts, const char *cli_path = "bitcoin-cli")
+    ChainApi(std::vector<std::string> &&default_opts, const std::string& cli_path = "bitcoin-cli")
         : m_default(default_opts), m_cli_path(cli_path) { }
     ~ChainApi() = default;
 

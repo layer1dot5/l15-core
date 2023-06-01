@@ -12,7 +12,7 @@ namespace pr = boost::process;
 namespace fs = boost::filesystem;
 
 
-ExecHelper::ExecHelper(const char* command, bool autorun) : m_command(command), m_exitcode(std::numeric_limits<int>::min())
+ExecHelper::ExecHelper(const std::string& command, bool autorun) : m_command(command), m_exitcode(std::numeric_limits<int>::min())
 {
     auto path = pr::search_path(command);
     if(path.empty()) {

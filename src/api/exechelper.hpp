@@ -19,7 +19,7 @@ class ExecHelper {
     std::string m_out;
     int m_exitcode;
 public:
-    explicit ExecHelper(const char* command, bool autorun = true);
+    explicit ExecHelper(const std::string& command, bool autorun = true);
     ~ExecHelper() = default;
     std::vector<std::string>& Arguments()
     {

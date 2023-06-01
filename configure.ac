@@ -36,9 +36,9 @@ fi
 
 compiler_name=`basename "$CC"`
 if test "x$compiler_name" = "xemcc"; then
-    WITH_EMSCRIPTEN=yes
+    with_emscripten=yes
 else
-    WITH_EMSCRIPTEN=no
+    with_emscripten=no
 fi
 
 # Checks for programs.
@@ -52,18 +52,20 @@ AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 default_build_tools=yes
 default_build_services=yes
 default_build_apis=yes
-default_build_inscribeit=no
 default_plugin_api=no
 
+default_blockchain_node=node
+default_secp256k1=contrib/secp256k1
+
 dnl Enable Python integrations
-AC_ARG_ENABLE([python-module],
-              [AS_HELP_STRING([--enable-python-module],[Enable API binding module for python (disabled by default)])],
+AC_ARG_ENABLE([python-binding],
+              [AS_HELP_STRING([--enable-python-binding],[Enable API binding module for python (disabled by default)])],
               [
                 if test $enableval != no; then
                     default_plugin_api=yes
                 fi
               ],
-              [enable_python_module=no])
+              [enable_python_binding=no])
 
 AC_ARG_ENABLE([wasm-module],
               [AS_HELP_STRING([--enable-wasm-module], [Enable plugin API binding for WebAssembly (disabled by default)])],
@@ -74,7 +76,7 @@ AC_ARG_ENABLE([wasm-module],
               ],
               [enable_wasm_module=no])
 
-if test "$enable_python_module" = "yes" "$enable_wasm_module" = "yes"; then
+if test "$enable_python_module" = "yes" && "$enable_wasm_module" = "yes"; then
     AC_MSG_ERROR([WebAssembly and Python modules cannot be build simultaneously])
 fi
 
@@ -85,7 +87,6 @@ AC_ARG_ENABLE([plugin-api],
                     default_build_tools=no
                     default_build_services=no
                     default_build_apis=no
-                    default_build_inscribeit=yes
                 fi
               ],
               [
@@ -93,8 +94,6 @@ AC_ARG_ENABLE([plugin-api],
                     default_build_tools=no
                     default_build_services=no
                     default_build_apis=no
-                    default_build_inscribeit=yes
-                    AC_MSG_NOTICE([default_build_inscribeit: $default_build_inscribeit])
                 fi
                 enable_plugin_api=$default_plugin_api
               ])
@@ -124,13 +123,30 @@ AC_ARG_ENABLE([build-tools],
               [enable_build_tools=$default_build_tools])
 
 
-AC_ARG_ENABLE([build-inscribeit],
-              [AS_HELP_STRING([--enable-build-inscribeit], [Enable inscribeit API build (disabled by default)])],
+AC_ARG_ENABLE([build-frost-signer],
+              [AS_HELP_STRING([--enable-build-frost-signer], [Enable build FROST signer (enabled by default)])],
               [],
-              [
-                enable_build_inscribeit=$default_build_inscribeit
-              ])
+              [enable_build_frost_signer=no])
 
+
+AC_ARG_WITH([blockchain-node],
+            [AS_HELP_STRING([--with-blockchain-node\[=path\]], [Build with blockchain node sources (default = './node')])],
+            [
+                if test $withval = yes; then
+                    with_blockchain_node = $default_blockchain_node
+                fi
+            ],
+            [with_blockchain_node=$default_blockchain_node])
+
+
+AC_ARG_WITH([secp256k1],
+            [AS_HELP_STRING([--with-secp256k1\[=path|node\]], [Build with secp256k1 sources (default = './contrib/secp256k1')])],
+            [
+                if test $withval = yes; then
+                    with_secp256k1 = $default_secp256k1
+                fi
+            ],
+            [with_secp256k1=$default_secp256k1])
 
 if test "$enable_plugin_api" = "yes"; then
     if test "$enable_build_apis" = "yes"; then
@@ -138,11 +154,11 @@ if test "$enable_plugin_api" = "yes"; then
     fi
 fi
 
-if test "$enable_build_services" != "yes"; then
-    if test "$enable_build_tools" = "yes"; then
-        AC_MSG_ERROR([Cannot build tools without services])
-    fi
-fi
+#if test "$enable_build_services" != "yes"; then
+#    if test "$enable_build_tools" = "yes"; then
+#        AC_MSG_ERROR([Cannot build tools without services])
+#    fi
+#fi
 
 if test "$enable_build_apis" != "yes"; then
     if test "$enable_build_services" = "yes"; then
@@ -153,19 +169,12 @@ fi
 AM_CONDITIONAL([BUILD_APIS], [test "$enable_build_apis" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$enable_build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
-AM_CONDITIONAL([BUILD_INSCRIBEIT], [test "$enable_build_inscribeit" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
 AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$enable_python_module" = "yes"])
 AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$enable_wasm_module" = "yes"])
+AM_CONDITIONAL([BUILD_SECP256K1], [test "$with_secp256k1" != "node"])
+AM_CONDITIONAL([BUILD_FROST], [test "$enable_build_frost_signer" = "yes"])
 
-if test "$enable_python_module" = "yes"; then
-    AM_PATH_PYTHON([3])
-    AC_MSG_NOTICE([python is $PYTHON])
-
-    AX_PKG_SWIG([], [], [ AC_MSG_ERROR([SWIG is required to build.]) ])
-    AX_PYTHON_DEVEL
-    AX_SWIG_PYTHON
-fi
 
 dnl Enable debug
 AC_ARG_ENABLE([debug],
@@ -237,6 +246,23 @@ if test "$enable_plugin_api" != "yes"; then
   AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
 fi
 
+if test "$with_blockchain_node" = "no"; then
+  AC_MSG_ERROR([Cannot build without blockchain node])
+fi
+if test "$with_secp256k1" = "no"; then
+  AC_MSG_ERROR([Cannot build without secp256k1])
+fi
+
+NODE_PATH=$with_blockchain_node
+AC_SUBST(NODE_PATH)
+
+if test "$with_secp256k1" = "node"; then
+  SECP256K1_PATH=$NODE_PATH/src/secp256k1
+else
+  SECP256K1_PATH=$with_secp256k1
+fi
+AC_SUBST(SECP256K1_PATH)
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT32_T
 AC_TYPE_INT64_T
@@ -244,8 +270,6 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
-# Checks for library functions.
-AC_CHECK_FUNCS([dup2 memset pow sqrt strtoul strtoull])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -265,21 +289,6 @@ fi
 
 if test "$enable_build_apis" = "yes"; then
     AC_CONFIG_FILES([src/api/Makefile test/core/Makefile])
-fi
-
-if test "$enable_build_inscribeit" = "yes"; then
-    AC_CONFIG_FILES([src/inscribeit/Makefile])
-    if test "$enable_build_tools" = "yes"; then
-        AC_CONFIG_FILES([test/inscribeit/Makefile])
-    fi
-fi
-
-if test "$enable_python_module" = "yes"; then
-    AC_CONFIG_FILES([src/python_binding/Makefile])
-fi
-
-if test "$enable_wasm_module" = "yes"; then
-    AC_CONFIG_FILES([src/wasm_binding/Makefile])
 fi
 
 dnl boost's m4 checks do something really nasty: they export these vars. As a
@@ -311,46 +320,49 @@ dnl so that is the reason to use more flexible AX_SUBDIRS_CONFIGURE.
 dnl Unfortunately AX_SUBDIRS_CONFIGURE does not allow 'autoreconf' be called recursively for all subprojects (just does it for 'configure' script only)
 dnl so we call 'autoreconf' for the every subproject manually with 'autogen.sh', placed at the source tree root.
 
-if test "$enable_plugin_api" = "yes"; then
+AS_IF([test "$enable_plugin_api" = "yes"], [btc_sqlite=--without-sqlite],
+      [btc_sqlite=--with-sqlite])
+
+AS_IF([test "$enable_plugin_api" = "yes"], [btc_cli=--disable-util-cli],
+      [btc_cli=--enable-util-cli])
+
+AS_IF([test "$enable_plugin_api" = "yes"], [btc_utils=--without-utils],
+      [btc_utils=--with-utils])
+
+AS_IF([test "$enable_plugin_api" = "yes"], [btc_daemon=--without-daemon],
+      [btc_daemon=--with-daemon])
+
+AS_IF([test "$with_emscripten" = "yes"], [btc_asm=--disable-asm],
+      [btc_asm=--enable-asm])
+
+AS_IF([test "x$with_zmq" = "xyes"], [btc_zmq=--with-zmq],
+      [test "x$with_zmq" != "xno"], [btc_zmq="--with-zmq=$with_zmq"],
+      [btc_zmq=--without-zmq])
+
+
 AX_SUBDIRS_CONFIGURE(
-    [node],
-    [[--disable-shared], [--enable-c++20],
-     [--with-libs], [--without-sqlite], [--without-bdb], [--without-miniupnpc], [--without-natpmp],
-     [--without-qrencode], [--without-libmultiprocess], [--without-mpgen],
-     [--without-zmq], [--without-utils], [--without-daemon], [--without-gui],
-     [--without-experimental-kernel-lib],
-     [--disable-wallet], [--disable-usdt], [--disable-upnp-default], [--disable-natpmp-default],
+    [$NODE_PATH],
+    [[--disable-shared], [--enable-c++20], [--without-gui],
+     [--with-libs], [--without-bdb], [$btc_sqlite], [$btc_zmq],
+     [--without-libmultiprocess], [--without-mpgen],
+     [$btc_utils], [$btc_cli], [$btc_daemon],
+     [--with-experimental-kernel-lib],[--disable-experimental-util-chainstate],
+     [--disable-multiprocess], [--disable-external-signer],
+     [--disable-usdt],
      [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
-     [--disable-fuzz], [--disable-fuzz-binary], [--disable-asm], [--disable-multiprocess], [--disable-external-signer],
-     [--disable-experimental-util-chainstate], [--disable-hardening]],
+     [--disable-fuzz], [--disable-fuzz-binary],
+     [$btc_asm]],
     [[--disable-tests], [--disable-bench], [--with-pic]],
     [[--disable-examples]],
-    [])
+    [[--with-blockchain-node], [--with-secp256k1], [--enable-build-tools], [--enable-build-services], [--enable-build-apis]])
 
-AX_SUBDIRS_CONFIGURE(
-    [contrib/secp256k1],
-    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-schnorrsig]],
-    [[--disable-tests], [--disable-benchmark], [--disable-examples], [--with-pic]],
-    [],
+if test "$with_secp256k1" != "node"; then
+  AX_SUBDIRS_CONFIGURE(
+    [$SECP256K1_PATH],
+    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
+    [[--disable-tests]],
+    [[--disable-benchmark], [--enable-examples], [--with-pic]],
     [[--disable-bench]])
-
-
-else
-
-AX_SUBDIRS_CONFIGURE(
-    [node],
-    [[--enable-static], [--disable-shared], [--enable-c++20], [--disable-hardening], [--disable-multiprocess], [--with-gui=no], [--with-incompatible-bdb], [--with-tests=no]],
-    [[--disable-tests], [--disable-bench], [--with-zmq], [--with-pic]],
-    [],
-    [])
-
-AX_SUBDIRS_CONFIGURE(
-    [contrib/secp256k1],
-    [[--enable-static], [--disable-shared], [--enable-experimental], [--enable-module-musig], [--enable-module-schnorrsig], [--enable-module-frost], [--enable-module-recovery]],
-    [[--disable-tests], [--disable-benchmark], [--enable-examples], [--with-pic]],
-    [],
-    [[--disable-bench]])
-
 fi
 
 AC_OUTPUT
@@ -358,26 +370,27 @@ AC_OUTPUT
 echo
 echo "  ==============================================================================================================="
 echo "  L15 config result:"
-echo "  build version    = $VERSION"
+echo "  build version      = $VERSION"
 echo
-echo "  debug enabled    = $enable_debug"
+echo "  blockchain node    = $NODE_PATH"
+echo "  secp256k1          = $with_secp256k1"
 echo
-echo "  build tools      = $enable_build_tools"
-echo "  build services   = $enable_build_services"
-echo "  build apis       = $enable_build_apis"
-echo "  build inscribeit = $enable_build_inscribeit"
-echo "  plugin api       = $enable_plugin_api"
-echo "  python module    = $enable_python_module"
-echo "  wasm module      = $enable_wasm_module"
+echo "  debug enabled      = $enable_debug"
 echo
-echo "  target os        = $host_os"
-echo "  build os         = $build_os"
+echo "  build FROST signer = $enable_build_frost_signer"
+echo "  build tools        = $enable_build_tools"
+echo "  build services     = $enable_build_services"
+echo "  build apis         = $enable_build_apis"
+echo "  plugin api         = $enable_plugin_api"
 echo
-echo "  CPPFLAGS         = $CPPFLAGS $ZMQ_CPPFLAGS"
-echo "  CXX              = $CXX"
-echo "  CXXFLAGS         = $CXXFLAGS"
-echo "  LDFLAGS          = $LDFLAGS $ZMQ_LDFLAGS"
-echo "  LIBS             = $LIBS $ZMQ_LIBS"
-echo "  ARFLAGS          = $ARFLAGS"
+echo "  target os          = $host_os"
+echo "  build os           = $build_os"
+echo
+echo "  CPPFLAGS           = $CPPFLAGS $ZMQ_CPPFLAGS"
+echo "  CXX                = $CXX"
+echo "  CXXFLAGS           = $CXXFLAGS"
+echo "  LDFLAGS            = $LDFLAGS $ZMQ_LDFLAGS"
+echo "  LIBS               = $LIBS $ZMQ_LIBS"
+echo "  ARFLAGS            = $ARFLAGS"
 echo "  ==============================================================================================================="
 echo

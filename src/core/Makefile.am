@@ -1,12 +1,12 @@
 
 AM_CPPFLAGS = \
- -I$(top_srcdir)/node/src \
- -I$(top_srcdir)/node/src/univalue/include \
- -I$(top_srcdir)/node/src/consensus \
- -I$(top_srcdir)/node/src/primitives \
- -I$(top_srcdir)/node/src/script \
- -I$(top_srcdir)/node/src/support \
- -I$(top_srcdir)/contrib/secp256k1/include \
+ -I$(top_srcdir)/$(NODE_PATH)/src \
+ -I$(top_srcdir)/$(NODE_PATH)/src/univalue/include \
+ -I$(top_srcdir)/$(NODE_PATH)/src/consensus \
+ -I$(top_srcdir)/$(NODE_PATH)/src/primitives \
+ -I$(top_srcdir)/$(NODE_PATH)/src/script \
+ -I$(top_srcdir)/$(NODE_PATH)/src/support \
+ -I$(top_srcdir)/$(SECP256K1_PATH)/include \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/contrib/cex
 

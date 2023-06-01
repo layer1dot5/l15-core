@@ -15,102 +15,20 @@
 #include "utils.hpp"
 #include "script_merkle_tree.hpp"
 
+#include "test_case_wrapper.hpp"
+
 using namespace l15;
 using namespace l15::core;
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
-class TestcaseWrapper;
 
-std::string configpath;
 std::unique_ptr<TestcaseWrapper> w;
 
-struct TestConfigFactory
-{
-    Config conf;
-
-    explicit TestConfigFactory(const std::string &confpath)
-    {
-        conf.ProcessConfig({"--conf=" + confpath});
-    }
-
-    std::string GetBitcoinDataDir() const
-    {
-        auto datadir_opt = conf.Subcommand(config::BITCOIND).get_option(config::option::DATADIR);
-        if(!datadir_opt->empty())
-            return datadir_opt->as<std::string>();
-        else
-            return std::string();
-    }
-};
-
-struct TestcaseWrapper
-{
-    TestConfigFactory mConfFactory;
-    WalletApi mWallet;
-    ChainApi mBtc;
-    ExecHelper mCli;
-    ExecHelper mBtcd;
-//    channelhtlc_ptr mChannelForAliceSide;
-//    channelhtlc_ptr mChannelForCarolSide;
-
-    explicit TestcaseWrapper() :
-            mConfFactory(configpath),
-            mWallet(),
-            mBtc(Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
-            mCli("l15node-cli", false),
-            mBtcd("bitcoind", false)
-
-    {
-        StartBitcoinNode();
-
-        if(btc().GetChainHeight() < 50)
-        {
-            btc().CreateWallet("testwallet");
-            btc().GenerateToAddress(btc().GetNewAddress(), "250");
-        }
-    }
-
-    virtual ~TestcaseWrapper()
-    {
-        StopBitcoinNode();
-        std::filesystem::remove_all(mConfFactory.GetBitcoinDataDir() + "/regtest");
-    }
-
-    void StartBitcoinNode()
-    {
-        StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
-    }
-
-    void StopBitcoinNode()
-    {
-        StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
-    }
-
-    Config &conf()
-    { return mConfFactory.conf; }
-
-    WalletApi &wallet()
-    { return mWallet; }
-
-    ChainApi &btc()
-    { return mBtc; }
-//    ChannelHtlc& channel_for_alice() { return *mChannelForAliceSide; }
-//    ChannelHtlc& channel_for_carol() { return *mChannelForCarolSide; }
-
-    void ResetMemPool()
-    {
-        StopBitcoinNode();
-
-        std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
-
-        StartBitcoinNode();
-    }
-
-};
 
 int main(int argc, char* argv[])
 {
+    std::string configpath;
     Catch::Session session;
 
 
@@ -141,7 +59,7 @@ int main(int argc, char* argv[])
         configpath = (std::filesystem::current_path() / p).string();
     }
 
-    w = std::make_unique<TestcaseWrapper>();
+    w = std::make_unique<TestcaseWrapper>(configpath, "bitcoin-cli");
 
     return session.run();
 }
@@ -154,11 +72,11 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot public key path spending")
     {
         //get key pair
-        auto sk = ChannelKeys(w->wallet().Secp256k1Context());
+        ChannelKeys sk;
         auto& pk = sk.GetLocalPubKey();
 
         //create address from key pair
-        string addr = w->btc().Bech32Encode(pk);
+        string addr = w->bech32().Encode(pk);
 
         //send to the address
         string txid = w->btc().SendToAddress(addr, "1.001");
@@ -170,7 +88,7 @@ TEST_CASE("Taproot transaction test cases")
 
         //spend first transaction to the last address
 
-        auto backpk = w->btc().Bech32Decode(backaddr);
+        auto backpk = w->bech32().Decode(backaddr);
 
         std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
 
@@ -187,7 +105,7 @@ TEST_CASE("Taproot transaction test cases")
 
         std::vector<CTxOut> prevtxouts = {std::get<1>(prevout)};
 
-        bytevector sig = w->wallet().SignTaprootTx(sk.GetLocalPrivKey(), tx, 0, std::move(prevtxouts), {});
+        bytevector sig = sk.SignTaprootTx(tx, 0, std::move(prevtxouts), {});
 
         std::clog << "Signature: " << HexStr(sig) << std::endl;
 
@@ -199,13 +117,13 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot script path spending")
     {
         //get key pair Taproot
-        auto internal_sk = ChannelKeys(w->wallet().Secp256k1Context());
+        ChannelKeys internal_sk;
         const auto& internal_pk = internal_sk.GetLocalPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
         //get key pair script
-        auto sk = ChannelKeys(w->wallet().Secp256k1Context());
+        ChannelKeys sk;
         const auto& pk = sk.GetLocalPubKey();
         std::string pk_str = HexStr(pk);
 
@@ -226,7 +144,7 @@ TEST_CASE("Taproot transaction test cases")
         uint8_t taprootpubkeyparity;
 
         std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(root);
-        string addr = w->btc().Bech32Encode(taprootpubkey);
+        string addr = w->bech32().Encode(taprootpubkey);
 
         std::clog << "\nTaproot PK: " << HexStr(taprootpubkey) << std::endl;
         std::clog << "Taptweak parity flag: " << (int)taprootpubkeyparity << std::endl;
@@ -242,7 +160,7 @@ TEST_CASE("Taproot transaction test cases")
 
         //spend first transaction to the last address
 
-        auto backpk = w->btc().Bech32Decode(backaddr);
+        auto backpk = w->bech32().Decode(backaddr);
 
         std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
 
@@ -259,7 +177,7 @@ TEST_CASE("Taproot transaction test cases")
 
         std::vector<CTxOut> prevtxouts = {std::get<1>(prevout)};
 
-        bytevector sig = w->wallet().SignTaprootTx(sk.GetLocalPrivKey(), tx, 0, std::move(prevtxouts), script);
+        bytevector sig = sk.SignTaprootTx(tx, 0, std::move(prevtxouts), script);
 
         std::clog << "Signature: " << HexStr(sig) << std::endl;
 

@@ -35,11 +35,11 @@ struct TestcaseWrapper
     ExecHelper mBtcd;
     std::unique_ptr<IBech32Coder> mBech;
 
-    explicit TestcaseWrapper(const std::string& configpath) :
+    explicit TestcaseWrapper(const std::string& configpath, const std::string& clipath) :
             mConfFactory(configpath),
             mMode(mConfFactory.conf[config::option::CHAINMODE].as<std::string>()),
-            mBtc(std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), "l15node-cli"),
-            mCli("l15node-cli", false),
+            mBtc(std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), clipath),
+            mCli(clipath, false),
             mBtcd("bitcoind", false)
     {
         if (mMode == "regtest") {
@@ -104,6 +104,15 @@ struct TestcaseWrapper
 
     IBech32Coder& bech32() const
     { return *mBech; }
+
+    void ResetRegtestMemPool()
+    {
+        StartRegtestBitcoinNode();
+
+        std::filesystem::remove(mConfFactory.GetBitcoinDataDir() + "/regtest/mempool.dat");
+
+        StopRegtestBitcoinNode();
+    }
 };
 
 }

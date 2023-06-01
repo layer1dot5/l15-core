@@ -259,7 +259,7 @@ AC_DEFUN([AX_SUBDIRS_CONFIGURE],
       # Options that must be removed.
       m4_ifnblank([$5], [m4_foreach(opt, [$5], [ax_args=$(echo $ax_args | sed "s,'opt',,")
       ])])
-      AS_VAR_APPEND([ax_args], [" '--srcdir=$ac_srcdir'"])
+      AS_VAR_APPEND([ax_args], [" '--srcdir=$ac_abs_srcdir'"])
 
       # Add the subdirectory to the list of target subdirectories.
       ax_subconfigures="$ax_subconfigures $ax_dir"
@@ -297,11 +297,11 @@ AC_DEFUN([AX_SUBDIRS_CONFIGURE],
         cd "$ax_dir"
 
         # Check for guested configure; otherwise get Cygnus style configure.
-        if test -f "$ac_srcdir/configure.gnu"; then
-          ax_sub_configure=$ac_srcdir/configure.gnu
-        elif test -f "$ac_srcdir/configure"; then
-          ax_sub_configure=$ac_srcdir/configure
-        elif test -f "$ac_srcdir/configure.in"; then
+        if test -f "$ac_abs_srcdir/configure.gnu"; then
+          ax_sub_configure=$ac_abs_srcdir/configure.gnu
+        elif test -f "$ac_abs_srcdir/configure"; then
+          ax_sub_configure=$ac_abs_srcdir/configure
+        elif test -f "$ac_abs_srcdir/configure.in"; then
           # This should be Cygnus configure.
           ax_sub_configure=$ac_aux_dir/configure
         else
