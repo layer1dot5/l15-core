@@ -35,6 +35,12 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
     script << CONTENT_TYPE_TAG;
     script << bytevector(content_type.begin(), content_type.end());
 
+    if (collection_id) {
+        CheckCollectionId(*collection_id);
+        script << COLLECTION_ID_TAG;
+        script << bytevector(collection_id->begin(), collection_id->end());
+    }
+
     script << CONTENT_TAG;
     auto pos = data.begin();
     for ( ; pos + chunk_size < data.end(); pos += chunk_size) {
@@ -44,11 +50,6 @@ CScript MakeInscriptionScript(const xonly_pubkey& pk, const std::string& content
         script << bytevector(pos, data.end());
     }
 
-    if (collection_id) {
-        CheckCollectionId(*collection_id);
-        script << COLLECTION_ID_TAG;
-        script << bytevector(collection_id->begin(), collection_id->end());
-    }
 
     script << OP_ENDIF;
 
@@ -88,7 +89,7 @@ std::string Collection::GetCollectionTapRootPubKey(const string &collection_id, 
     return hex(taproot.first);
 }
 
-const uint32_t CreateInscriptionBuilder::m_protocol_version = 6;
+const uint32_t CreateInscriptionBuilder::m_protocol_version = 7;
 
 const std::string CreateInscriptionBuilder::name_ord_amount = "ord_amount";
 const std::string CreateInscriptionBuilder::name_utxo = "utxo";
@@ -103,13 +104,13 @@ const std::string CreateInscriptionBuilder::name_inscribe_int_pk = "inscribe_int
 const std::string CreateInscriptionBuilder::name_inscribe_sig = "inscribe_sig";
 const std::string CreateInscriptionBuilder::name_destination_pk = "destination_pk";
 const std::string CreateInscriptionBuilder::name_change_pk = "change_pk";
-const std::string CreateInscriptionBuilder::name_parent_collection_script_pk = "parent_collection_script_pk";
-const std::string CreateInscriptionBuilder::name_parent_collection_int_pk = "parent_collection_int_pk";
-const std::string CreateInscriptionBuilder::name_parent_collection_out_pk = "parent_collection_out_pk";
-const std::string CreateInscriptionBuilder::name_collection_script_pk = "collection_script_pk";
-const std::string CreateInscriptionBuilder::name_collection_int_pk = "collection_int_pk";
-const std::string CreateInscriptionBuilder::name_collection_commit_sig = "collection_commit_sig";
-const std::string CreateInscriptionBuilder::name_collection_out_pk = "collection_out_pk";
+//const std::string CreateInscriptionBuilder::name_parent_collection_script_pk = "parent_collection_script_pk";
+//const std::string CreateInscriptionBuilder::name_parent_collection_int_pk = "parent_collection_int_pk";
+//const std::string CreateInscriptionBuilder::name_parent_collection_out_pk = "parent_collection_out_pk";
+//const std::string CreateInscriptionBuilder::name_collection_script_pk = "collection_script_pk";
+//const std::string CreateInscriptionBuilder::name_collection_int_pk = "collection_int_pk";
+//const std::string CreateInscriptionBuilder::name_collection_commit_sig = "collection_commit_sig";
+//const std::string CreateInscriptionBuilder::name_collection_out_pk = "collection_out_pk";
 
 const std::string CreateInscriptionBuilder::FEE_OPT_HAS_CHANGE = "change";
 const std::string CreateInscriptionBuilder::FEE_OPT_HAS_COLLECTION = "collection";
@@ -125,15 +126,11 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::AddUTXO(const std::string &t
 
 CreateInscriptionBuilder& CreateInscriptionBuilder::AddToCollection(const std::string& collection_id,
                                                                     const std::string& utxo_txid, uint32_t utxo_nout, const std::string& utxo_amount,
-                                                                    const std::string& collection_script_pk, const std::string& collection_int_pk,
-                                                                    const std::string& collection_out_pk)
+                                                                    const std::string& collection_pk)
 {
     CheckCollectionId(collection_id);
     m_parent_collection_id = collection_id;
-    m_parent_collection_script_pk = unhex<xonly_pubkey>(collection_script_pk);
-    m_parent_collection_int_pk = unhex<xonly_pubkey>(collection_int_pk);
-    m_parent_collection_out_pk = unhex<xonly_pubkey>(collection_out_pk);
-    m_collection_utxo = {utxo_txid, utxo_nout, ParseAmount(utxo_amount), move(MakeParentCollectionTapRoot().first)};
+    m_collection_utxo = {utxo_txid, utxo_nout, ParseAmount(utxo_amount), unhex<xonly_pubkey>(collection_pk)};
     return *this;
 }
 
@@ -170,13 +167,6 @@ CreateInscriptionBuilder &CreateInscriptionBuilder::ChangePubKey(const std::stri
     return *this;
 }
 
-CreateInscriptionBuilder &CreateInscriptionBuilder::CollectionCommitPubKeys(const std::string& script_pk, const std::string& int_pk)
-{
-    m_collection_script_pk = unhex<xonly_pubkey>(script_pk);
-    m_collection_int_pk = unhex<xonly_pubkey>(int_pk);
-
-    return *this;
-}
 
 std::string CreateInscriptionBuilder::GetInscribeInternalPubKey() const
 {
@@ -242,32 +232,18 @@ void CreateInscriptionBuilder::SignCommit(uint32_t n, const std::string& sk, con
     utxo_it->m_sig = utxo_key.SignTaprootTx(funding_tx, n, move(spending_outs), {});
 }
 
-std::pair<xonly_pubkey, uint8_t> CreateInscriptionBuilder::MakeParentCollectionTapRoot()
-{
-    ScriptMerkleTree tap_tree(TreeBalanceType::WEIGHTED, {GetParentCollectionScript()});
-    uint256 root = tap_tree.CalculateRoot();
 
-    return core::ChannelKeys::AddTapTweak(*m_parent_collection_int_pk, root);
-}
-
-const CScript& CreateInscriptionBuilder::GetParentCollectionScript() const
-{
-    if (!mParentCollectionScript) {
-        mParentCollectionScript = MakeCollectionScript(*m_parent_collection_script_pk, *m_parent_collection_id);
-    }
-    return *mParentCollectionScript;
-}
 
 const CScript& CreateInscriptionBuilder::GetInscriptionScript() const
 {
     if (!mInscriptionScript) {
-        mInscriptionScript = MakeInscriptionScript(*m_inscribe_script_pk, *m_content_type, *m_content);
+        mInscriptionScript = MakeInscriptionScript(*m_inscribe_script_pk, *m_content_type, *m_content, m_parent_collection_id);
     }
     return *mInscriptionScript;
 }
 
 
-void CreateInscriptionBuilder::SignCollection(const std::string& script_sk)
+void CreateInscriptionBuilder::SignCollection(const std::string& sk)
 {
     if (!m_inscribe_script_pk) throw ContractStateError(name_inscribe_script_pk + " undefined");
     if (!m_inscribe_int_sk) throw ContractStateError(std::string("internal inscription key undefined: has commit tx been signed?"));
@@ -275,25 +251,18 @@ void CreateInscriptionBuilder::SignCollection(const std::string& script_sk)
     if (!m_collection_utxo) throw ContractStateError(name_collection + " undefined");
     if (!m_collection_utxo->m_pubkey) throw ContractStateError(name_collection + '.' + name_pk + " undefined");
 
-    core::ChannelKeys script_key(unhex<seckey>(script_sk));
+    core::ChannelKeys script_key(unhex<seckey>(sk));
 
-    if (m_parent_collection_script_pk != script_key.GetLocalPubKey()) throw ContractValueMismatch(std::string(name_parent_collection_script_pk));
-
-    auto taproot = MakeParentCollectionTapRoot();
-    if (taproot.first != *m_collection_utxo->m_pubkey) throw ContractValueMismatch(name_collection + '.' + name_pk);
+    if (*m_collection_utxo->m_pubkey != script_key.GetLocalPubKey()) throw ContractValueMismatch(name_collection + '.' + name_pk);
 
     CMutableTransaction genesis_tx = MakeGenesisTx(true);
-    m_collection_utxo->m_sig = script_key.SignTaprootTx(genesis_tx, 1, GetGenesisTxSpends(), GetParentCollectionScript());
+    m_collection_utxo->m_sig = script_key.SignTaprootTx(genesis_tx, 1, GetGenesisTxSpends(), {});
 }
 
 void CreateInscriptionBuilder::SignInscription(const std::string& insribe_script_sk)
 {
     if (!m_inscribe_script_pk) throw ContractStateError(name_inscribe_script_pk + " undefined");
     if (!m_inscribe_int_sk) throw ContractStateError(std::string("internal inscription key undefined: has commit tx been signed?"));
-    if (m_collection_utxo) {
-        if (!m_parent_collection_script_pk) throw ContractStateError(name_parent_collection_script_pk + " undefined");
-        if (!m_parent_collection_int_pk) throw ContractStateError(name_parent_collection_int_pk + "undefined");
-    }
 
     core::ChannelKeys script_keypair(unhex<seckey>(insribe_script_sk));
     if (*m_inscribe_script_pk != script_keypair.GetLocalPubKey()) throw ContractValueMismatch(std::string(name_inscribe_script_pk));
@@ -306,16 +275,6 @@ void CreateInscriptionBuilder::SignInscription(const std::string& insribe_script
     }
 }
 
-void CreateInscriptionBuilder::SignCollectionRootCommit(const std::string& inscribe_sk)
-{
-    core::ChannelKeys keypair(unhex<seckey>(inscribe_sk));
-
-    if (!m_destination_pk) throw ContractTermMissing(std::string(name_destination_pk));
-    if (*m_destination_pk != keypair.GetLocalPubKey()) throw ContractValueMismatch(std::string(name_destination_pk));
-
-    CMutableTransaction tx = MakeCollectionRootCommitTx();
-    m_collection_commit_sig = keypair.SignTaprootTx(tx, 0, {GenesisTx().vout[0]}, {});
-}
 
 void CreateInscriptionBuilder::SignFundMiningFee(uint32_t n, const string &sk)
 {
@@ -337,19 +296,14 @@ void CreateInscriptionBuilder::SignFundMiningFee(uint32_t n, const string &sk)
 
 std::vector<std::string> CreateInscriptionBuilder::RawTransactions() const
 {
-    if (!mCommitTx || !mGenesisTx || (m_type == COLLECTION && !mCollectionCommitTx)) {
+    if (!mCommitTx || !mGenesisTx) {
         throw ContractStateError("Transaction data unavailable");
     }
 
     std::string funding_tx_hex = EncodeHexTx(CTransaction(*mCommitTx));
     std::string genesis_tx_hex = EncodeHexTx(CTransaction(*mGenesisTx));
 
-    switch (m_type) {
-    case INSCRIPTION:
-        return {move(funding_tx_hex), move(genesis_tx_hex)};
-    case COLLECTION:
-        return {move(funding_tx_hex), move(genesis_tx_hex), EncodeHexTx(CTransaction(*mCollectionCommitTx))};
-    }
+    return {move(funding_tx_hex), move(genesis_tx_hex)};
 }
 
 void CreateInscriptionBuilder::CheckContractTerms() const
@@ -366,11 +320,9 @@ void CreateInscriptionBuilder::CheckContractTerms() const
     }
 
     if (m_collection_utxo) {
+        if (!m_collection_utxo->m_pubkey) throw ContractTermMissing(name_collection + '.' + name_pk);
         if (!m_collection_utxo->m_sig) throw ContractTermMissing(name_collection + '.' + name_sig);
         if (!m_parent_collection_id) throw ContractTermMissing(std::string(name_collection_id));
-        if (!m_parent_collection_script_pk) throw ContractTermMissing(std::string(name_parent_collection_script_pk));
-        if (!m_parent_collection_int_pk) throw ContractTermMissing(std::string(name_parent_collection_int_pk));
-        if (!m_parent_collection_out_pk) throw ContractTermMissing(std::string(name_parent_collection_out_pk));
     }
 
     n = 0;
@@ -388,8 +340,7 @@ void CreateInscriptionBuilder::CheckContractTerms() const
     if (!m_change_pk && CommitTx().vout.size() == (m_collection_utxo.has_value() ? 3 : 2)) throw ContractTermMissing(std::string(name_change_pk));
 
     if (m_type == COLLECTION) {
-        if (!m_collection_commit_sig) throw ContractTermMissing(std::string(name_collection_commit_sig));
-        if (!m_collection_taproot_pk) throw ContractTermMissing(std::string(name_collection_out_pk));
+        throw std::runtime_error("Collection commit is not supported now");
     }
 }
 
@@ -419,12 +370,9 @@ std::string CreateInscriptionBuilder::Serialize() const
         collection_val.pushKV(name_txid, m_collection_utxo->m_txid);
         collection_val.pushKV(name_nout, m_collection_utxo->m_nout);
         collection_val.pushKV(name_amount, m_collection_utxo->m_amount);
-//        collection_val.pushKV(name_pk, hex(*m_collection_utxo->m_pubkey));
+        collection_val.pushKV(name_pk, hex(*m_collection_utxo->m_pubkey));
         collection_val.pushKV(name_sig, hex(*m_collection_utxo->m_sig));
         collection_val.pushKV(name_collection_id, *m_parent_collection_id);
-        collection_val.pushKV(name_parent_collection_script_pk, hex(*m_parent_collection_script_pk));
-        collection_val.pushKV(name_parent_collection_int_pk, hex(*m_parent_collection_int_pk));
-        collection_val.pushKV(name_parent_collection_out_pk, hex(*m_parent_collection_out_pk));
         contract.pushKV(name_collection, move(collection_val));
     }
 
@@ -457,8 +405,7 @@ std::string CreateInscriptionBuilder::Serialize() const
         contract.pushKV(name_change_pk, hex(*m_change_pk));
 
     if (m_type == COLLECTION) {
-        contract.pushKV(name_collection_commit_sig, hex(*m_collection_commit_sig));
-        contract.pushKV(name_collection_out_pk, hex(*m_collection_taproot_pk));
+        throw std::runtime_error("Collection commit is not supported now");
     }
 
     UniValue dataRoot(UniValue::VOBJ);
@@ -529,33 +476,23 @@ void CreateInscriptionBuilder::Deserialize(const std::string &data)
                 throw ContractTermMissing(name_collection + '.' + name_nout);
             if (!val.exists(name_amount))
                 throw ContractTermMissing(name_collection + '.' + name_amount);
-//            if (!val.exists(name_pk))
-//                throw ContractTermMissing(name_collection + '.' + name_pk);
+            if (!val.exists(name_pk))
+                throw ContractTermMissing(name_collection + '.' + name_pk);
             if (!val.exists(name_sig))
                 throw ContractTermMissing(name_collection + '.' + name_sig);
             if (!val.exists(name_collection_id))
                 throw ContractTermMissing(name_collection + '.' + name_collection_id);
-            if (!val.exists(name_parent_collection_script_pk))
-                throw ContractTermMissing(name_collection + '.' + name_parent_collection_script_pk);
-            if (!val.exists(name_parent_collection_int_pk))
-                throw ContractTermMissing(name_collection + '.' + name_parent_collection_int_pk);
-            if (!val.exists(name_parent_collection_out_pk))
-                throw ContractTermMissing(name_collection + '.' + name_parent_collection_out_pk);
 
             m_parent_collection_id = val[name_collection_id].get_str();
 
             std::string txid = val[name_txid].get_str();
             uint32_t nout = val[name_nout].getInt<uint32_t>();
             CAmount amount = val[name_amount].getInt<CAmount>();
-            //xonly_pubkey pk = unhex<signature>(val[name_pk].get_str());
+            xonly_pubkey pk = unhex<signature>(val[name_pk].get_str());
             signature sig = unhex<signature>(val[name_sig].get_str());
 
-            m_collection_utxo = {move(txid), nout, amount, {}, move(sig)};
-            m_parent_collection_script_pk = unhex<xonly_pubkey>(val[name_parent_collection_script_pk].get_str());
-            m_parent_collection_int_pk = unhex<xonly_pubkey>(val[name_parent_collection_int_pk].get_str());
-            m_parent_collection_out_pk = unhex<xonly_pubkey>(val[name_parent_collection_out_pk].get_str());
+            m_collection_utxo = {move(txid), nout, amount, move(pk), move(sig)};
 
-            m_collection_utxo->m_pubkey = move(MakeParentCollectionTapRoot().first);
         }
     }
     {   const auto &val = contract[name_xtra_utxo];
@@ -624,13 +561,7 @@ void CreateInscriptionBuilder::Deserialize(const std::string &data)
         }
     }
     if (m_type == COLLECTION) {
-        const auto& val_pk = contract[name_collection_out_pk];
-        if (val_pk.isNull()) ContractTermMissing(std::string(name_collection_out_pk));
-        m_collection_taproot_pk = unhex<xonly_pubkey>(val_pk.get_str());
-
-        const auto& val_sig = contract[name_collection_commit_sig];
-        if (val_sig.isNull()) ContractTermMissing(std::string(name_collection_commit_sig));
-        m_collection_commit_sig = unhex<signature>(val_sig.get_str());
+        throw std::runtime_error("Collection commit is not supported now");
     }
     RestoreTransactions();
 }
@@ -650,7 +581,6 @@ void CreateInscriptionBuilder::RestoreTransactions()
     }
 
     mGenesisTx = MakeGenesisTx(false);
-    if (m_type == COLLECTION) mCollectionCommitTx = MakeCollectionRootCommitTx();
 }
 
 const CMutableTransaction& CreateInscriptionBuilder::CommitTx() const
@@ -696,17 +626,12 @@ CMutableTransaction CreateInscriptionBuilder::MakeCommitTx() const {
         pubkey_script << xonly_pubkey();
     }
 
-    CAmount fund_ord_amount = m_ord_amount;
-    if (m_type == COLLECTION) {
-        fund_ord_amount += CFeeRate(*m_mining_fee_rate).GetFee(MIN_TAPROOT_TX_VSIZE);
-    }
 
-
-    tx.vout.emplace_back(fund_ord_amount, pubkey_script);
+    tx.vout.emplace_back(m_ord_amount, pubkey_script);
     CAmount genesis_fee = CalculateTxFee(*m_mining_fee_rate, CreateGenesisTxTemplate());
 
     if (m_parent_collection_id) {
-        CAmount add_vsize = COLLECTION_SCRIPT_VIN_VSIZE + TAPROOT_VOUT_VSIZE;
+        CAmount add_vsize = TAPROOT_KEYSPEND_VIN_VSIZE + TAPROOT_VOUT_VSIZE;
         if (m_xtra_utxo.empty()) {
             add_vsize += TAPROOT_KEYSPEND_VIN_VSIZE; // for mining fee compensation input
         }
@@ -723,14 +648,14 @@ CMutableTransaction CreateInscriptionBuilder::MakeCommitTx() const {
 
     try {
         tx.vout.emplace_back(0, CScript() << 1 << m_change_pk.value_or(xonly_pubkey()));
-        CAmount change_amount = CalculateOutputAmount(total_funds - fund_ord_amount - genesis_fee, *m_mining_fee_rate, tx);
+        CAmount change_amount = CalculateOutputAmount(total_funds - m_ord_amount - genesis_fee, *m_mining_fee_rate, tx);
         tx.vout.back().nValue = change_amount;
     }
     catch(const TransactionError& ) {
         // Spend all the excessive funds to inscription or collection if less then dust
         tx.vout.pop_back();
         CAmount mining_fee = CalculateTxFee(*m_mining_fee_rate, tx);
-        tx.vout.back().nValue += total_funds - fund_ord_amount - genesis_fee - mining_fee;
+        tx.vout.back().nValue += total_funds - m_ord_amount - genesis_fee - mining_fee;
                 //CalculateOutputAmount(total_funds - genesis_fee, *m_mining_fee_rate, result);
     }
 
@@ -787,30 +712,12 @@ CMutableTransaction CreateInscriptionBuilder::MakeGenesisTx(bool to_sign) const
     genesis_tx.vin[0].prevout.hash = commit_tx.GetHash();
 
     if (m_collection_utxo) {
-        const CScript& collection_script = GetParentCollectionScript();
-
-        ScriptMerkleTree parent_tap_tree(TreeBalanceType::WEIGHTED, {collection_script});
-        uint256 root = parent_tap_tree.CalculateRoot();
-
-        std::vector<uint256> parent_scriptpath = parent_tap_tree.CalculateScriptPath(collection_script);
-
-        auto taproot = core::ChannelKeys::AddTapTweak(*m_parent_collection_int_pk, root);
-
-        bytevector control_block = {static_cast<uint8_t>(0xc0 | taproot.second)};
-        control_block.reserve(1 + m_parent_collection_int_pk->size() + parent_scriptpath.size() * uint256::size());
-        control_block.insert(control_block.end(), m_parent_collection_int_pk->begin(), m_parent_collection_int_pk->end());
-
-        for(uint256 &branch_hash : parent_scriptpath)
-            control_block.insert(control_block.end(), branch_hash.begin(), branch_hash.end());
-
         genesis_tx.vout.front().nValue = commit_tx.vout.front().nValue;
 
         genesis_tx.vin.emplace_back(uint256S(m_collection_utxo->m_txid), m_collection_utxo->m_nout);
         genesis_tx.vin.back().scriptWitness.stack.emplace_back(m_collection_utxo->m_sig.value_or(signature()));
-        genesis_tx.vin.back().scriptWitness.stack.emplace_back(collection_script.begin(), collection_script.end());
-        genesis_tx.vin.back().scriptWitness.stack.emplace_back(move(control_block));
 
-        genesis_tx.vout.emplace_back(m_collection_utxo->m_amount, CScript() << 1 << *m_parent_collection_out_pk);
+        genesis_tx.vout.emplace_back(m_collection_utxo->m_amount, CScript() << 1 << *m_collection_utxo->m_pubkey);
 
         if (m_xtra_utxo.empty()) {
             genesis_tx.vin.emplace_back(commit_tx.GetHash(), 1);
@@ -823,7 +730,7 @@ CMutableTransaction CreateInscriptionBuilder::MakeGenesisTx(bool to_sign) const
 
     for (const auto &utxo: m_xtra_utxo) {
         genesis_tx.vin.emplace_back(uint256S(utxo.m_txid), utxo.m_nout);
-        genesis_tx.vin.back().scriptWitness.stack.emplace_back(utxo.m_sig.value_or(signature()));
+        genesis_tx.vin.back().scriptWitness.stack.emplace_back(*utxo.m_sig);
     }
 
     return genesis_tx;
@@ -835,7 +742,7 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
 
     auto emptyKey = xonly_pubkey();
 
-    CScript genesis_script = MakeInscriptionScript(m_inscribe_script_pk.value_or(emptyKey), *m_content_type, *m_content, {});
+    CScript genesis_script = MakeInscriptionScript(m_inscribe_script_pk.value_or(emptyKey), *m_content_type, *m_content, m_parent_collection_id);
     ScriptMerkleTree genesis_tap_tree(TreeBalanceType::WEIGHTED, {genesis_script});
     uint256 root = genesis_tap_tree.CalculateRoot();
 
@@ -870,34 +777,6 @@ CMutableTransaction CreateInscriptionBuilder::CreateGenesisTxTemplate() const {
     return tx;
 }
 
-CMutableTransaction CreateInscriptionBuilder::MakeCollectionRootCommitTx() const
-{
-    const CMutableTransaction& genesis_tx = GenesisTx();
-
-    uint256 gen_txid = genesis_tx.GetHash();
-
-    if (!m_collection_taproot_pk) {
-        if (!m_collection_script_pk) throw ContractTermMissing(std::string(name_collection_script_pk));
-        if (!m_collection_int_pk) throw ContractTermMissing(std::string(name_collection_int_pk));
-
-        std::string collection_id = gen_txid.GetHex() + "i0";
-        CScript collection_script = MakeCollectionScript(*m_collection_script_pk, collection_id);
-        auto taproot = MakeCollectionTapRootPubKey(collection_id, *m_collection_script_pk, *m_collection_int_pk);
-        m_collection_taproot_pk = move(taproot.first);
-    }
-
-    CMutableTransaction tx;
-
-    tx.vin.emplace_back(move(gen_txid), 0);
-    tx.vin.back().scriptWitness.stack.emplace_back(m_collection_commit_sig.value_or(signature()));
-
-    tx.vout.emplace_back(0, CScript() << 1 << *m_collection_taproot_pk);
-    tx.vout.back().nValue = CalculateOutputAmount(genesis_tx.vout.front().nValue, *m_mining_fee_rate, tx);
-
-    if (tx.vout.back().nValue < m_ord_amount) throw ContractError(std::string("ord_amount < ") + std::to_string(m_ord_amount));
-
-    return tx;
-}
 
 std::string CreateInscriptionBuilder::MakeInscriptionId() const
 {
@@ -914,7 +793,7 @@ std::string CreateInscriptionBuilder::GetMinFundingAmount(const std::string& par
 std::string CreateInscriptionBuilder::GetGenesisTxMiningFee() const
 {
     CAmount fee = CalculateTxFee(*m_mining_fee_rate, CreateGenesisTxTemplate());
-    if (m_parent_collection_id) fee += CFeeRate(*m_mining_fee_rate).GetFee(COLLECTION_SCRIPT_VIN_VSIZE + TAPROOT_KEYSPEND_VIN_VSIZE + TAPROOT_VOUT_VSIZE);
+    if (m_parent_collection_id) fee += CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_KEYSPEND_VIN_VSIZE*2 + TAPROOT_VOUT_VSIZE);
     return FormatAmount(fee);
 }
 
@@ -937,7 +816,8 @@ CAmount CreateInscriptionBuilder::CalculateWholeFee(const std::string& params) c
     CAmount genesis_fee = CalculateTxFee(*m_mining_fee_rate, genesisTxTpl);
 
     CAmount genesis_vsize_add = 0;
-    if (collection || m_parent_collection_id) genesis_vsize_add += COLLECTION_SCRIPT_VIN_VSIZE + TAPROOT_VOUT_VSIZE + TAPROOT_KEYSPEND_VIN_VSIZE; // Collection in/out + mining fee in
+    if (collection && !m_parent_collection_id) genesis_vsize_add += COLLECTION_SCRIPT_ADD_VSIZE;
+    if (collection || m_parent_collection_id) genesis_vsize_add += TAPROOT_KEYSPEND_VIN_VSIZE + TAPROOT_VOUT_VSIZE + TAPROOT_KEYSPEND_VIN_VSIZE; // Collection in/out + mining fee in
     if (m_xtra_utxo.size() > 1) genesis_vsize_add += TAPROOT_KEYSPEND_VIN_VSIZE * (m_xtra_utxo.size() - 1);
 
     CAmount commit_vsize = MIN_TAPROOT_TX_VSIZE;
@@ -949,9 +829,6 @@ CAmount CreateInscriptionBuilder::CalculateWholeFee(const std::string& params) c
         if (!xtra_utxo && m_xtra_utxo.empty()) {
             commit_vsize += TAPROOT_VOUT_VSIZE;
         }
-    }
-    if (m_type == COLLECTION) {
-        commit_vsize += MIN_TAPROOT_TX_VSIZE;
     }
 
     return genesis_fee + CFeeRate(*m_mining_fee_rate).GetFee(genesis_vsize_add + commit_vsize);

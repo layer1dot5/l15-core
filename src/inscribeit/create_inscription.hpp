@@ -30,7 +30,7 @@ class CreateInscriptionBuilder: public ContractBuilder
     static const std::string FEE_OPT_HAS_COLLECTION;
     static const std::string FEE_OPT_HAS_XTRA_UTXO;
 
-    //static const CAmount COLLECTION_SCRIPT_ADD_VSIZE = 18;
+    static const CAmount COLLECTION_SCRIPT_ADD_VSIZE = 18;
     static const CAmount COLLECTION_SCRIPT_VIN_VSIZE = 195;
 
     static const uint32_t m_protocol_version;
@@ -58,18 +58,7 @@ class CreateInscriptionBuilder: public ContractBuilder
     std::optional<xonly_pubkey> m_destination_pk;
     std::optional<xonly_pubkey> m_change_pk;
 
-    std::optional<xonly_pubkey> m_parent_collection_script_pk;
-    std::optional<xonly_pubkey> m_parent_collection_int_pk;
 
-    std::optional<xonly_pubkey> m_parent_collection_out_pk;
-
-    std::optional<xonly_pubkey> m_collection_script_pk;
-    std::optional<xonly_pubkey> m_collection_int_pk;
-
-    mutable std::optional<xonly_pubkey> m_collection_taproot_pk;
-    std::optional<signature> m_collection_commit_sig;
-
-    mutable std::optional<CScript> mParentCollectionScript;
     mutable std::optional<CScript> mInscriptionScript;
     mutable std::optional<CMutableTransaction> mCommitTx;
     mutable std::optional<CMutableTransaction> mGenesisTx;
@@ -81,15 +70,12 @@ private:
 
     void RestoreTransactions();
 
-    std::pair<xonly_pubkey, uint8_t> MakeParentCollectionTapRoot();
-    const CScript& GetParentCollectionScript() const;
     const CScript& GetInscriptionScript() const;
     std::vector<CTxOut> GetGenesisTxSpends() const;
     CAmount CalculateWholeFee(const std::string& params) const override;
 
     CMutableTransaction MakeCommitTx() const;
     CMutableTransaction MakeGenesisTx(bool to_sign) const;
-    CMutableTransaction MakeCollectionRootCommitTx() const;
 
     CMutableTransaction CreateGenesisTxTemplate() const;
 
@@ -110,13 +96,13 @@ public:
     static const std::string name_inscribe_sig;
     static const std::string name_destination_pk;
     static const std::string name_change_pk;
-    static const std::string name_parent_collection_script_pk;
-    static const std::string name_parent_collection_int_pk;
-    static const std::string name_parent_collection_out_pk;
-    static const std::string name_collection_script_pk;
-    static const std::string name_collection_int_pk;
-    static const std::string name_collection_commit_sig;
-    static const std::string name_collection_out_pk;
+//    static const std::string name_parent_collection_script_pk;
+//    static const std::string name_parent_collection_int_pk;
+//    static const std::string name_parent_collection_out_pk;
+//    static const std::string name_collection_script_pk;
+//    static const std::string name_collection_int_pk;
+//    static const std::string name_collection_commit_sig;
+//    static const std::string name_collection_out_pk;
 
     CreateInscriptionBuilder() : m_type(INSCRIPTION), m_ord_amount(0) {}
     CreateInscriptionBuilder(const CreateInscriptionBuilder&) = default;
@@ -140,11 +126,10 @@ public:
     CreateInscriptionBuilder& Data(const std::string& content_type, const std::string& hex_data);
     CreateInscriptionBuilder& InscribePubKey(const std::string& inscribe_pk);
     CreateInscriptionBuilder& ChangePubKey(const std::string& change_pk);
-    CreateInscriptionBuilder& CollectionCommitPubKeys(const std::string& script_pk, const std::string& int_pk);
+    //CreateInscriptionBuilder& CollectionCommitPubKeys(const std::string& script_pk, const std::string& int_pk);
     CreateInscriptionBuilder& AddToCollection(const std::string& collection_id,
                                               const std::string& utxo_txid, uint32_t utxo_nout, const std::string& utxo_amount,
-                                              const std::string& collection_script_pk, const std::string& collection_int_pk,
-                                              const std::string& collection_out_pk);
+                                              const std::string& collection_pk);
     CreateInscriptionBuilder& AddFundMiningFee(const std::string &txid, uint32_t nout, const std::string& amount, const std::string& pk);
 
     std::string MakeInscriptionId() const;
@@ -164,7 +149,6 @@ public:
 
     void SignCommit(uint32_t n, const std::string& sk, const std::string& inscribe_script_pk);
     void SignInscription(const std::string& insribe_script_sk);
-    void SignCollectionRootCommit(const std::string& inscribe_sk);
 
     void SignCollection(const std::string& script_sk);
     void SignFundMiningFee(uint32_t n, const std::string& sk);

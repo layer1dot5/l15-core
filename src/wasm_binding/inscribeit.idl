@@ -46,16 +46,13 @@ interface CreateInscriptionBuilder
     [Ref] CreateInscriptionBuilder Data([Const] DOMString contentType, [Const] DOMString hexData);
     [Ref] CreateInscriptionBuilder InscribePubKey([Const] DOMString inscribePK);
     [Ref] CreateInscriptionBuilder ChangePubKey([Const] DOMString changePK);
-    [Ref] CreateInscriptionBuilder CollectionCommitPubKeys([Const] DOMString collectionScriptPK, [Const] DOMString collectionIntPK);
 
     [Ref] CreateInscriptionBuilder AddToCollection([Const] DOMString collectionId, [Const] DOMString txid, long nout, [Const] DOMString amount,
-                                                   [Const] DOMString parentScriptPK, [Const] DOMString parentIntPK,
-                                                   [Const] DOMString parentOutPK);
+                                                   [Const] DOMString collectionPK);
     [Ref] CreateInscriptionBuilder AddFundMiningFee([Const] DOMString txid, long nout, [Const] DOMString amount, [Const] DOMString fundMiningFeePK);
 
     void SignCommit(long n, [Const] DOMString sk, [Const] DOMString scriptPK);
     void SignInscription([Const] DOMString scriptSK);
-    void SignCollectionRootCommit([Const] DOMString inscribeScriptSK);
     void SignCollection([Const] DOMString collectionScriptSK);
     void SignFundMiningFee(long n, [Const] DOMString sk);
 

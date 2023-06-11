@@ -10,7 +10,7 @@ const bytevector ORD_TAG {'o', 'r', 'd'};
 const bytevector ORD_PARENT_TAG {'o', 'r', 'p'};
 const opcodetype CONTENT_TAG {OP_0};
 const bytevector CONTENT_TYPE_TAG {'\1'};
-const bytevector COLLECTION_ID_TAG {'\2'};
+const bytevector COLLECTION_ID_TAG {'\3'};
 
 inline void CheckCollectionId(const std::string& collection_id)
 {
