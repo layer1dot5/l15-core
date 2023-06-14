@@ -105,8 +105,47 @@ Transfer collection_utxo;
 //    CHECK(coll_tr == "8beaf837645995a1e4c0a8a7c68f20770ffc8a5ea8202821e60d4704696f79bb");
 //}
 
+//TEST_CASE("spendwallet") {
+//    ChannelKeys key;
+//    string addr = w->bech32().Encode(key.GetLocalPubKey());
+//
+//    CAmount balance = ParseAmount("0.04178019");
+//
+//    std::clog << "sk: " << hex(key.GetLocalPrivKey()) << std::endl;
+//    std::clog << "addr: " << addr << std::endl;
+//    std::clog << "bal: " << balance << std::endl;
+//
+//    string txid = w->btc().SendToAddress(addr, FormatAmount(balance - (58 + 58 + 43 + 10)));
+//
+//    std::clog << "txid: " << txid << std::endl;
+//}
+//
+//TEST_CASE("fundwallet") {
+//    ChannelKeys key(unhex<seckey>("b64555a19f550bcd387074f6e16b17baef32ad86f70953251b5cb2dde53588eb"));
+//
+//    string addr = w->btc().GetNewAddress();
+//    xonly_pubkey dest_pk = w->bech32().Decode(addr);
+//
+//    std::clog << "source pk: " << hex(key.GetLocalPubKey()) << std::endl;
+//    std::clog << "dest addr: " << addr << std::endl;
+//    std::clog << "dest pk: " << hex(dest_pk) << std::endl;
+//
+//    std::clog << "source: " << uint256S("29d25390a3c7c4f2b60a2259f93dd86042342c9b8f8438d0a08927297e59491e").GetHex() << std::endl;
+//
+//    CMutableTransaction tx;
+//    tx.vin.emplace_back(CTxIn(uint256S("29d25390a3c7c4f2b60a2259f93dd86042342c9b8f8438d0a08927297e59491e"), 0));
+//    tx.vout.emplace_back(ParseAmount("0.04177830") - (58 + 58 + 43 + 10), CScript() << 1 << dest_pk);
+//
+//    signature sig = key.SignTaprootTx(tx, 0, {CTxOut(0, CScript() << 1 << key.GetLocalPubKey())}, {});
+//
+//    std::clog << "sig: " << hex(sig) << std::endl;
+//
+//    tx.vin.front().scriptWitness.stack = {sig};
+//
+//    w->btc().SpendTx(CTransaction(tx));
+//}
 
-TEST_CASE("single inscribe")
+TEST_CASE("single")
 {
     ChannelKeys utxo_key;
     ChannelKeys script_key, inscribe_key;
@@ -126,8 +165,9 @@ TEST_CASE("single inscribe")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    std::string content_type = "text/ascii";
-    auto content = hex(GenRandomString(2048));
+    std::string content_type = "image/svg+xml";
+    const std::string svg = "<svg width=\"440\" height=\"101\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xml:space=\"preserve\" overflow=\"hidden\"><g transform=\"translate(-82 -206)\"><g><text fill=\"#777777\" fill-opacity=\"1\" font-family=\"Arial,Arial_MSFontService,sans-serif\" font-style=\"normal\" font-variant=\"normal\" font-weight=\"400\" font-stretch=\"normal\" font-size=\"37\" text-anchor=\"start\" direction=\"ltr\" writing-mode=\"lr-tb\" unicode-bidi=\"normal\" text-decoration=\"none\" transform=\"matrix(1 0 0 1 191.984 275)\">sample collection</text></g></g></svg>";
+    auto content = hex(svg);
 
     CreateInscriptionBuilder test_inscription(INSCRIPTION, "0.00000546");
     REQUIRE_NOTHROW(test_inscription.MiningFeeRate(fee_rate).Data(content_type, content));
@@ -213,7 +253,7 @@ TEST_CASE("single inscribe")
 //    }
 }
 
-TEST_CASE("collection child")
+TEST_CASE("child")
 {
     ChannelKeys utxo_key;
     ChannelKeys script_key, inscribe_key;
@@ -234,8 +274,10 @@ TEST_CASE("collection child")
 
     std::clog << "Fee rate: " << fee_rate << std::endl;
 
-    std::string content_type = "text/ascii";
-    auto content = hex(GenRandomString(2048));
+    std::string content_type = "image/svg+xml";
+
+    const string svg = "<svg width=\"440\" height=\"101\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xml:space=\"preserve\" overflow=\"hidden\"><g transform=\"translate(-82 -206)\"><g><text fill=\"#777777\" fill-opacity=\"1\" font-family=\"Arial,Arial_MSFontService,sans-serif\" font-style=\"normal\" font-variant=\"normal\" font-weight=\"400\" font-stretch=\"normal\" font-size=\"37\" text-anchor=\"start\" direction=\"ltr\" writing-mode=\"lr-tb\" unicode-bidi=\"normal\" text-decoration=\"none\" transform=\"matrix(1 0 0 1 118.078 275)\">Svg</text><text fill=\"#FFFFFF\" fill-opacity=\"1\" font-family=\"Arial,Arial_MSFontService,sans-serif\" font-style=\"normal\" font-variant=\"normal\" font-weight=\"400\" font-stretch=\"normal\" font-size=\"37\" text-anchor=\"start\" direction=\"ltr\" writing-mode=\"lr-tb\" unicode-bidi=\"normal\" text-decoration=\"none\" transform=\"matrix(1 0 0 1 191.984 275)\">svg</text><text fill=\"#000000\" fill-opacity=\"1\" font-family=\"Arial,Arial_MSFontService,sans-serif\" font-style=\"normal\" font-variant=\"normal\" font-weight=\"400\" font-stretch=\"normal\" font-size=\"37\" text-anchor=\"start\" direction=\"ltr\" writing-mode=\"lr-tb\" unicode-bidi=\"normal\" text-decoration=\"none\" transform=\"matrix(1 0 0 1 259.589 275)\">svg</text></g></g></svg>";
+    auto content = hex(svg);
 
 //    CreateInscriptionBuilder test_inscription(INSCRIPTION, "0.00000546");
 //    REQUIRE_NOTHROW(test_inscription.MiningFeeRate(fee_rate).Data(content_type, content));
@@ -437,7 +479,7 @@ TEST_CASE("inscribe")
         CHECK_NOTHROW(inscription = Inscription(rawtx[1]));
         CHECK(inscription->GetIscriptionId() == genesis_tx.GetHash().GetHex() + "i" + std::to_string(0));
         CHECK(inscription->GetContentType() == content_type);
-        CHECK(inscription->GetContent() == unhex<bytevector>(content));
+        CHECK(inscription->GetContent() == content);
 
         if (condition.has_parent) {
             CHECK(inscription->GetCollectionId() == collection_id);

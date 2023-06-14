@@ -46,8 +46,8 @@ public:
 
     const std::string& GetContentType() const
     { return m_content_type; }
-    const l15::bytevector& GetContent() const
-    { return m_content; }
+    std::string GetContent() const
+    { return hex(m_content); }
 
     bool HasParent() const
     { return !m_collection_id.empty(); }
