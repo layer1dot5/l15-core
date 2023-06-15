@@ -32,7 +32,7 @@ class Inscription
     bytevector m_content;
     std::string m_collection_id;
 
-    void ParseEnvelopeScript(const CScript& script);
+
 public:
     explicit Inscription(const std::string& hex_tx);
     Inscription(const Inscription& ) = default;

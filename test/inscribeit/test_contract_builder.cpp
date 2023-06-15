@@ -73,11 +73,23 @@ TEST_CASE("svgscript")
 
     Inscription inscription(raw_tx);
 
-    std::clog << std::string(inscription.GetContent().begin(), inscription.GetContent().end()) << std::endl;
+    std::clog << inscription.GetContent() << std::endl;
     std::clog << "===========================================================\n"
               << inscription.GetCollectionId() << std::endl;
 }
 
+TEST_CASE("parse")
+{
+    std::string raw_tx ="010000000001014f414ef59996cf68d0f7952a89241d7aebd99aa53c474cfb31d7b9d8350fcfc10000000000fdffffff01102700000000000022512032cc8b416c04cf857bc8eb891da2403816d3e12e26a0b51e7780ef362fb4c673034065eba88bc56b942a25f0d92fb59cda2fc378be37afb62a66273903a2459de93626466a50a454ff240f390814fb5872ca27c3f181aede6b6092949048ac5d0641fdef01204635b7b5fdc55b8c072892447bfbf9893f81d937f0c2d41e73f1d400cdfd38d6ac0063036f7264010109696d6167652f706e67004db60189504e470d0a1a0a0000000d494844520000002a0000002c0403000000e1b4377500000015504c5445ff9000c2a633edc348000000fbeeca9c7b33ffffff7024a5bc00000028655849664d4d002a000000080001010d00020000000e0000001a000000006464646f6f6f6767676765656500a8076e270000012849444154789c7dd3ed9184200c066067a8c0a18320ff95d7b500a5023d1bb8ebbf874bc2c7e2ea1dc3cc8e8f21b03174ddbfc300186f36f57d6faf6ec464d8960b32bf11fc585ea0ae9718a791fc6e6cd6db4334b89ac368d4ceefac971563ab0e088d6a824032546ddd2b2191ee39662d487eca2abf01a1519bd4ba9f6f72b86ba06519e27ad1c8610b8618fd9154369ba32665a5231d4275c32cf6a0f1a611f1496925653aa736365090c4e5cf6919220112bc5e94f2c96a21f4f3d6eaa8dabf34157d1f8893e6bcb90efdeb6b1b30f3ac0afdb638ce8327497950d40b39724459793b3e99733a45b5d70c3e3435e64d739b5e3437ab816adc78b296ce96ca388f174fe232d5f60fe4e9dc65baf725406912c6dad5c2ea6c0deab54ae37a899eb07bbe851fe31723a762c2083a61870000000049454e44ae4260826821c14635b7b5fdc55b8c072892447bfbf9893f81d937f0c2d41e73f1d400cdfd38d600000000";
+
+    Inscription inscription(raw_tx);
+
+    std::clog << inscription.GetIscriptionId() << std::endl;
+    std::clog << inscription.GetContentType() << std::endl;
+    std::clog << inscription.GetContent() << std::endl;
+    std::clog << "===========================================================\n"
+              << "collection: " << inscription.GetCollectionId() << std::endl;
+}
 
 
 TEST_CASE("Fee")

@@ -10,6 +10,8 @@
 
 namespace l15::inscribeit {
 
+namespace {
+
 opcodetype GetNextScriptData(const CScript& script, CScript::const_iterator& it, bytevector& data, const std::string errtag) {
     opcodetype opcode;
     if (it < script.end()) {
@@ -23,8 +25,10 @@ opcodetype GetNextScriptData(const CScript& script, CScript::const_iterator& it,
     return opcode;
 }
 
-void Inscription::ParseEnvelopeScript(const CScript &script)
-{
+std::list<std::pair<bytevector, bytevector>> ParseEnvelopeScript(const CScript& script) {
+    std::list<std::pair<bytevector, bytevector>> res;
+    bytevector content;
+
     size_t i = 0;
 
     CScript::const_iterator it = script.begin();
@@ -58,41 +62,34 @@ void Inscription::ParseEnvelopeScript(const CScript &script)
 
     while (it < end) {
         opcode = GetNextScriptData(script, it, data, "inscription envelope");
-//        if (!script.GetOp(it, opcode, data))
-//            throw InscriptionFormatError("inscription envelope");
 
         if (opcode == CONTENT_TAG) {
-            if (!fetching_content && !m_content.empty()) throw InscriptionFormatError("second CONTENT tag");
+            if (!fetching_content && !content.empty()) throw InscriptionFormatError("second CONTENT tag");
             fetching_content = true;
         }
-        else if (opcode == CONTENT_TYPE_TAG.size() && data == CONTENT_TYPE_TAG) {
-            if (!m_content_type.empty()) throw InscriptionFormatError("second CONTENT_TYPE tag");
-
+        else if ((opcode == CONTENT_TYPE_TAG.size() && data == CONTENT_TYPE_TAG)) {
             GetNextScriptData(script, it, data, "content type");
-            m_content_type.assign(data.begin(), data.end());
-
-            fetching_content = false;
+            res.emplace_back(CONTENT_TYPE_TAG, move(data));
         }
         else if (opcode == COLLECTION_ID_TAG.size() && data == COLLECTION_ID_TAG) {
-            if (!m_collection_id.empty()) throw InscriptionFormatError("second COLLECTION_ID tag");
-
             GetNextScriptData(script, it, data, "collection id");
-
-            std::string collection_id;
-            collection_id.assign(data.begin(), data.end());
-            CheckCollectionId(collection_id);
-
-            m_collection_id = move(collection_id);
-            fetching_content = false;
+            res.emplace_back(COLLECTION_ID_TAG, move(data));
         }
         else if (opcode == OP_ENDIF) {
+            if (!content.empty()) {
+                res.emplace_back(CONTENT_ALIAS_TAG, move(content));
+            }
             break;
         }
         else if (fetching_content) {
-            m_content.insert(m_content.end(), data.begin(), data.end());
+            content.insert(content.end(), data.begin(), data.end());
         }
     }
+    return res;
 }
+
+}
+
 
 Inscription::Inscription(const std::string &hex_tx)
 {
@@ -112,15 +109,58 @@ Inscription::Inscription(const std::string &hex_tx)
     const auto& witness_stack = tx.vin[0].scriptWitness.stack;
     CScript script(witness_stack[witness_stack.size() - 2].begin(), witness_stack[witness_stack.size() - 2].end());
 
-    ParseEnvelopeScript(script);
+    auto inscr_data = ParseEnvelopeScript(script);
+    while(!inscr_data.empty()) {
+        if (inscr_data.front().first == CONTENT_TYPE_TAG) {
+            if (!m_content_type.empty()) throw InscriptionFormatError("second CONTENT_TYPE tag");
+            m_content_type.assign(inscr_data.front().second.begin(), inscr_data.front().second.end());
+            inscr_data.pop_front();
+        }
+        else if (inscr_data.front().first == CONTENT_ALIAS_TAG) {
+            if (!m_content.empty()) throw InscriptionFormatError("second CONTENT tag");
+            m_content = move(inscr_data.front().second);
+            inscr_data.pop_front();
+        }
+        else if (inscr_data.front().first == COLLECTION_ID_TAG) {
+            if (!m_collection_id.empty()) throw InscriptionFormatError("second COLLECTION_ID tag");
+
+            std::string collection_id(inscr_data.front().second.begin(), inscr_data.front().second.end());
+            CheckCollectionId(collection_id);
+            m_collection_id = move(collection_id);
+            inscr_data.pop_front();
+        }
+        else {
+            // just skip unknown tag
+            inscr_data.pop_front();
+        }
+    }
 
     if (m_content.empty()) throw InscriptionError("no content");
 
-    if (tx.vin[1].scriptWitness.stack.size() >= 3) {
+    if (m_collection_id.empty() && tx.vin.size() > 1 && tx.vin[1].scriptWitness.stack.size() >= 3) {
         const auto &witness_stack = tx.vin[1].scriptWitness.stack;
         CScript script(witness_stack[witness_stack.size() - 2].begin(), witness_stack[witness_stack.size() - 2].end());
+        std::string collection_id;
 
-        ParseEnvelopeScript(script);
+        auto inscr_data = ParseEnvelopeScript(script);
+        while(!inscr_data.empty()) {
+            if (inscr_data.front().first == CONTENT_TYPE_TAG || inscr_data.front().first == CONTENT_ALIAS_TAG) {
+                collection_id.clear();
+                break;
+            }
+            else if (inscr_data.front().first == COLLECTION_ID_TAG) {
+                collection_id.assign(inscr_data.front().second.begin(), inscr_data.front().second.end());
+                CheckCollectionId(collection_id);
+                inscr_data.pop_front();
+            }
+            else {
+                // just skip unknown tag
+                inscr_data.pop_front();
+            }
+        }
+        if (!collection_id.empty()) {
+            m_collection_id = move(collection_id);
+        }
     }
 
     m_inscription_id = tx.GetHash().GetHex() + "i0";
