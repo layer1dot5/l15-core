@@ -34,13 +34,6 @@ else
   LDFLAGS_overridden=
 fi
 
-compiler_name=`basename "$CC"`
-if test "x$compiler_name" = "xemcc"; then
-    with_emscripten=yes
-else
-    with_emscripten=no
-fi
-
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
@@ -48,6 +41,7 @@ AC_PROG_CPP
 AC_PROG_MKDIR_P
 
 AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
+
 
 default_build_tools=yes
 default_build_services=yes
@@ -58,26 +52,33 @@ default_blockchain_node=node
 default_secp256k1=contrib/secp256k1
 
 dnl Enable Python integrations
-AC_ARG_ENABLE([python-binding],
-              [AS_HELP_STRING([--enable-python-binding],[Enable API binding module for python (disabled by default)])],
-              [
-                if test $enableval != no; then
-                    default_plugin_api=yes
-                fi
-              ],
-              [enable_python_binding=no])
+dnl AC_ARG_ENABLE([python-binding],
+dnl               [AS_HELP_STRING([--enable-python-binding], [Enable plugin API binding module for python (disabled by default)])],
+dnl               [
+dnl                 if test $enableval != no; then
+dnl                     default_plugin_api=yes
+dnl                 fi
+dnl               ],
+dnl               [enable_python_binding=no])
+dnl
+dnl AC_ARG_ENABLE([wasm-binding],
+dnl              [AS_HELP_STRING([--enable-wasm-binding], [Enable plugin API binding for WebAssembly (disabled by default)])],
+dnl              [
+dnl                if test $enableval != no; then
+dnl                    default_plugin_api=yes
+dnl                fi
+dnl              ],
+dnl              [enable_wasm_binding=no])
+dnl
+dnl if test "$enable_python_binding" = "yes" && test "$enable_wasm_binding" = "yes"; then
+dnl    AC_MSG_ERROR([WebAssembly and Python bindings cannot be built simultaneously])
+dnl fi
 
-AC_ARG_ENABLE([wasm-module],
-              [AS_HELP_STRING([--enable-wasm-module], [Enable plugin API binding for WebAssembly (disabled by default)])],
-              [
-                if test $enableval != no; then
-                    default_plugin_api=yes
-                fi
-              ],
-              [enable_wasm_module=no])
-
-if test "$enable_python_module" = "yes" && "$enable_wasm_module" = "yes"; then
-    AC_MSG_ERROR([WebAssembly and Python modules cannot be build simultaneously])
+compiler_name=`basename "$CC"`
+if test "x$compiler_name" = "xemcc"; then
+    with_emscripten=yes
+else
+    with_emscripten=no
 fi
 
 AC_ARG_ENABLE([plugin-api],
@@ -170,8 +171,8 @@ AM_CONDITIONAL([BUILD_APIS], [test "$enable_build_apis" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$enable_build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
-AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$enable_python_module" = "yes"])
-AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$enable_wasm_module" = "yes"])
+#AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$enable_python_module" = "yes"])
+#AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$enable_wasm_module" = "yes"])
 AM_CONDITIONAL([BUILD_SECP256K1], [test "$with_secp256k1" != "node"])
 AM_CONDITIONAL([BUILD_FROST], [test "$enable_build_frost_signer" = "yes"])
 
@@ -197,7 +198,15 @@ if test "$LDLAGS_overridden" != "yes"; then
 fi
 
 
-if test "$enable_debug" = "yes"; then
+if test "x$enable_build_apis" = "xyes"; then
+    AX_BOOST_BASE([1.70])
+    AX_BOOST_FILESYSTEM
+fi
+
+AC_LANG_PUSH([C++])
+AX_CHECK_COMPILE_FLAG([-Werror], [CXXFLAG_WERROR="-Werror"])
+
+if test "x$enable_debug" = "xyes"; then
 
   dnl Disable all optimizations
   AX_CHECK_COMPILE_FLAG([-O0], [DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"], [], [$CXXFLAG_WERROR])
@@ -214,11 +223,7 @@ if test "$enable_debug" = "yes"; then
 
 fi
 
-# Checks for libraries.
-AX_BOOST_BASE([1.70],, [AC_MSG_ERROR([Boost 1.70 or higher is needed, but it was not found in your system])])
-AX_BOOST_FILESYSTEM(,[AC_MSG_ERROR([libboost_filesystem is required, but it was not found in your system])])
-
-if test "$enable_wasm_module" = "yes"; then
+if test "$enable_wasm_binding" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
   CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -Wno-unqualified-std-cast-call"
   LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED  -sEXPORTED_FUNCTIONS=['_malloc'] -sEXPORT_NAME='L15' -sMODULARIZE=1 -sNO_FILESYSTEM=1"
