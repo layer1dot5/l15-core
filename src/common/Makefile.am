@@ -1,5 +1,9 @@
 
-version.cpp: $(top_srcdir)/version.sh Makefile
+VERSION_MODULE = version.cpp
+
+.PHONY: $(VERSION_MODULE)
+
+$(VERSION_MODULE): $(top_srcdir)/version.sh Makefile
 	echo '#include "version.hpp"' >$@
 	(echo 'const char* const l15::Version::core_version = "'; $< $(top_srcdir); echo '";') | tr -d '\n' >>$@; echo >>$@
 	(echo 'const char* const l15::Version::node_version = "'; $< $(top_srcdir)/$(NODE_PATH); echo '";')| tr -d '\n' >>$@; echo >>$@
@@ -22,4 +26,6 @@ libl15_common_la_SOURCES = \
 	common.cpp \
 	utils.cpp
 
-nodist_libl15_common_la_SOURCES = version.cpp
+nodist_libl15_common_la_SOURCES = $(VERSION_MODULE)
+
+CLEANFILES = $(VERSION_MODULE)
