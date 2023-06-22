@@ -337,12 +337,19 @@ AS_IF([test "$enable_plugin_api" = "yes"], [btc_utils=--without-utils],
 AS_IF([test "$enable_plugin_api" = "yes"], [btc_daemon=--without-daemon],
       [btc_daemon=--with-daemon])
 
+AS_IF([test "$enable_plugin_api" = "yes"], [limited_api=--enable-limited-api],
+      [limited_api="--enable-limited-api=no"])
+
 AS_IF([test "$with_emscripten" = "yes"], [btc_asm=--disable-asm],
       [btc_asm=--enable-asm])
 
+AS_IF([test "$with_emscripten" = "yes"], [btc_hardening=--disable-hardening],
+      [btc_hardening=--enable-hardening])
+
 AS_IF([test "x$with_zmq" = "xyes"], [btc_zmq=--with-zmq],
-      [test "x$with_zmq" != "xno"], [btc_zmq="--with-zmq=$with_zmq"],
-      [btc_zmq=--without-zmq])
+      [test "x$with_zmq" = "xno"], [btc_zmq="--without-zmq"],
+      [test -z "$with_zmq"], [btc_zmq="--without-zmq"],
+      [btc_zmq="--with-zmq=$with_zmq"])
 
 
 AX_SUBDIRS_CONFIGURE(
@@ -351,15 +358,29 @@ AX_SUBDIRS_CONFIGURE(
      [--with-libs], [--without-bdb], [$btc_sqlite], [$btc_zmq],
      [--without-libmultiprocess], [--without-mpgen],
      [$btc_utils], [$btc_cli], [$btc_daemon],
-     [--with-experimental-kernel-lib],[--disable-experimental-util-chainstate],
+     [--without-experimental-kernel-lib],[--disable-experimental-util-chainstate],
      [--disable-multiprocess], [--disable-external-signer],
      [--disable-usdt],
+     [$btc_hardening],
      [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
      [--disable-fuzz], [--disable-fuzz-binary],
-     [$btc_asm]],
+     [$btc_asm],
+     [$limited_api]],
     [[--disable-tests], [--disable-bench], [--with-pic]],
     [[--disable-examples]],
-    [[--with-blockchain-node], [--with-secp256k1], [--enable-build-tools], [--enable-build-services], [--enable-build-apis]])
+    [[--with-blockchain-node=$with_blockchain_node],
+     [--enable-wasm-binding],
+     [--enable-python-binding],
+     [--with-secp256k1=$with_secp256k1],
+     [--disable-build-tools],
+     [--disable-build-services],
+     [--disable-build-apis],
+     [--disable-build-frost-signer],
+     [--disable-build-tools],
+     [--disable-build-services],
+     [--disable-build-apis],
+     [--enable-plugin-api],
+     [--disable-plugin-api]])
 
 if test "$with_secp256k1" != "node"; then
   AX_SUBDIRS_CONFIGURE(

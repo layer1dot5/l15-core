@@ -44,7 +44,8 @@ AC_DEFUN([AX_ZMQ], [
                 [xyes],[with_zmq=yes],
                 [xno],[with_zmq=no],
                 [with_zmq=yes; ZMQ_LDFLAGS="-L${withval}/lib"; ZMQ_CPPFLAGS="-I${withval}/include"]
-    )])
+    )],
+    [with_zmq=yes])
 
     HAVE_ZMQ=0
     if test "$with_zmq" != "no"; then
