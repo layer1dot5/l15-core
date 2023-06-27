@@ -138,6 +138,24 @@ std::string hex(const SPAN& s)
     return res;
 }
 
+template<typename T>
+requires (std::is_same_v<typename T::value_type, std::byte>)
+std::string hex(const T& s)
+{
+    std::string res(s.size() * 2, '\0');
+
+    char* it = res.data();
+    for (std::byte v : s) {
+        *it = byte_to_hex[static_cast<uint8_t>(v)][0];
+        ++it;
+        *it = byte_to_hex[static_cast<uint8_t>(v)][1];
+        ++it;
+    }
+
+    assert(it == res.data() + res.size());
+    return res;
+}
+
 template<typename R>
 constexpr R unhex(std::string_view str) {
     if (str.length()%2) {
@@ -157,6 +175,26 @@ constexpr R unhex(std::string_view str) {
     return res;
 }
 
+template<typename R>
+requires (std::is_same_v<typename R::value_type, std::byte>)
+constexpr R unhex(std::string_view str) {
+    if (str.length()%2) {
+        throw std::out_of_range("Wrong hex string length");
+    }
+
+    R res;
+    res.resize(str.length() / 2);
+
+    auto ins = res.begin();
+    for (auto i = str.begin(); i != str.end(); i+=2) {
+        auto& p = reinterpret_cast<uint8_t&>(*ins++);
+        auto conv_res = std::from_chars(i, i+2, p, 16);
+        if (conv_res.ec == std::errc::invalid_argument) {
+            throw std::invalid_argument("Wrong hex string");
+        }
+    }
+    return res;
+}
 
 template<typename T>
 static bool IsZeroArray(const T& a)
