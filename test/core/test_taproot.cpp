@@ -199,8 +199,8 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot script path spending")
     {
         //get key pair Taproot
-        auto internal_sk = ChannelKeys(w->wallet().Secp256k1Context());
-        const auto& internal_pk = internal_sk.GetLocalPubKey();
+        ChannelKeys internal_sk;
+        xonly_pubkey internal_pk = internal_sk.GetLocalPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
@@ -225,8 +225,8 @@ TEST_CASE("Taproot transaction test cases")
         xonly_pubkey taprootpubkey;
         uint8_t taprootpubkeyparity;
 
-        std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(root);
-        string addr = w->btc().Bech32Encode(taprootpubkey);
+        std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(std::make_optional(root));
+        string addr = w->bech32().Encode(taprootpubkey);
 
         std::clog << "\nTaproot PK: " << HexStr(taprootpubkey) << std::endl;
         std::clog << "Taptweak parity flag: " << (int)taprootpubkeyparity << std::endl;

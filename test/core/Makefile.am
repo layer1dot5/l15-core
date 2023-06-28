@@ -33,7 +33,7 @@ $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_threshold_sign test_taptree test_taproot test_node
+bin_PROGRAMS = test_threshold_sign test_taptree test_taproot test_node test_derive_key
 #test_ptlc
 
 
@@ -55,3 +55,5 @@ test_node_LDADD = $(L15_LIBS)
 test_threshold_sign_SOURCES = test_threshold_sign.cpp
 test_threshold_sign_LDADD = $(L15_LIBS) $(ZMQ_LDFLAGS) $(ZMQ_LIBS)
 
+test_derive_key_SOURCES = test_derive_key.cpp
+test_derive_key_LDADD = $(L15_LIBS)
