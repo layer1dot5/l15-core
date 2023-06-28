@@ -68,19 +68,18 @@ TEST_CASE("TapTweak")
     WalletApi wallet;
 
     ChannelKeys key(wallet.Secp256k1Context());
+    XOnlyPubKey pk(key.GetPubKey());
 
     // Lets just simulate some uint256
     l15::HashWriter hash(TAPBRANCH_HASH);
     hash  << "test test test";
     uint256 fake_root = hash;
 
-    auto taprootkey = key.AddTapTweak(fake_root);
-
+    auto taprootkey = key.AddTapTweak(std::make_optional(fake_root));
 
     XOnlyPubKey xonlypubkey(taprootkey.first);
 
-    CHECK(xonlypubkey.CheckTapTweak(XOnlyPubKey(key.GetPubKey()), fake_root, taprootkey.second));
-
+    CHECK(xonlypubkey.CheckTapTweak(pk, fake_root, taprootkey.second));
 }
 
 TEST_CASE("TapRoot single script")
@@ -89,7 +88,7 @@ TEST_CASE("TapRoot single script")
 
     //get key pair Taproot
     auto internal_sk = ChannelKeys(wallet.Secp256k1Context());
-    const auto& internal_pk = internal_sk.GetLocalPubKey();
+    xonly_pubkey internal_pk = internal_sk.GetLocalPubKey();
 
     std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
 
@@ -108,7 +107,7 @@ TEST_CASE("TapRoot single script")
     ScriptMerkleTree tap_tree (TreeBalanceType::WEIGHTED, {script});
     uint256 root = tap_tree.CalculateRoot();
 
-    auto tap_root = internal_sk.AddTapTweak(root);
+    auto tap_root = internal_sk.AddTapTweak(std::make_optional(root));
 
 
     XOnlyPubKey xonly_internal_pubkey(internal_pk);

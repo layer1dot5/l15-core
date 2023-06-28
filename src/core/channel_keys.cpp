@@ -112,40 +112,43 @@ void ChannelKeys::CachePubkey()
 //}
 
 
-std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const uint256& merkle_root) const
+std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const std::optional<uint256>& merkle_root)
 {
-    secp256k1_pubkey out;
-
     HashWriter hash(TAPTWEAK_HASH);
     hash << Span(GetPubKey());
-    hash << merkle_root;
-
+    if (merkle_root.has_value()) {
+        hash << *merkle_root;
+    }
     uint256 tweak = hash;
 
-    secp256k1_xonly_pubkey pubkey_agg = m_pubkey_agg.get(m_ctx);
+    secp256k1_keypair keypair;
+    if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
+        throw WrongKeyError();
+    }
 
-    if (!secp256k1_xonly_pubkey_tweak_add(m_ctx, &out, &pubkey_agg, tweak.data())) {
+    if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
         throw SignatureError("Tweak error");
     }
 
-    int parity = -1;
-    std::pair<xonly_pubkey, bool> ret;
-    secp256k1_xonly_pubkey out_xonly;
-
-    if (!secp256k1_xonly_pubkey_from_pubkey(m_ctx, &out_xonly, &parity, &out)) {
+    seckey tweaked_sk;
+    if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
         throw KeyError();
     }
 
-    ret.first.set(m_ctx, out_xonly);
+    secp256k1_xonly_pubkey tweaked_pk;
+    int parity = -1;
+    if (!secp256k1_keypair_xonly_pub(Secp256k1Context(), &tweaked_pk, &parity, &keypair)) {
+        throw KeyError();
+    }
 
-    assert(parity == 0 || parity == 1);
+    m_local_sk = move(tweaked_sk);
+    m_local_pk.set(m_ctx, tweaked_pk);
+    m_pubkey_agg = m_local_pk;
 
-    ret.second = parity;
-
-    return ret;
+    return std::make_pair(GetPubKey(), static_cast<bool>(parity));
 }
 
-std::pair<ChannelKeys, uint8_t> ChannelKeys::NewKeyAddTapTweak(std::optional<uint256> merkle_root) const
+std::pair<ChannelKeys, uint8_t> ChannelKeys::NewKeyAddTapTweak(const std::optional<uint256>& merkle_root) const
 {
     HashWriter hash(TAPTWEAK_HASH);
     hash << Span(GetPubKey());
@@ -206,7 +209,7 @@ xonly_pubkey ChannelKeys::CreateUnspendablePubKey(const seckey &random_factor)
 }
 
 
-std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const xonly_pubkey &pk, const uint256& merkle_root)
+std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const xonly_pubkey &pk, const std::optional<uint256>& merkle_root)
 {
     const secp256k1_context* ctx = GetStaticSecp256k1Context();
 
@@ -214,7 +217,8 @@ std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const xonly_pubkey &pk
 
     HashWriter hash(TAPTWEAK_HASH);
     hash << Span(pk);
-    hash << merkle_root;
+    if (merkle_root.has_value())
+        hash << *merkle_root;
     uint256 tweak = hash;
 
     secp256k1_xonly_pubkey pubkey = pk.get(ctx);

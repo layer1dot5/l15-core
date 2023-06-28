@@ -33,7 +33,7 @@ $(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
 $(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_taptree test_taproot test_node
+bin_PROGRAMS = test_taptree test_taproot test_node test_derive_key
 #test_ptlc
 
 if BUILD_FROST
@@ -60,4 +60,7 @@ test_taproot_LDADD = $(L15_LIBS)
 test_node_SOURCES = test_node.cpp
 test_node_LDADD = $(L15_LIBS)
 
+
+test_derive_key_SOURCES = test_derive_key.cpp
+test_derive_key_LDADD = $(L15_LIBS)
 

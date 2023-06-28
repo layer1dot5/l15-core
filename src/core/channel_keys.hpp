@@ -66,10 +66,10 @@ public:
     static seckey GetStrongRandomKey(const secp256k1_context* ctx = GetStaticSecp256k1Context()) ;
     static xonly_pubkey CreateUnspendablePubKey(const seckey& random_factor);
 
-    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const uint256& merkle_root);
-    std::pair<xonly_pubkey , uint8_t> AddTapTweak(const uint256& merkle_root) const;
+    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const std::optional<uint256>& merkle_root = {});
+    std::pair<xonly_pubkey, uint8_t> AddTapTweak(const std::optional<uint256>& merkle_root = {});
 
-    std::pair<ChannelKeys , uint8_t> NewKeyAddTapTweak(std::optional<uint256> merkle_root) const;
+    std::pair<ChannelKeys, uint8_t> NewKeyAddTapTweak(const std::optional<uint256>& merkle_root = {}) const;
 
     signature SignSchnorr(const uint256& data) const;
 

@@ -118,7 +118,7 @@ TEST_CASE("Taproot transaction test cases")
     {
         //get key pair Taproot
         ChannelKeys internal_sk;
-        const auto& internal_pk = internal_sk.GetLocalPubKey();
+        xonly_pubkey internal_pk = internal_sk.GetLocalPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
@@ -143,7 +143,7 @@ TEST_CASE("Taproot transaction test cases")
         xonly_pubkey taprootpubkey;
         uint8_t taprootpubkeyparity;
 
-        std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(root);
+        std::tie(taprootpubkey, taprootpubkeyparity) = internal_sk.AddTapTweak(std::make_optional(root));
         string addr = w->bech32().Encode(taprootpubkey);
 
         std::clog << "\nTaproot PK: " << HexStr(taprootpubkey) << std::endl;
