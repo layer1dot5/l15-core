@@ -7,7 +7,7 @@ interface string
     [Const] DOMString c_str();
 };
 
-[Prefix="l15::wasm::"]
+[Prefix="l15::utxord::"]
 interface ChannelKeys
 {
     static void InitSecp256k1();
@@ -19,13 +19,39 @@ interface ChannelKeys
     [Value] string SignSchnorr([Const] DOMString m);
 };
 
-[Prefix="l15::wasm::"]
+
+[Prefix="l15::utxord::"]
+interface MasterKey
+{
+    void MasterKey([Const] DOMString seed);
+    ChannelKeys Derive([Const] DOMString path, boolean for_script);
+};
+
+
+enum NetworkMode
+{
+    "REGTEST",
+    "TESTNET",
+    "MAINNET"
+};
+
+
+[Prefix="l15::utxord::"]
+interface Bech32
+{
+    void Bech32(NetworkMode network);
+    [Value] string Encode([Const] DOMString pk);
+    [Value] string Decode([Const] DOMString addr);
+};
+
+
+[Prefix="l15::utxord::"]
 interface Exception
 {
     [Value] static string getMessage(any e);
 };
 
-[Prefix="l15::inscribeit::"]
+[Prefix="l15::utxord::"]
 interface Collection
 {
     [Value] string GetCollectionTapRootPubKey([Const] DOMString collectionId, [Const] DOMString scriptSK, [Const] DOMString internalSK);
@@ -37,7 +63,7 @@ enum InscribeType
     "COLLECTION"
 };
 
-[Prefix="l15::inscribeit::"]
+[Prefix="l15::utxord::"]
 interface CreateInscriptionBuilder
 {
     void CreateInscriptionBuilder(InscribeType type, [Const] DOMString ordAmount);
@@ -66,7 +92,6 @@ interface CreateInscriptionBuilder
 
     [Value] string GetNewInputMiningFee();
     [Value] string GetNewOutputMiningFee();
-
 };
 
 enum SwapPhase
@@ -81,7 +106,7 @@ enum SwapPhase
     "MARKET_SWAP_SIG",
 };
 
-[Prefix="l15::inscribeit::"]
+[Prefix="l15::utxord::"]
 interface SwapInscriptionBuilder
 {
     void SwapInscriptionBuilder([Const] DOMString ord_price, [Const] DOMString market_fee);

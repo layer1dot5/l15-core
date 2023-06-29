@@ -8,18 +8,18 @@ namespace {
     const unsigned char seed_hash_tag[] = {'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'};
 }
 
-MasterKey::MasterKey(const secp256k1_context* ctx, const std::vector<std::byte>& seed) : m_ctx(ctx)
+MasterKey::MasterKey(const secp256k1_context* ctx, const bytevector& seed) : m_ctx(ctx)
 {
     std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(UCharCast(seed.data()), seed.size()).Finalize(vout.data());
+    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(seed.data(), seed.size()).Finalize(vout.data());
     mKey.assign(vout.data(), vout.data() + 32);
     memcpy(mChainCode.begin(), vout.data() + 32, 32);
 }
 
-MasterKey::MasterKey(const std::vector<std::byte>& seed) : m_ctx(ChannelKeys::GetStaticSecp256k1Context())
+MasterKey::MasterKey(const bytevector& seed) : m_ctx(ChannelKeys::GetStaticSecp256k1Context())
 {
     std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(UCharCast(seed.data()), seed.size()).Finalize(vout.data());
+    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(seed.data(), seed.size()).Finalize(vout.data());
     mKey.assign(vout.data(), vout.data() + 32);
     memcpy(mChainCode.begin(), vout.data() + 32, 32);
 }

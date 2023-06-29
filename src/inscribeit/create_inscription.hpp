@@ -5,13 +5,14 @@
 #include <vector>
 #include <optional>
 #include <memory>
+#include <list>
 
 #include "univalue.h"
 
 #include "common.hpp"
 #include "contract_builder.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 class Collection
 {
@@ -162,5 +163,5 @@ public:
 
 };
 
-} // inscribeit
+} // utxord
 

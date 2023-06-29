@@ -1,12 +1,14 @@
 #pragma once
 
 #include <string>
+#include <optional>
+#include <list>
 
 #include "script_merkle_tree.hpp"
 
 #include "contract_builder.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 enum SwapPhase {
     ORD_TERMS,
@@ -166,4 +168,4 @@ public:
     std::string GetMinFundingAmount(const std::string& params) const override;
 };
 
-} // namespace l15::inscribeit
+} // namespace l15::utxord

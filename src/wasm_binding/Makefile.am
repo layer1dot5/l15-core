@@ -13,7 +13,7 @@ AM_CPPFLAGS = -DWASM_MODULE \
  -I$(top_srcdir)/node/src/support
 
 
-AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto --post-js inscribeit.js
+AM_LDFLAGS=-L$(top_builddir)/node/src -L$(top_builddir)/node/src/crypto --post-js contract.js
 
 
 L15_LIBS = \
@@ -22,21 +22,21 @@ $(top_builddir)/src/common/libl15-common.la \
 $(top_builddir)/node/src/libbitcoinconsensus.la \
 $(top_builddir)/contrib/secp256k1/libsecp256k1.la \
 $(top_builddir)/node/src/libunivalue.la \
-$(top_builddir)/src/inscribeit/libl15-inscribeit.la
+$(top_builddir)/src/inscribeit/libutxord-contract.la
 
-BUILT_SOURCES = inscribeit.cpp inscribeit.js
-EXTRA_DIST = inscribeit.idl
+BUILT_SOURCES = contract.cpp contract.js
+EXTRA_DIST = contract.idl
 
-CLEANFILES = $(BUILT_SOURCES) l15.wasm
+CLEANFILES = $(BUILT_SOURCES) utxord.wasm
 
-inscribeit.js: inscribeit.idl
+contract.js: contract.idl
 
-inscribeit.cpp: inscribeit.idl
-	webidl_binder $< inscribeit
+contract.cpp: contract.idl
+	webidl_binder $< contract
 
-l15.cpp: inscribeit.cpp
+utxord.cpp: contract.cpp
 
-bin_PROGRAMS = l15.js
+bin_PROGRAMS = utxord.js
 
-l15_js_SOURCES = l15.cpp
-l15_js_LDADD = $(L15_LIBS)
+utxord_js_SOURCES = utxord.cpp
+utxord_js_LDADD = $(L15_LIBS)

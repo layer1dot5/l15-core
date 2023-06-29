@@ -22,7 +22,7 @@
 
 using namespace l15;
 using namespace l15::core;
-using namespace l15::inscribeit;
+using namespace l15::utxord;
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -210,7 +210,7 @@ TEST_CASE("Swap")
     CMutableTransaction funds_commit_tx;
     REQUIRE(DecodeHexTx(funds_commit_tx, funds_commit_raw_tx));
 
-    REQUIRE(funds_commit_tx.vout.size() == (condition.has_change ? 2 : 1));
+    CHECK(funds_commit_tx.vout.size() == (condition.has_change ? 2 : 1));
 
     //REQUIRE_NOTHROW(w->btc().SpendTx(CTransaction(funds_commit_tx)));
 

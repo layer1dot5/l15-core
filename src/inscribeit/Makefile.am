@@ -13,12 +13,12 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/contrib/cex
 
 
-noinst_LTLIBRARIES = libl15-inscribeit.la
-libl15_inscribeit_la_SOURCES = \
+noinst_LTLIBRARIES = libutxord-contract.la
+libutxord_contract_la_SOURCES = \
 	inscription.cpp \
 	contract_builder.cpp \
 	create_inscription.cpp \
 	swap_inscription.cpp
 
-libl15_inscribeit_la_LDFLAGS = $(AM_LDFLAGS) -Wl,--gc-sections
-libl15_inscribeit_la_CXXFLAGS = $(AM_CXXFLAGS) -ffunction-sections -fdata-sections
+libutxord_contract_la_LDFLAGS = $(AM_LDFLAGS) -Wl,--gc-sections
+libutxord_contract_la_CXXFLAGS = $(AM_CXXFLAGS) -ffunction-sections -fdata-sections

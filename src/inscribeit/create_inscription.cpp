@@ -16,7 +16,7 @@
 
 #include "inscription_common.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 namespace {
 

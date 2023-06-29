@@ -11,7 +11,7 @@
 
 #include "channel_keys.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 namespace {
 
@@ -899,4 +899,4 @@ void SwapInscriptionBuilder::CheckOrdPayoffSig() const
 }
 
 
-} // namespace l15::inscribeit
+} // namespace l15::utxord

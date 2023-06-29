@@ -4,7 +4,7 @@
 #include "script_merkle_tree.hpp"
 #include "channel_keys.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 const std::string ContractBuilder::name_contract_type = "contract_type";
 const std::string ContractBuilder::name_params = "params";
@@ -70,4 +70,4 @@ std::string ContractBuilder::GetNewOutputMiningFee()
     return FormatAmount(CFeeRate(*m_mining_fee_rate).GetFee(TAPROOT_VOUT_VSIZE));
 }
 
-} // inscribeit
+} // utxord

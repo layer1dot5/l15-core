@@ -3,7 +3,7 @@
 #include "common.hpp"
 #include "contract_error.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 const size_t chunk_size = 520;
 const bytevector ORD_TAG {'o', 'r', 'd'};
@@ -24,6 +24,5 @@ inline void CheckCollectionId(const std::string& collection_id)
         std::throw_with_nested(ContractTermWrongValue("collection id: " + collection_id));
     }
 }
-
 
 }

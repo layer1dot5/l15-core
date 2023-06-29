@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/node/src/primitives \
  -I$(top_srcdir)/node/src/script \
  -I$(top_srcdir)/node/src/support \
+ -I$(top_srcdir)/node/src/crypto \
  -I$(top_srcdir)/contrib/secp256k1/include \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/contrib/cex

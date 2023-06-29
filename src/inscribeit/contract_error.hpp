@@ -2,7 +2,7 @@
 
 #include "common_error.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 class ContractError : public Error {
 public:

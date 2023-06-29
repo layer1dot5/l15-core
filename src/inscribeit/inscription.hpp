@@ -5,7 +5,7 @@
 #include "common.hpp"
 #include "common_error.hpp"
 
-namespace l15::inscribeit {
+namespace l15::utxord {
 
 class InscriptionError : public Error {
 public:
@@ -57,5 +57,5 @@ public:
 
 };
 
-} // inscribeit
+} // utxord
 
