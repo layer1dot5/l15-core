@@ -20,8 +20,8 @@ private:
     explicit MasterKey(const secp256k1_context* ctx) : m_ctx(ctx) {}
 
 public:
-    MasterKey(const secp256k1_context* ctx, const std::vector<std::byte>& seed);
-    explicit MasterKey(const std::vector<std::byte>& seed);
+    MasterKey(const secp256k1_context* ctx, const bytevector& seed);
+    explicit MasterKey(const bytevector& seed);
 
     MasterKey(const MasterKey&) = default;
     MasterKey(MasterKey&& ) = default;

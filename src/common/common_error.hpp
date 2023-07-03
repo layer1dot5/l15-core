@@ -17,6 +17,8 @@ public:
 
 class KeyError : public Error {
 public:
+    KeyError() = default;
+    explicit KeyError(std::string&& details) : Error(move(details)) {}
     ~KeyError() override = default;
 
     const char* what() const noexcept override

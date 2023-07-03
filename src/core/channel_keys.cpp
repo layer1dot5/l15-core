@@ -121,24 +121,33 @@ std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const std::optional<ui
     }
     uint256 tweak = hash;
 
-    secp256k1_keypair keypair;
-    if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
-        throw WrongKeyError();
-    }
-
-    if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
-        throw SignatureError("Tweak error");
-    }
-
     seckey tweaked_sk;
-    if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
-        throw KeyError();
-    }
-
     secp256k1_xonly_pubkey tweaked_pk;
+    secp256k1_keypair keypair;
     int parity = -1;
-    if (!secp256k1_keypair_xonly_pub(Secp256k1Context(), &tweaked_pk, &parity, &keypair)) {
-        throw KeyError();
+
+    try {
+        if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
+            throw WrongKeyError();
+        }
+
+        if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
+            throw SignatureError("Tweak error");
+        }
+
+        if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
+            throw KeyError();
+        }
+
+        if (!secp256k1_keypair_xonly_pub(Secp256k1Context(), &tweaked_pk, &parity, &keypair)) {
+            throw KeyError();
+        }
+
+        memory_cleanse(&keypair, sizeof(keypair));
+    }
+    catch(...) {
+        memory_cleanse(&keypair, sizeof(keypair));
+        std::rethrow_exception(std::current_exception());
     }
 
     m_local_sk = move(tweaked_sk);
@@ -157,28 +166,34 @@ std::pair<ChannelKeys, uint8_t> ChannelKeys::NewKeyAddTapTweak(const std::option
     }
     uint256 tweak = hash;
 
-    secp256k1_keypair keypair;
-    if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
-        throw WrongKeyError();
-    }
-
-    if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
-        throw SignatureError("Tweak error");
-    }
-
     seckey tweaked_sk;
-    if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
-        throw KeyError();
+    secp256k1_xonly_pubkey tweaked_pk;
+    secp256k1_keypair keypair;
+    int parity = -1;
+    try {
+        if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
+            throw WrongKeyError();
+        }
+
+        if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
+            throw SignatureError("Tweak error");
+        }
+
+        if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
+            throw KeyError();
+        }
+
+        if (!secp256k1_keypair_xonly_pub(Secp256k1Context(), &tweaked_pk, &parity, &keypair)) {
+            throw KeyError();
+        }
+        memory_cleanse(&keypair, sizeof(keypair));
+    }
+    catch (...) {
+        memory_cleanse(&keypair, sizeof(keypair));
+        std::rethrow_exception(std::current_exception());
     }
 
     ChannelKeys tweaked_key(move(tweaked_sk));
-
-    secp256k1_xonly_pubkey tweaked_pk;
-    int parity = -1;
-    if (!secp256k1_keypair_xonly_pub(Secp256k1Context(), &tweaked_pk, &parity, &keypair)) {
-        throw KeyError();
-    }
-
     return std::make_pair(move(tweaked_key), static_cast<bool>(parity));
 }
 
@@ -251,7 +266,7 @@ signature ChannelKeys::SignSchnorr(const uint256& data) const
     seckey aux = GetStrongRandomKey();
 
     secp256k1_keypair keypair;
-    if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) throw SignatureError("Key error");
+    if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) throw KeyError();
 //        if (merkle_root) {
 //            secp256k1_xonly_pubkey pubkey;
 //            if (!secp256k1_keypair_xonly_pub(secp256k1_context_sign, &pubkey, nullptr, &keypair)) return false;

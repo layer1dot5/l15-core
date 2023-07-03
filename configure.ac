@@ -51,28 +51,6 @@ default_plugin_api=no
 default_blockchain_node=node
 default_secp256k1=contrib/secp256k1
 
-dnl Enable Python integrations
-dnl AC_ARG_ENABLE([python-binding],
-dnl               [AS_HELP_STRING([--enable-python-binding], [Enable plugin API binding module for python (disabled by default)])],
-dnl               [
-dnl                 if test $enableval != no; then
-dnl                     default_plugin_api=yes
-dnl                 fi
-dnl               ],
-dnl               [enable_python_binding=no])
-dnl
-dnl AC_ARG_ENABLE([wasm-binding],
-dnl              [AS_HELP_STRING([--enable-wasm-binding], [Enable plugin API binding for WebAssembly (disabled by default)])],
-dnl              [
-dnl                if test $enableval != no; then
-dnl                    default_plugin_api=yes
-dnl                fi
-dnl              ],
-dnl              [enable_wasm_binding=no])
-dnl
-dnl if test "$enable_python_binding" = "yes" && test "$enable_wasm_binding" = "yes"; then
-dnl    AC_MSG_ERROR([WebAssembly and Python bindings cannot be built simultaneously])
-dnl fi
 
 compiler_name=`basename "$CC"`
 if test "x$compiler_name" = "xemcc"; then
@@ -171,8 +149,6 @@ AM_CONDITIONAL([BUILD_APIS], [test "$enable_build_apis" = "yes"])
 AM_CONDITIONAL([BUILD_SERVICES], [test "$enable_build_services" = "yes"])
 AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
-#AM_CONDITIONAL([BUILD_PYTHON_MODULE], [test "$enable_python_module" = "yes"])
-#AM_CONDITIONAL([BUILD_WASM_MODULE], [test "$enable_wasm_module" = "yes"])
 AM_CONDITIONAL([BUILD_SECP256K1], [test "$with_secp256k1" != "node"])
 AM_CONDITIONAL([BUILD_FROST], [test "$enable_build_frost_signer" = "yes"])
 

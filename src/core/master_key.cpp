@@ -8,46 +8,55 @@ namespace {
     const unsigned char seed_hash_tag[] = {'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'};
 }
 
-MasterKey::MasterKey(const secp256k1_context* ctx, const std::vector<std::byte>& seed) : m_ctx(ctx)
+MasterKey::MasterKey(const secp256k1_context* ctx, const bytevector& seed) : m_ctx(ctx), mKey(), mChainCode()
 {
-    std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(UCharCast(seed.data()), seed.size()).Finalize(vout.data());
-    mKey.assign(vout.data(), vout.data() + 32);
-    memcpy(mChainCode.begin(), vout.data() + 32, 32);
+    uint8_t vout[64];
+    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(seed.data(), seed.size()).Finalize(vout);
+    mKey.assign(vout, vout + 32);
+    memcpy(mChainCode.begin(), vout + 32, 32);
+    memory_cleanse(vout, sizeof(vout));
 }
 
-MasterKey::MasterKey(const std::vector<std::byte>& seed) : m_ctx(ChannelKeys::GetStaticSecp256k1Context())
+MasterKey::MasterKey(const bytevector& seed) : m_ctx(ChannelKeys::GetStaticSecp256k1Context()), mKey(), mChainCode()
 {
-    std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(UCharCast(seed.data()), seed.size()).Finalize(vout.data());
-    mKey.assign(vout.data(), vout.data() + 32);
-    memcpy(mChainCode.begin(), vout.data() + 32, 32);
+    uint8_t vout[64];
+    CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(seed.data(), seed.size()).Finalize(vout);
+    mKey.assign(vout, vout + 32);
+    memcpy(mChainCode.begin(), vout + 32, 32);
+    memory_cleanse(vout, sizeof(vout));
 }
 
 void MasterKey::DeriveSelf(uint32_t branch)
 {
-    std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
-    if ((branch >> 31) == 0) {
+    uint8_t vout[64];
 
-        secp256k1_pubkey pubkey;
+    try {
+        if ((branch >> 31) == 0) {
+            secp256k1_pubkey pubkey;
 
-        if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, mKey.data())) {
-            throw KeyError();
+            if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, mKey.data())) {
+                throw WrongKeyError();
+            }
+            size_t pubkeylen = 33;
+            bytevector pubkeydata(pubkeylen);
+            if (!secp256k1_ec_pubkey_serialize(m_ctx, pubkeydata.data(), &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED)) {
+                throw KeyError("Master pubkey ");
+            }
+            BIP32Hash(mChainCode, branch, *pubkeydata.begin(), pubkeydata.data() + 1, vout);
         }
-        size_t pubkeylen = 33;
-        bytevector pubkeydata(pubkeylen);
-        if (!secp256k1_ec_pubkey_serialize(m_ctx, pubkeydata.data(), &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED)) {
-            throw KeyError();
+        else {
+            BIP32Hash(mChainCode, branch, 0, mKey.data(), vout);
         }
-        BIP32Hash(mChainCode, branch, *pubkeydata.begin(), pubkeydata.data()+1, vout.data());
-    } else {
-        BIP32Hash(mChainCode, branch, 0, mKey.data(), vout.data());
+
+        memcpy(mChainCode.begin(), vout + 32, 32);
+
+        if (!secp256k1_ec_seckey_tweak_add(m_ctx, mKey.data(), vout)) {
+            throw KeyError("Derive tweak");
+        }
     }
-
-    memcpy(mChainCode.begin(), vout.data()+32, 32);
-
-    if (!secp256k1_ec_seckey_tweak_add(m_ctx, mKey.data(), vout.data())) {
-        throw KeyError();
+    catch(...) {
+        memset(vout, 0, sizeof(vout));
+        std::rethrow_exception(std::current_exception());
     }
 }
 
@@ -69,7 +78,7 @@ ChannelKeys MasterKey::Derive(const string &path, bool for_script) const
     BIP86Tweak do_tweak = for_script ? SUPPRESS : AUTO;
 
     if (branches.front()[0] != 'm' || branches.front().size() != 1) {
-        throw KeyError();
+        throw KeyError("Derivation path");
     }
     branches.erase(branches.begin());
 
