@@ -3,6 +3,8 @@
 #include "common.hpp"
 #include "chain_api.hpp"
 #include "config.hpp"
+#include "exechelper.hpp"
+#include "nodehelper.hpp"
 
 
 namespace l15 {
@@ -48,6 +50,9 @@ struct TestcaseWrapper
         else if (mMode == "testnet") {
             mBech.reset(new Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET>());
         }
+        else if (mMode == "mainnet") {
+            mBech.reset(new Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET>());
+        }
         else {
             throw std::runtime_error("Wrong chain mode");
         }
@@ -60,7 +65,7 @@ struct TestcaseWrapper
             is_connected = false;
         }
 
-        if (!is_connected && mConfFactory.conf[config::option::CHAINMODE].as<std::string>() == "regtest") {
+        if (!is_connected && mMode == "regtest") {
             StartRegtestBitcoinNode();
         }
 
@@ -68,12 +73,14 @@ struct TestcaseWrapper
             btc().GetWalletInfo();
         }
         catch (...) {
-            btc().CreateWallet("testwallet");
+            if (mMode != "mainnet") {
+                btc().CreateWallet("testwallet");
+            }
         }
-        if (mConfFactory.conf[config::option::CHAINMODE].as<std::string>() == "regtest") {
+        if (mMode == "regtest") {
             btc().GenerateToAddress(btc().GetNewAddress(), "151");
         }
-        else if (mConfFactory.conf[config::option::CHAINMODE].as<std::string>() == "testnet") {
+        else if (mMode == "testnet") {
             btc().WalletPassPhrase("********", "30");
         }
     }
