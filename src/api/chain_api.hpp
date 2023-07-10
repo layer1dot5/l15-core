@@ -47,6 +47,7 @@ public:
 
     std::string SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector>& witness_stack) const;
     std::string SpendTx(const CTransaction &tx) const;
+    CTransaction GetTx(const std::string& txid) const;
     std::string TestTxSequence(const std::vector<CMutableTransaction> &txs) const;
 
     std::string GetBlock(const std::string& block_hash, const std::string& verbosity = "2") const;

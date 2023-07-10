@@ -1,6 +1,7 @@
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
 #include "exechelper.hpp"
+#include "transaction.hpp"
 
 #include "script/script.h"
 #include "script/interpreter.h"
@@ -28,6 +29,7 @@ namespace {
     const char* const SENDTOADDRESS = "sendtoaddress";
     const char* const GETTXOUT = "gettxout";
     const char* const SENDRAWTRANSACTION = "sendrawtransaction";
+    const char* const GETRAWTRANSACTION = "getrawtransaction";
     const char* const TESTMEMPOOLACCEPT = "testmempoolaccept";
     const char* const GETNEWADDRESS = "getnewaddress";
     const char* const GENERATETOADDRESS = "generatetoaddress";
@@ -231,6 +233,22 @@ std::string ChainApi::SpendTx(const CTransaction &tx) const
     btc_exec.Arguments().emplace_back(EncodeHexTx(tx));
 
     return btc_exec.Run();
+}
+
+CTransaction ChainApi::GetTx(const std::string& txid) const
+{
+    ExecHelper btc_exec(m_cli_path, false);
+
+    for(const auto& v: m_default)
+    {
+        btc_exec.Arguments().push_back(v);
+    }
+
+    btc_exec.Arguments().emplace_back(GETRAWTRANSACTION);
+    btc_exec.Arguments().emplace_back(txid);
+
+    CMutableTransaction tx = Deserialize(btc_exec.Run());
+    return CTransaction(move(tx));
 }
 
 std::string ChainApi::SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector> &witness_stack) const

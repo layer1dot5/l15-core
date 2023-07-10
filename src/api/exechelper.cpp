@@ -70,10 +70,10 @@ void ExecHelper::RunInternal() {
             buf << " (" << m_out << ")";
         throw std::runtime_error(buf.str());
     }
-    else
-    {
-        std::clog << ">>" << m_out << "<<" << std::endl;
-    }
+//    else
+//    {
+//        std::clog << ">>" << m_out << "<<" << std::endl;
+//    }
 }
 
 }
