@@ -73,7 +73,7 @@ public:
 
     signature SignSchnorr(const uint256& data) const;
 
-    signature SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> &&spent_outputs,
+    signature SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs,
                              const CScript &spend_script, int hashtype = SIGHASH_DEFAULT) const;
 };
 

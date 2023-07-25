@@ -73,16 +73,16 @@ struct TestcaseWrapper
             btc().GetWalletInfo();
         }
         catch (...) {
-            if (mMode != "mainnet") {
+            if (mMode == "regtest") {
                 btc().CreateWallet("testwallet");
             }
         }
         if (mMode == "regtest") {
             btc().GenerateToAddress(btc().GetNewAddress(), "151");
         }
-        else if (mMode == "testnet") {
-            btc().WalletPassPhrase("********", "30");
-        }
+//        else if (mMode == "testnet") {
+//            btc().WalletPassPhrase("********", "30");
+//        }
     }
 
     virtual ~TestcaseWrapper()

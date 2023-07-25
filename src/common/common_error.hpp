@@ -9,6 +9,7 @@ class Error : public std::exception {
 public:
     Error() noexcept = default;
     explicit Error(std::string&& details) noexcept : m_details(move(details)) {}
+    explicit Error(const char* const details) noexcept : m_details(details) {}
     ~Error() override = default;
 
     const char* what() const noexcept override = 0;

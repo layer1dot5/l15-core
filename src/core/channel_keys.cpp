@@ -290,7 +290,7 @@ signature ChannelKeys::SignSchnorr(const uint256& data) const
     return sig;
 }
 
-signature ChannelKeys::SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut>&& spent_outputs, const CScript& spend_script, int hashtype) const
+signature ChannelKeys::SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& spend_script, int hashtype) const
 {
     uint256 sighash;
     PrecomputedTransactionData txdata;
