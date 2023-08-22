@@ -27,15 +27,17 @@ static const std::vector<uint32_t> derive_branches = {
 
 static const std::string derive_path = "m/86'/2'/0'/0/0";
 
+ChannelKeys mockkey;
+
 TEST_CASE("Seed")
 {
-    MasterKey extkey(seed);
+    MasterKey extkey(mockkey.Secp256k1Context(), seed);
     REQUIRE(bech.Encode(extkey.MakeKey(false).GetLocalPubKey()) == "tb1pz6zkdhjmar4x243yve469lex9htp8j2qzcu79s7mm420hddmwxssmngtnz");
 }
 
 TEST_CASE("Derive")
 {
-    MasterKey master(seed);
+    MasterKey master(mockkey.Secp256k1Context(), seed);
 
     ChannelKeys derived = master.Derive(derive_branches, AUTO);
 
@@ -44,9 +46,28 @@ TEST_CASE("Derive")
 
 TEST_CASE("DerivePath")
 {
-    MasterKey master(seed);
+    MasterKey master(mockkey.Secp256k1Context(), seed);
 
     ChannelKeys derived = master.Derive(derive_path, false);
 
     REQUIRE(bech.Encode(derived.GetLocalPubKey()) == "tb1ptnn4tufj4yr8ql0e8w8tye7juxzsndnxgnlehfk2p0skftzks20sncm2dz");
+}
+
+TEST_CASE("DerivePubKey")
+{
+    const uint32_t magic_branch = 34565;
+
+    MasterKey master(mockkey.Secp256k1Context(), seed);
+
+    ext_pubkey extpubkey;
+    REQUIRE_NOTHROW(extpubkey = master.MakeExtPubKey());
+
+    REQUIRE_NOTHROW(master.DeriveSelf(magic_branch));
+    ext_pubkey derived_extpk;
+    REQUIRE_NOTHROW(derived_extpk = MasterKey::DerivePubKey(mockkey.Secp256k1Context(), extpubkey, magic_branch));
+
+    xonly_pubkey derived_pk = MasterKey::GetPubKey(mockkey.Secp256k1Context(), derived_extpk);
+    ChannelKeys derived_keypair = master.MakeKey(false);
+
+    REQUIRE(hex(derived_pk) == hex(derived_keypair.GetLocalPubKey()));
 }
