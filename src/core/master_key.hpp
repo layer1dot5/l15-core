@@ -26,6 +26,8 @@ private:
 public:
     MasterKey(const secp256k1_context* ctx, const bytevector& seed);
     explicit MasterKey(const bytevector& seed);
+    MasterKey(const secp256k1_context* ctx, const ext_seckey& extkey);
+    explicit MasterKey(const ext_seckey& extkey);
 
     MasterKey(const MasterKey&) = default;
     MasterKey(MasterKey&& ) = default;
@@ -50,7 +52,8 @@ public:
 
     ChannelKeys Derive(const std::string& path, bool for_script = false) const;
 
-    static ext_pubkey DerivePubKey(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);
+    static ext_pubkey Derive(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);
+    static xonly_pubkey DerivePubKey(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);
     static xonly_pubkey GetPubKey(const secp256k1_context* ctx, const ext_pubkey& extpk);
 };
 

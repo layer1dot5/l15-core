@@ -63,8 +63,26 @@ TEST_CASE("DerivePubKey")
     REQUIRE_NOTHROW(extpubkey = master.MakeExtPubKey());
 
     REQUIRE_NOTHROW(master.DeriveSelf(magic_branch));
+    xonly_pubkey derived_pk;
+    REQUIRE_NOTHROW(derived_pk = MasterKey::DerivePubKey(mockkey.Secp256k1Context(), extpubkey, magic_branch));
+
+    ChannelKeys derived_keypair = master.MakeKey(false);
+
+    REQUIRE(hex(derived_pk) == hex(derived_keypair.GetLocalPubKey()));
+}
+
+TEST_CASE("DeriveExtPubKey")
+{
+    const uint32_t magic_branch = 34565;
+
+    MasterKey master(mockkey.Secp256k1Context(), seed);
+
+    ext_pubkey extpubkey;
+    REQUIRE_NOTHROW(extpubkey = master.MakeExtPubKey());
+
+    REQUIRE_NOTHROW(master.DeriveSelf(magic_branch));
     ext_pubkey derived_extpk;
-    REQUIRE_NOTHROW(derived_extpk = MasterKey::DerivePubKey(mockkey.Secp256k1Context(), extpubkey, magic_branch));
+    REQUIRE_NOTHROW(derived_extpk = MasterKey::Derive(mockkey.Secp256k1Context(), extpubkey, magic_branch));
 
     xonly_pubkey derived_pk = MasterKey::GetPubKey(mockkey.Secp256k1Context(), derived_extpk);
     ChannelKeys derived_keypair = master.MakeKey(false);
