@@ -92,7 +92,7 @@ public:
     }
 
     base& as_vector() { return reinterpret_cast<base&>(*this); }
-    const base& as_vector() const { return reinterpret_cast<base&>(*this); }
+    const base& as_vector() const { return reinterpret_cast<const base&>(*this); }
 
     void swap(base& x) { base::swap(check_size(x)); }
 
@@ -127,13 +127,13 @@ template< class T, size_t SIZE1, size_t SIZE2, class Alloc >
 bool operator==(const fixsize_vector<T, SIZE1, Alloc>& x1, const fixsize_vector<T, SIZE2, Alloc>& x2)
 { return reinterpret_cast<const std::vector<T, Alloc>&>(x1) == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
 
-template< class T, size_t SIZE, class Alloc >
-bool operator==(const fixsize_vector<T, SIZE, Alloc>& x1, const std::vector<T, Alloc>& x2)
-{ return reinterpret_cast<const std::vector<T, Alloc>&>(x1) == x2; }
+//template< class T, size_t SIZE, class Alloc >
+//bool operator==(const fixsize_vector<T, SIZE, Alloc>& x1, const std::vector<T, Alloc>& x2)
+//{ return reinterpret_cast<const std::vector<T, Alloc>&>(x1) == x2; }
 
-template< class T, size_t SIZE, class Alloc >
-bool operator==(const std::vector<T, Alloc>& x1, const fixsize_vector<T, SIZE, Alloc>& x2)
-{ return x1 == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
+//template< class T, size_t SIZE, class Alloc >
+//bool operator==(const std::vector<T, Alloc>& x1, const fixsize_vector<T, SIZE, Alloc>& x2)
+//{ return x1 == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
 
 template <class STREAM, class T, size_t SIZE, class Alloc>
 STREAM& operator << (STREAM& s, const fixsize_vector<T, SIZE, Alloc>& x)

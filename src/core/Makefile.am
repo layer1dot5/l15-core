@@ -17,6 +17,7 @@ libl15_core_la_SOURCES = \
 	script_merkle_tree.cpp \
 	channel_keys.cpp \
 	master_key.cpp \
+	key_factory.cpp \
 	transaction.cpp
 
 #	channel_contract.cpp

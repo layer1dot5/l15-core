@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ranges>
+
 #include "channel_keys.hpp"
 
 namespace l15::core {
@@ -32,13 +34,19 @@ public:
     MasterKey(const MasterKey&) = default;
     MasterKey(MasterKey&& ) = default;
 
+    bool operator<(const l15::core::MasterKey& k2) const
+    {
+        static const std::less<seckey> keyless;
+        return (mKey != k2.mKey) ? keyless(mKey, k2.mKey) : mChainCode < k2.mChainCode;
+    }
+
     ChannelKeys MakeKey(bool do_tweak) const;
     ext_pubkey MakeExtPubKey() const;
 
     void DeriveSelf(uint32_t branch);
 
-    template <typename T>
-    ChannelKeys Derive(const T& branches, BIP86Tweak bip86_tweak) const
+    template <std::ranges::range T>
+    ChannelKeys Derive(const T& branches, BIP86Tweak bip86_tweak = AUTO) const
     {
         MasterKey branchKey(*this);
 
@@ -46,8 +54,16 @@ public:
             branchKey.DeriveSelf(b);
         }
 
-        bool do_tweak = (bip86_tweak == FORCE) || (bip86_tweak == AUTO && (branches.front() & BIP32_BRANCH_MASK) == BIP86_TAPROOT_ACCOUNT);
+        bool do_tweak = (bip86_tweak == FORCE) || (bip86_tweak == AUTO && (*branches.begin() & BIP32_BRANCH_MASK) == BIP86_TAPROOT_ACCOUNT);
         return branchKey.MakeKey(do_tweak);
+    }
+
+    template <std::ranges::range T>
+    void DeriveSelf(const T& branches)
+    {
+        for (const auto& b: branches) {
+            DeriveSelf(b);
+        }
     }
 
     ChannelKeys Derive(const std::string& path, bool for_script = false) const;

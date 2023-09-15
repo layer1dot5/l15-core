@@ -54,9 +54,10 @@ void MasterKey::DeriveSelf(uint32_t branch)
         if (!secp256k1_ec_seckey_tweak_add(m_ctx, mKey.data(), vout)) {
             throw KeyError("Derive tweak");
         }
+        memory_cleanse(vout, sizeof(vout));
     }
     catch(...) {
-        memset(vout, 0, sizeof(vout));
+        memory_cleanse(vout, sizeof(vout));
         std::rethrow_exception(std::current_exception());
     }
 }

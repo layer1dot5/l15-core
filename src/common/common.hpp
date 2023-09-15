@@ -57,6 +57,9 @@ public:
     xonly_pubkey& operator=(const xonly_pubkey&) = default;
     xonly_pubkey& operator=(xonly_pubkey&&) = default;
 
+    bool operator==(const xonly_pubkey& pk2) const
+    { return (const base&)*this == (const base&)pk2; }
+
     const base_vector& get_vector() const noexcept
     { return *this; }
 
@@ -257,5 +260,27 @@ struct secp256k1_xonly_pubkey_equal
     { return memcmp(p1.data, p2.data, sizeof(p1.data)) == 0; }
 };
 
+
+}
+
+namespace std {
+
+template<typename Tp, size_t SIZE, typename Alloc>
+struct less<cex::fixsize_vector<Tp, SIZE, Alloc>>
+{
+    bool operator()(const cex::fixsize_vector<Tp, SIZE, Alloc> &val1, const cex::fixsize_vector<Tp, SIZE, Alloc> &val2) const
+    { return std::less()(val1.as_vector(), val2.as_vector()); }
+};
+
+template<typename Tp, size_t SIZE, typename Alloc>
+struct hash<cex::fixsize_vector<Tp, SIZE, Alloc>>
+{
+    size_t operator()(const cex::fixsize_vector<Tp, SIZE, Alloc> &val) const
+    { return std::hash<std::string>()(l15::hex(val.as_vector())); }
+};
+
+template <>
+struct hash<l15::xonly_pubkey> : hash<l15::xonly_pubkey::base>
+{};
 
 }
