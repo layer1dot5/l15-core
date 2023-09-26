@@ -1,7 +1,8 @@
 
 VERSION_MODULE = version.cpp
+BUILT_SOURCES = $(VERSION_MODULE)
 
-.PHONY: $(VERSION_MODULE)
+#.PHONY: $(VERSION_MODULE)
 
 $(VERSION_MODULE): $(top_srcdir)/version.sh Makefile
 	echo '#include "version.hpp"' >$@

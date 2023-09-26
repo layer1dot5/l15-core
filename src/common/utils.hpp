@@ -35,7 +35,7 @@ public:
     enum ChainMode {MAINNET, TESTNET, REGTEST};
 
     virtual ~IBech32Coder() = default;
-    virtual std::string Encode(const xonly_pubkey& pk) const = 0;
+    virtual std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const = 0;
     virtual xonly_pubkey Decode(const std::string& address) const = 0;
 };
 
@@ -54,11 +54,11 @@ public:
     typedef Hrp<C,M> hrp;
 
     ~Bech32Coder() override = default;
-    std::string Encode(const xonly_pubkey& pk) const override {
+    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const override {
         std::vector<unsigned char> bech32buf = {1};
         bech32buf.reserve(1 + ((pk.end() - pk.begin()) * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, pk.begin(), pk.end());
-        return bech32::Encode(bech32::Encoding::BECH32M, hrp::value, bech32buf);
+        return bech32::Encode(encoding, hrp::value, bech32buf);
 
     }
     xonly_pubkey Decode(const std::string& address) const override {
