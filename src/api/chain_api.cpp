@@ -317,9 +317,7 @@ std::string ChainApi::GetNewAddress(const std::string& label, const std::string&
     });
 
     btc_exec.Arguments().emplace_back(GETNEWADDRESS);
-    if (!label.empty()) {
-        btc_exec.Arguments().emplace_back(label);
-    }
+    btc_exec.Arguments().emplace_back(label);
     btc_exec.Arguments().emplace_back(address_type);
 
     return btc_exec.Run();
