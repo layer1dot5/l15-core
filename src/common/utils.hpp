@@ -86,8 +86,9 @@ public:
         }
 
         bytevector data;
+        data.reserve(32);
         auto I = cex::smartinserter(data, data.end());
-        if(!ConvertBits<5, 8, false>([&](unsigned char c) { *I++ = c; }, bech_result.data.begin() + 1, bech_result.data.end()))
+        if(!ConvertBits<5, 8, false>([&](unsigned char c) { *I = c; ++I; }, bech_result.data.begin() + 1, bech_result.data.end()))
         {
             throw std::runtime_error(std::string("Wrong bech32 data: ") + address);
         }
