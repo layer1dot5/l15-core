@@ -10690,6 +10690,30 @@ void ExceptionTranslatorRegistry::registerTranslator( const IExceptionTranslator
 }
 
 #if !defined(CATCH_CONFIG_DISABLE_EXCEPTIONS)
+
+template<typename E>
+std::string translateIfNestedException(E &e, std::size_t level) {
+    try {
+        std::rethrow_if_nested(e);
+        return std::string();
+    }
+    catch( std::exception& e1 ) {
+        return std::string("\n") + std::string(level*2, ' ') + e1.what() + translateIfNestedException(e1, level + 1);
+    }
+    catch( std::string& msg ) {
+        return std::string("\n") + std::string(level*2, ' ') + msg;
+    }
+    catch( std::nested_exception& e1 ) {
+        return std::string("\n") + std::string(level*2, ' ') + "Unknown exception" + translateIfNestedException(e1, level + 1);
+    }
+    catch( const char* msg ) {
+        return std::string("\n") + std::string(level*2, ' ') + msg;
+    }
+    catch(...) {
+        return std::string("\n") + std::string(level*2, ' ') + "Unknown exception";
+    }
+}
+
 std::string ExceptionTranslatorRegistry::translateActiveException() const {
     try {
 #ifdef __OBJC__
@@ -10719,7 +10743,10 @@ std::string ExceptionTranslatorRegistry::translateActiveException() const {
         std::rethrow_exception(std::current_exception());
     }
     catch( std::exception& ex ) {
-        return ex.what();
+        return std::string(ex.what()) + translateIfNestedException(ex, 1);
+    }
+    catch( std::nested_exception& ex ) {
+        return "Unknown exception" + translateIfNestedException(ex, 1);
     }
     catch( std::string& msg ) {
         return msg;
