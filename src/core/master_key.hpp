@@ -15,6 +15,7 @@ class MasterKey
 public:
     static const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
     static const uint32_t BIP32_BRANCH_MASK = 0x7fffffff;
+    static const uint32_t BIP84_P2WPKH_ACCOUNT = 84;
     static const uint32_t BIP86_TAPROOT_ACCOUNT = 86;
 private:
     const secp256k1_context* m_ctx;
@@ -37,7 +38,7 @@ public:
 
     void DeriveSelf(uint32_t branch);
 
-    template <typename T>
+    template <std::ranges::range T>
     ChannelKeys Derive(const T& branches, BIP86Tweak bip86_tweak) const
     {
         MasterKey branchKey(*this);

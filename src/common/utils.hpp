@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include "smartinserter.hpp"
+
 #include "bech32.h"
 #include "util/strencodings.h"
 #include "crypto/sha256.h"
@@ -35,8 +37,10 @@ public:
     enum ChainMode {MAINNET, TESTNET, REGTEST};
 
     virtual ~IBech32Coder() = default;
-    virtual std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const = 0;
-    virtual xonly_pubkey Decode(const std::string& address) const = 0;
+    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const
+    { return Encode(pk.get_vector(), encoding); }
+    virtual std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const = 0;
+    virtual bytevector Decode(const std::string& address) const = 0;
 };
 
 template <IBech32Coder::ChainType C, IBech32Coder::ChainMode M> struct Hrp;
@@ -54,14 +58,15 @@ public:
     typedef Hrp<C,M> hrp;
 
     ~Bech32Coder() override = default;
-    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const override {
-        std::vector<unsigned char> bech32buf = {1};
+    using IBech32Coder::Encode;
+    std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const override {
+        std::vector<unsigned char> bech32buf = {(encoding == bech32::Encoding::BECH32) ? (uint8_t)0 : (uint8_t)1};
         bech32buf.reserve(1 + ((pk.end() - pk.begin()) * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, pk.begin(), pk.end());
         return bech32::Encode(encoding, hrp::value, bech32buf);
 
     }
-    xonly_pubkey Decode(const std::string& address) const override {
+    bytevector Decode(const std::string& address) const override {
         bech32::DecodeResult bech_result = bech32::Decode(address);
         if(bech_result.hrp != hrp::value)
         {
@@ -80,8 +85,8 @@ public:
             throw std::runtime_error("Version 1+ witness address must use Bech32m checksum");
         }
 
-        xonly_pubkey data;
-        auto I = data.begin();
+        bytevector data;
+        auto I = cex::smartinserter(data, data.end());
         if(!ConvertBits<5, 8, false>([&](unsigned char c) { *I++ = c; }, bech_result.data.begin() + 1, bech_result.data.end()))
         {
             throw std::runtime_error(std::string("Wrong bech32 data: ") + address);
