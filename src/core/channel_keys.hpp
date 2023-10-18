@@ -39,6 +39,8 @@ public:
     ChannelKeys(ChannelKeys &&old) noexcept: m_ctx(old.m_ctx), m_local_sk(std::move(old.m_local_sk)), m_local_pk(std::move(old.m_local_pk)), m_pubkey_agg(std::move(old.m_pubkey_agg))
     {}
 
+    ChannelKeys& operator=(const ChannelKeys& o) = default;
+
     ChannelKeys& operator=(ChannelKeys&& old) noexcept
     {
         m_local_sk = std::move(old.m_local_sk);
