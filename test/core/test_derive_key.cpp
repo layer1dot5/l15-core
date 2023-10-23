@@ -20,7 +20,7 @@ static const bytevector seed = unhex<bytevector>(
 static const auto bech = Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET>();
 
 static const std::vector<uint32_t> derive_branches = {
-        MasterKey::BIP86_TAPROOT_ACCOUNT | MasterKey::BIP32_HARDENED_KEY_LIMIT,
+        MasterKey::BIP86_TAPROOT | MasterKey::BIP32_HARDENED_KEY_LIMIT,
         2 | MasterKey::BIP32_HARDENED_KEY_LIMIT,
         MasterKey::BIP32_HARDENED_KEY_LIMIT,
         0, 0};
