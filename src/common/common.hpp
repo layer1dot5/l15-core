@@ -35,6 +35,13 @@ typedef std::vector<std::string> stringvector;
 class signature: public bytevector {
 public:
     signature() : bytevector(65) { resize(64); }
+    signature(const signature&) = default;
+    signature(signature&& ) noexcept = default;
+    signature(const bytevector& v) : bytevector(v) {}
+    signature(bytevector&& v) noexcept : bytevector(move(v)) {}
+
+    signature& operator=(const signature&) = default;
+    signature& operator=(signature&& ) noexcept = default;
 };
 
 typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<unsigned char>> seckey;
