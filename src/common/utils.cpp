@@ -8,6 +8,7 @@
 #include "feerate.h"
 
 #include "common_error.hpp"
+#include "policy.h"
 
 #include <iostream>
 #include <string>
@@ -143,7 +144,7 @@ CAmount Dust(CAmount fee_rate)
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
     auto fee = CalculateTxFee(fee_rate, tx);
-    if ((fee + Dust(3000)) >= input_amount) {
+    if ((fee + Dust(DUST_RELAY_TX_FEE)) >= input_amount) {
         std::ostringstream buf;
         buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
         throw TransactionError(buf.str());

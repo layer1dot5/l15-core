@@ -24,10 +24,15 @@ uint256 TapLeafHash(const CScript &script);
 enum class TreeBalanceType {WEIGHTED /*, BALANCED*/};
 
 class ScriptMerkleTree {
-    const TreeBalanceType mTreeType;
+    TreeBalanceType mTreeType;
     std::vector<CScript> mScripts;
 public:
     explicit ScriptMerkleTree(const TreeBalanceType treeType, std::vector<CScript>&& scripts = {}): mTreeType(treeType), mScripts(std::move(scripts)) {}
+    ScriptMerkleTree(const ScriptMerkleTree& ) = default;
+    ScriptMerkleTree(ScriptMerkleTree&& ) noexcept = default;
+
+    ScriptMerkleTree& operator=(const ScriptMerkleTree& ) = default;
+    ScriptMerkleTree& operator=(ScriptMerkleTree&& ) noexcept = default;
 
     std::vector<CScript>& GetScripts() { return mScripts; }
     const std::vector<CScript>& GetScripts() const { return mScripts; }
