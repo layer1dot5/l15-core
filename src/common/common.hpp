@@ -58,6 +58,8 @@ public:
     xonly_pubkey(xonly_pubkey&&) noexcept = default;
     xonly_pubkey(const base::base& v) : cex::fixsize_vector<uint8_t, 32>(v) {}
     xonly_pubkey(base::base&& v) noexcept : cex::fixsize_vector<uint8_t, 32>(move(v)) {}
+    template<std::input_iterator I>
+    xonly_pubkey(I b, I e, const allocator_type& a = allocator_type()) : base(b, e, a) {}
     xonly_pubkey(const secp256k1_context *ctx, const secp256k1_xonly_pubkey &pk) : base()
     { set(ctx, pk); }
 
