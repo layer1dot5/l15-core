@@ -12,6 +12,8 @@ bool IsTaproot(const CTxOut& out);
 std::string GetTaprootPubKey(const CTxOut& out);
 std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey);
 
+std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeyscript);
+
 
 } // l15::core
 

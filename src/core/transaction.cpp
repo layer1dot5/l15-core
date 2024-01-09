@@ -63,4 +63,33 @@ std::string GetTaprootAddress(const std::string& chain_mode, const std::string& 
     }
 }
 
+std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeyscript)
+{
+    int witver;
+    bytevector witnessprogram;
+    CScript script(pubkeyscript.begin(), pubkeyscript.end());
+    bool segwit =  script.IsWitnessProgram(witver, witnessprogram);
+    if (segwit) {
+        if (chain_mode == "testnet") {
+            Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET> bech32;
+            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+        }
+        else if (chain_mode == "mainnet") {
+            Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET> bech32;
+            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+        }
+        else if (chain_mode == "regtest") {
+            Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST> bech32;
+            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+        }
+        else {
+            throw IllegalArgumentError(std::string(chain_mode));
+        }
+    }
+    else {
+        return "";
+        //throw TransactionError("Not SegWit");
+    }
+}
+
 } // core
