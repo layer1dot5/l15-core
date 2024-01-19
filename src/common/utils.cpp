@@ -135,12 +135,6 @@ CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
     return CFeeRate(fee_rate).GetFee(vsize);
 }
 
-CAmount Dust(CAmount fee_rate)
-{
-    // See bitcoin/src/policy/policy.cpp:57
-    return CFeeRate(fee_rate).GetFee(43 + 32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
-}
-
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
     auto fee = CalculateTxFee(fee_rate, tx);

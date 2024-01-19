@@ -3,6 +3,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/$(NODE_PATH)/src \
  -I$(top_srcdir)/$(NODE_PATH)/src/univalue/include \
  -I$(top_srcdir)/$(NODE_PATH)/src/consensus \
+ -I$(top_srcdir)/$(NODE_PATH)/src/policy \
  -I$(top_srcdir)/$(NODE_PATH)/src/primitives \
  -I$(top_srcdir)/$(NODE_PATH)/src/script \
  -I$(top_srcdir)/$(NODE_PATH)/src/support \

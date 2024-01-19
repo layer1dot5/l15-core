@@ -13,6 +13,9 @@
 #include "amount.h"
 
 #include "common.hpp"
+#include "feerate.h"
+#include "consensus.h"
+#include "policy.h"
 
 namespace l15 {
 
@@ -20,7 +23,7 @@ CAmount ParseAmount(const std::string& amountstr);
 std::string FormatAmount(CAmount amount);
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction&);
 CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx);
-CAmount Dust(CAmount fee_rate);
+constexpr CAmount Dust(const CAmount fee_rate = DUST_RELAY_TX_FEE) {return CFeeRate(fee_rate).GetFee(43 + 32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);}
 
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();
