@@ -124,7 +124,8 @@ std::string FormatAmount(CAmount amount)
     return res.substr(0, res.length() - cut_zeroes);
 }
 
-CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
+template<typename T>
+CAmount CalculateTxFee(CAmount fee_rate, const T& tx)
 {
     size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
@@ -134,6 +135,9 @@ CAmount CalculateTxFee(CAmount fee_rate, const CMutableTransaction& tx)
 
     return CFeeRate(fee_rate).GetFee(vsize);
 }
+
+template CAmount CalculateTxFee<CMutableTransaction>(CAmount fee_rate, const CMutableTransaction& );
+template CAmount CalculateTxFee<CTransaction>(CAmount fee_rate, const CTransaction& );
 
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
