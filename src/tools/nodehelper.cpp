@@ -11,6 +11,7 @@ void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
 {
     node_exec.Arguments().clear();
     node_exec.Arguments().emplace_back("-daemon");
+    node_exec.Arguments().emplace_back("-daemonwait");
 
     for(const auto opt: options.get_options([](const CLI::Option* o){ return o && !o->check_name("--help"); }))
     {
@@ -21,8 +22,6 @@ void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options)
     else if(mode == ChainMode::MODE_TESTNET) node_exec.Arguments().emplace_back("-testnet");
 
     node_exec.Run();
-
-    std::this_thread::sleep_for(std::chrono::seconds(5));
 }
 
 void StopNode(ChainMode mode, ExecHelper& cli_exec, const CLI::App& options)
