@@ -202,7 +202,7 @@ fi
 if test "$enable_wasm_binding" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
   CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -Wno-unqualified-std-cast-call"
-  LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED  -sEXPORTED_FUNCTIONS=['_malloc'] -sEXPORT_NAME='L15' -sMODULARIZE=1 -sNO_FILESYSTEM=1"
+  LDFLAGS="$LDFLAGS -fexceptions"
 
   if test "$enable_debug" != "yes"; then
       CFLAGS=" -O3 $CFLAGS"
