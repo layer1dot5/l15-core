@@ -55,14 +55,6 @@ bytevector CreatePreimage()
     return random;
 }
 
-bytevector Hash160(const bytevector& preimage)
-{
-
-    bytevector hash160(CHash160::OUTPUT_SIZE);
-    CHash160().Write(preimage).Finalize(hash160);
-    return hash160;
-}
-
 CAmount GetOutputAmount(const std::string& txoutstr)
 {
     UniValue txout;

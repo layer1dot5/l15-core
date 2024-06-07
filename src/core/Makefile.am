@@ -1,5 +1,6 @@
 
 AM_CPPFLAGS = \
+ -I$(top_srcdir)/contrib/nlohmann_json \
  -I$(top_srcdir)/$(NODE_PATH)/src \
  -I$(top_srcdir)/$(NODE_PATH)/src/univalue/include \
  -I$(top_srcdir)/$(NODE_PATH)/src/consensus \
@@ -12,11 +13,19 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/contrib/cex
 
+if WASM
+
+AM_CPPFLAGS += -DWASM
+
+endif
+
 
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \
 	script_merkle_tree.cpp \
-	channel_keys.cpp \
+	schnorr.cpp \
+	ecdsa.cpp \
+	keyregistry.cpp \
 	master_key.cpp \
 	transaction.cpp
 

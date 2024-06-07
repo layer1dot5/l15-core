@@ -20,7 +20,7 @@
 
 #include "common.hpp"
 #include "algorithm.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "common_error.hpp"
 
 

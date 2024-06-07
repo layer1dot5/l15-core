@@ -10,7 +10,7 @@
 #include "nodehelper.hpp"
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "exechelper.hpp"
 #include "utils.hpp"
 #include "script_merkle_tree.hpp"
@@ -72,8 +72,8 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot public key path spending")
     {
         //get key pair
-        ChannelKeys sk;
-        auto& pk = sk.GetLocalPubKey();
+        SchnorrKeyPair sk;
+        auto pk = sk.GetPubKey();
 
         //create address from key pair
         string addr = w->bech32().Encode(pk);
@@ -90,13 +90,11 @@ TEST_CASE("Taproot transaction test cases")
 
         auto backpk = w->bech32().Decode(backaddr);
 
-        std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+        std::clog << "Payoff PK: " << HexStr(get<1>(backpk)) << std::endl;
 
         CMutableTransaction tx;
 
-        CScript outpubkeyscript;
-        outpubkeyscript << 1;
-        outpubkeyscript << backpk;
+        CScript outpubkeyscript = w->bech32().PubKeyScript(backaddr);
 
         CTxOut out(ParseAmount("1"), outpubkeyscript);
         tx.vout.emplace_back(out);
@@ -117,14 +115,14 @@ TEST_CASE("Taproot transaction test cases")
     SECTION("Taproot script path spending")
     {
         //get key pair Taproot
-        ChannelKeys internal_sk;
-        xonly_pubkey internal_pk = internal_sk.GetLocalPubKey();
+        SchnorrKeyPair internal_sk;
+        xonly_pubkey internal_pk = internal_sk.GetPubKey();
 
         std::clog << "\nInternal PK: " << HexStr(internal_pk) << std::endl;
 
         //get key pair script
-        ChannelKeys sk;
-        const auto& pk = sk.GetLocalPubKey();
+        SchnorrKeyPair sk;
+        const auto& pk = sk.GetPubKey();
         std::string pk_str = HexStr(pk);
 
         std::clog << "\nScript pubkey: " << pk_str << std::endl;
@@ -162,13 +160,11 @@ TEST_CASE("Taproot transaction test cases")
 
         auto backpk = w->bech32().Decode(backaddr);
 
-        std::clog << "Payoff PK: " << HexStr(backpk) << std::endl;
+        std::clog << "Payoff PK: " << HexStr(get<1>(backpk)) << std::endl;
 
         CMutableTransaction tx;
 
-        CScript outpubkeyscript;
-        outpubkeyscript << 1;
-        outpubkeyscript << backpk;
+        CScript outpubkeyscript = w->bech32().PubKeyScript(backaddr);
 
         CTxOut out(ParseAmount("1"), outpubkeyscript);
         tx.vout.emplace_back(out);

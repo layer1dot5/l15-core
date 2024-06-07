@@ -1,7 +1,7 @@
 AC_PREREQ([2.69])
 
 AC_INIT([L15 Core], [m4_esyscmd_s([./version.sh])], [l2xl@protonmail.com])
-AC_CONFIG_SRCDIR([src/core/channel_keys.cpp])
+AC_CONFIG_SRCDIR([src/core/schnorr.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
@@ -151,6 +151,7 @@ AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
 AM_CONDITIONAL([BUILD_SECP256K1], [test "$with_secp256k1" != "node"])
 AM_CONDITIONAL([BUILD_FROST], [test "$enable_build_frost_signer" = "yes"])
+AM_CONDITIONAL([WASM], [test "$with_emscripten" = "yes"])
 
 
 dnl Enable debug

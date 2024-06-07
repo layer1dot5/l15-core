@@ -1,7 +1,7 @@
 #pragma once
 
 #include "channel.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
 

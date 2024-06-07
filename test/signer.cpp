@@ -13,7 +13,7 @@
 #include "CLI11.hpp"
 #include "common.hpp"
 #include "version.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "wallet_api.hpp"
 #include "signer_api.hpp"
 #include "signer_service.hpp"
@@ -152,8 +152,8 @@ int main(int argc, char* argv[])
 
         std::shared_ptr<SignerApi> signer = make_shared<SignerApi>(
                 config.mSecKey.empty()
-                ? l15::core::ChannelKeys(config.mWallet.Secp256k1Context())
-                : l15::core::ChannelKeys(config.mWallet.Secp256k1Context(), std::move(sk)),
+                ? l15::core::SchnorrKeyPair(config.mWallet.Secp256k1Context())
+                : l15::core::SchnorrKeyPair(config.mWallet.Secp256k1Context(), std::move(sk)),
                 N, K,
                 error_hdl);
 

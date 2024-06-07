@@ -35,7 +35,7 @@ struct TestcaseWrapper
     core::ChainApi mBtc;
     ExecHelper mCli;
     ExecHelper mBtcd;
-    Bech32Coder mBech;
+    Bech32 mBech;
 
     explicit TestcaseWrapper(const std::string& configpath, const std::string& clipath) :
             mConfFactory(configpath),
@@ -43,10 +43,10 @@ struct TestcaseWrapper
             mBtc(std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), clipath),
             mCli(clipath, false),
             mBtcd("bitcoind", false),
-            mBech(mMode == "mainnet" ? Bech32Coder(BTC, MAINNET) :
-                (mMode == "testnet" ?
-                    Bech32Coder(BTC, TESTNET) :
-                    Bech32Coder(BTC, REGTEST)))
+            mBech(mMode == "mainnet" ? Bech32(BTC, MAINNET) :
+                  (mMode == "testnet" ?
+                   Bech32(BTC, TESTNET) :
+                   Bech32(BTC, REGTEST)))
     {
         bool is_connected = true;
         try {
@@ -100,7 +100,7 @@ struct TestcaseWrapper
     core::ChainApi& btc()
     { return mBtc; }
 
-    const Bech32Coder& bech32() const
+    const Bech32& bech32() const
     { return mBech; }
 
     void ResetRegtestMemPool()

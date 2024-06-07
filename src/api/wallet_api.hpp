@@ -14,7 +14,7 @@ class CScript;
 
 namespace l15::core {
 
-class ChannelKeys;
+class SchnorrKeyPair;
 class SignerApi;
 
 
@@ -30,7 +30,7 @@ class SignerApi;
 
 class WalletApi
 {
-    friend class ChannelKeys;
+    friend class SchnorrKeyPair;
     friend class SignerApi;
 
     secp256k1_context* m_ctx;

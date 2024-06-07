@@ -47,13 +47,13 @@ std::string GetTaprootPubKey(const CTxOut &out)
 std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey)
 {
     if (chain_mode == "testnet") {
-        return Bech32Coder(BTC, TESTNET).Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32(BTC, TESTNET).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else if (chain_mode == "mainnet") {
-        return Bech32Coder(BTC, MAINNET).Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32(BTC, MAINNET).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else if (chain_mode == "regtest") {
-        return Bech32Coder(BTC, REGTEST).Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32(BTC, REGTEST).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else {
         throw IllegalArgumentError(std::string(chain_mode));
@@ -68,13 +68,13 @@ std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeysc
     bool segwit =  script.IsWitnessProgram(witver, witnessprogram);
     if (segwit) {
         if (chain_mode == "testnet") {
-            return Bech32Coder(BTC, TESTNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32(BTC, TESTNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else if (chain_mode == "mainnet") {
-            return Bech32Coder(BTC, MAINNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32(BTC, MAINNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else if (chain_mode == "regtest") {
-            return Bech32Coder(BTC, REGTEST).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32(BTC, REGTEST).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else {
             throw IllegalArgumentError(std::string(chain_mode));

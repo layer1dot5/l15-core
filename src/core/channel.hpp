@@ -5,7 +5,7 @@
 #include <sstream>
 
 #include "common.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "channel_contract.hpp"
 
 

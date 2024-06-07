@@ -1,6 +1,6 @@
 #pragma once
 
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 
 namespace l15::core {
 
@@ -33,13 +33,13 @@ public:
     MasterKey(const MasterKey&) = default;
     MasterKey(MasterKey&& ) = default;
 
-    ChannelKeys MakeKey(bool do_tweak) const;
+    SchnorrKeyPair MakeKey(bool do_tweak) const;
     ext_pubkey MakeExtPubKey() const;
 
     void DeriveSelf(uint32_t branch);
 
     template <std::ranges::range T>
-    ChannelKeys Derive(const T& branches, BIP86Tweak bip86_tweak) const
+    SchnorrKeyPair Derive(const T& branches, BIP86Tweak bip86_tweak) const
     {
         MasterKey branchKey(*this);
 
@@ -51,7 +51,7 @@ public:
         return branchKey.MakeKey(do_tweak);
     }
 
-    ChannelKeys Derive(const std::string& path, bool for_script = false) const;
+    SchnorrKeyPair Derive(const std::string& path, bool for_script = false) const;
 
     static ext_pubkey Derive(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);
     static xonly_pubkey DerivePubKey(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);

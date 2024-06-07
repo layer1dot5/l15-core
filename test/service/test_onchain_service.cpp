@@ -13,7 +13,7 @@
 #include "exechelper.hpp"
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "onchain_service.hpp"
 
 using namespace l15;

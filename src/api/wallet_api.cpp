@@ -4,7 +4,7 @@
 
 #include "utils.hpp"
 #include "wallet_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "script_merkle_tree.hpp"
 
 #include "util/strencodings.h"
@@ -20,7 +20,7 @@ namespace l15::core {
 
 WalletApi::WalletApi()
 {
-    m_ctx = ChannelKeys::GetStaticSecp256k1Context();
+    m_ctx = SchnorrKeyPair::GetStaticSecp256k1Context();
 }
 
 
@@ -105,7 +105,7 @@ bytevector WalletApi::SignTaprootTx(const seckey &sk, const CMutableTransaction 
 
     {
         // TODO: this block is copy-pasted from CKey bitcoin class
-        //       Should be replaced usin proper abstraction layer (ChannelKeys??)
+        //       Should be replaced usin proper abstraction layer (SchnorrKeyPair??)
         secp256k1_keypair keypair;
         if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, sk.data())) throw SignatureError("Key error");
 //        if (merkle_root) {

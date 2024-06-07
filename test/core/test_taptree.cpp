@@ -1,5 +1,4 @@
 #include <iostream>
-#include <filesystem>
 #include <cstring>
 
 #define CATCH_CONFIG_MAIN
@@ -13,7 +12,7 @@
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
 #include "wallet_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 
 using namespace l15;
 using namespace l15::core;
@@ -67,7 +66,7 @@ TEST_CASE("TapTweak")
 {
     WalletApi wallet;
 
-    ChannelKeys key(wallet.Secp256k1Context());
+    SchnorrKeyPair key(wallet.Secp256k1Context());
     XOnlyPubKey pk(key.GetPubKey());
 
     // Lets just simulate some uint256
@@ -87,13 +86,13 @@ TEST_CASE("TapRoot single script")
     WalletApi wallet;
 
     //get key pair Taproot
-    auto internal_sk = ChannelKeys(wallet.Secp256k1Context());
-    xonly_pubkey internal_pk = internal_sk.GetLocalPubKey();
+    auto internal_sk = SchnorrKeyPair(wallet.Secp256k1Context());
+    xonly_pubkey internal_pk = internal_sk.GetPubKey();
 
     std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
 
     //get key pair script
-    auto script_sk = ChannelKeys(wallet.Secp256k1Context());
+    auto script_sk = SchnorrKeyPair(wallet.Secp256k1Context());
     const auto& script_pk = script_sk.GetPubKey();
     std::string script_pk_str = HexStr(script_pk);
 
