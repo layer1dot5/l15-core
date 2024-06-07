@@ -16,12 +16,12 @@
 
 namespace l15 {
 
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::MAINNET>::value = "bc";
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::TESTNET>::value = "tb";
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::REGTEST>::value = "bcrt";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::MAINNET>::value = "l15";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::TESTNET>::value = "l15t";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::REGTEST>::value = "l15rt";
+const char* const Hrp<BTC, MAINNET>::value = "bc";
+const char* const Hrp<BTC, TESTNET>::value = "tb";
+const char* const Hrp<BTC, REGTEST>::value = "bcrt";
+const char* const Hrp<L15, MAINNET>::value = "l15";
+const char* const Hrp<L15, TESTNET>::value = "l15t";
+const char* const Hrp<L15, REGTEST>::value = "l15rt";
 
 inline bytevector ParsePubKey(const std::string &pubkeyhex)
 {
@@ -164,6 +164,7 @@ void LogTx(const T& tx)
 
         std::clog << "\t\t" << in.prevout.hash.GetHex() << " : "
                   << in.prevout.n << "\n"
+                  << "\t\tnSequence: " << in.nSequence << "\n"
                   << "\t\tWitness {\n";
 
         for(const auto& wel: in.scriptWitness.stack)

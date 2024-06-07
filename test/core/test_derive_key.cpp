@@ -17,7 +17,7 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 static const bytevector seed = unhex<bytevector>(
         "b37f263befa23efb352f0ba45a5e452363963fabc64c946a75df155244630ebaa1ac8056b873e79232486d5dd36809f8925c9c5ac8322f5380940badc64cc6fe");
 
-static const auto bech = Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET>();
+static const auto bech = Bech32Coder(BTC, TESTNET);
 
 static const std::vector<uint32_t> derive_branches = {
         MasterKey::BIP86_TAPROOT | MasterKey::BIP32_HARDENED_KEY_LIMIT,

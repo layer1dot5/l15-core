@@ -10,11 +10,11 @@ class App;
 
 namespace l15 {
 
-  enum class ChainMode {MODE_MAINNET, MODE_TESTNET, MODE_REGTEST};
+  enum class NodeChainMode {MODE_MAINNET, MODE_TESTNET, MODE_REGTEST};
 
   class ExecHelper;
 
-  void StartNode(ChainMode mode, ExecHelper& node_exec, const CLI::App& options);
-  void StopNode(ChainMode mode, ExecHelper& cli_exec, const CLI::App& options);
+  void StartNode(NodeChainMode mode, ExecHelper& node_exec, const CLI::App& options);
+  void StopNode(NodeChainMode mode, ExecHelper& cli_exec, const CLI::App& options);
 
 }

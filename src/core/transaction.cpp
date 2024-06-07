@@ -47,16 +47,13 @@ std::string GetTaprootPubKey(const CTxOut &out)
 std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey)
 {
     if (chain_mode == "testnet") {
-        Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET> bech32;
-        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32Coder(BTC, TESTNET).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else if (chain_mode == "mainnet") {
-        Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET> bech32;
-        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32Coder(BTC, MAINNET).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else if (chain_mode == "regtest") {
-        Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST> bech32;
-        return bech32.Encode(unhex<xonly_pubkey>(pubkey));
+        return Bech32Coder(BTC, REGTEST).Encode(unhex<xonly_pubkey>(pubkey));
     }
     else {
         throw IllegalArgumentError(std::string(chain_mode));
@@ -71,16 +68,13 @@ std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeysc
     bool segwit =  script.IsWitnessProgram(witver, witnessprogram);
     if (segwit) {
         if (chain_mode == "testnet") {
-            Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET> bech32;
-            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32Coder(BTC, TESTNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else if (chain_mode == "mainnet") {
-            Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET> bech32;
-            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32Coder(BTC, MAINNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else if (chain_mode == "regtest") {
-            Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST> bech32;
-            return bech32.Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
+            return Bech32Coder(BTC, REGTEST).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
         else {
             throw IllegalArgumentError(std::string(chain_mode));

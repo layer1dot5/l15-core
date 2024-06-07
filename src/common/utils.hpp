@@ -33,47 +33,51 @@ uint32_t GetCsvInBlocks(uint32_t blocks);
 
 template <typename T> void LogTx(const T& tx);
 
-class IBech32Coder {
+enum ChainType {BTC, L15};
+enum ChainMode {MAINNET, TESTNET, REGTEST};
 
-public:
-    enum ChainType {BTC, L15};
-    enum ChainMode {MAINNET, TESTNET, REGTEST};
-
-    virtual ~IBech32Coder() = default;
-    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const
-    { return Encode(pk.get_vector(), encoding); }
-    virtual std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const = 0;
-    virtual bytevector Decode(const std::string& address) const = 0;
-};
-
-template <IBech32Coder::ChainType C, IBech32Coder::ChainMode M> struct Hrp;
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::MAINNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::TESTNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::REGTEST> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::MAINNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::TESTNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::REGTEST> { const static char* const value; };
+template <ChainType C, ChainMode M> struct Hrp;
+template <> struct Hrp<BTC, MAINNET> { const static char* const value; };
+template <> struct Hrp<BTC, TESTNET> { const static char* const value; };
+template <> struct Hrp<BTC, REGTEST> { const static char* const value; };
+template <> struct Hrp<L15, MAINNET> { const static char* const value; };
+template <> struct Hrp<L15, TESTNET> { const static char* const value; };
+template <> struct Hrp<L15, REGTEST> { const static char* const value; };
 
 
-template <IBech32Coder::ChainType C, IBech32Coder::ChainMode M> class Bech32Coder: public IBech32Coder
+class Bech32Coder
 {
+    ChainType chaintype;
+    ChainMode chainmode;
+    const char* hrptag;
 public:
-    typedef Hrp<C,M> hrp;
 
-    ~Bech32Coder() override = default;
-    using IBech32Coder::Encode;
-    std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const override {
+    Bech32Coder(ChainType c, ChainMode m) : chaintype(c), chainmode(m),
+        hrptag(chaintype == L15
+            ? (m == MAINNET ? Hrp<L15, MAINNET>::value : (m == TESTNET ? Hrp<L15, TESTNET>::value : Hrp<L15, REGTEST>::value))
+            : (m == MAINNET ? Hrp<BTC, MAINNET>::value : (m == TESTNET ? Hrp<BTC, TESTNET>::value : Hrp<BTC, REGTEST>::value)))
+    {}
+
+    Bech32Coder(const Bech32Coder& ) = default;
+
+    std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const
+    {
         std::vector<unsigned char> bech32buf = {(encoding == bech32::Encoding::BECH32) ? (uint8_t)0 : (uint8_t)1};
         bech32buf.reserve(1 + ((pk.end() - pk.begin()) * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, pk.begin(), pk.end());
-        return bech32::Encode(encoding, hrp::value, bech32buf);
+        return bech32::Encode(encoding, hrptag, bech32buf);
 
     }
-    bytevector Decode(const std::string& address) const override {
+
+    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const
+    { return Encode(pk.get_vector(), encoding); }
+
+    bytevector Decode(const std::string& address) const
+    {
         bech32::DecodeResult bech_result = bech32::Decode(address);
-        if(bech_result.hrp != hrp::value)
+        if(bech_result.hrp != hrptag)
         {
-            throw std::runtime_error(std::string("Address prefix should be ") + hrp::value + ". Address: " + address);
+            throw std::runtime_error(std::string("Address prefix should be ") + hrptag + ". Address: " + address);
         }
         if(bech_result.data.size() < 1)
         {
