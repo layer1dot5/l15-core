@@ -6,6 +6,7 @@
 #include "primitives/transaction.h"
 #include "consensus.h"
 #include "feerate.h"
+#include "transaction.h"
 
 #include "common_error.hpp"
 #include "policy.h"
@@ -60,7 +61,7 @@ CAmount GetOutputAmount(const std::string& txoutstr)
     UniValue txout;
     txout.read(txoutstr);
 
-    const std::string &amountstr = find_value(txout, "value").getValStr();
+    const std::string &amountstr = txout.find_value("value").getValStr();
     return ParseAmount(amountstr);
 }
 
@@ -119,8 +120,8 @@ std::string FormatAmount(CAmount amount)
 template<typename T>
 CAmount CalculateTxFee(CAmount fee_rate, const T& tx)
 {
-    size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
+    size_t tx_size = GetSerializeSize(TX_NO_WITNESS(tx));
+    size_t tx_wit_size = GetSerializeSize(TX_WITH_WITNESS(tx));
     size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size + 3) / WITNESS_SCALE_FACTOR;
 
 //    std::clog << ">>>>>>>>>>>>>>>> vsize: " << vsize << std::endl;

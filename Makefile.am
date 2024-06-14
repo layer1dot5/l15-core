@@ -34,7 +34,7 @@ endif
 L15_LIBS += \
 $(top_builddir)/src/core/libl15-core.la  \
 $(top_builddir)/src/common/libl15-common.la \
-$(top_builddir)/$(NODE_PATH)/src/libbitcoinconsensus.la \
+$(top_builddir)/$(NODE_PATH)/src/libbitcoin_consensus.a \
 $(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
 $(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la
 

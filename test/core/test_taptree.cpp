@@ -7,7 +7,7 @@
 #include "util/translation.h"
 #include "util/strencodings.h"
 #include "script/interpreter.h"
-#include "script/standard.h"
+#include "signingprovider.h"
 
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"

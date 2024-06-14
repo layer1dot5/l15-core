@@ -67,7 +67,7 @@ TEST_CASE("KeyLookup")
 
 TEST_CASE("Derive")
 {
-    ECC_Start();
+    ECC_Context eccContext;
 
     auto bech = Bech32(BTC, TESTNET);
 
@@ -114,7 +114,7 @@ TEST_CASE("Derive")
         key.Encode(extkeydata.data());
         std::clog << "Key data: " << hex(extkeydata) << std::endl;
 
-        sk.assign(key.key.begin(), key.key.end());
+        sk.assign((uint8_t*)key.key.begin(), (uint8_t*)key.key.end());
 
         //core::SchnorrKeyPair derived_key(sk);
         //std::clog << "Addr: " << bech.Encode(derived_key.GetLocalPubKey()) << std::endl;
@@ -137,8 +137,6 @@ TEST_CASE("Derive")
         std::clog << "P2WPKH: " << btc_addr << std::endl;
         CHECK(btc_addr == "tb1qeqvy2au533z2q3tlw8v0xrckfwrsqak3dlw66g");
     }
-
-    ECC_Stop();
 
     KeyRegistry keyRegistry(TESTNET, hex(seed));
     KeyPair k = keyRegistry.Derive(keypath.c_str(), false);
@@ -185,7 +183,7 @@ TEST_CASE("MakeSignature")
 
 TEST_CASE("PubKeyDerive")
 {
-    ECC_Start();
+    ECC_Context eccContext;
     CExtKey btcRoot;
     btcRoot.SetSeed(unhex<std::vector<std::byte>>(hex(seed)));
 
@@ -217,7 +215,7 @@ TEST_CASE("PubKeyDerive")
     btcRoot.Encode(extkeydata.data());
     std::clog << "Key data: " << hex(extkeydata) << std::endl;
 
-    seckey sk0(btcRoot.key.begin(), btcRoot.key.end());
+    seckey sk0((uint8_t*)btcRoot.key.begin(), (uint8_t*)btcRoot.key.end());
 
     l15::core::SchnorrKeyPair keypair0(sk0);
     std::clog << "^^^seckey: " << hex(keypair0.GetPrivKey()) << std::endl;
@@ -287,6 +285,4 @@ TEST_CASE("PubKeyDerive")
 
     CHECK_NOTHROW(keyRegistry.Lookup(addr0, "key"));
     CHECK_NOTHROW(keyRegistry.Lookup(addr11, "key"));
-
-    ECC_Stop();
 }
