@@ -23,6 +23,7 @@ endif
 noinst_LTLIBRARIES = libl15-core.la
 libl15_core_la_SOURCES = \
 	script_merkle_tree.cpp \
+	keypair_common.cpp \
 	schnorr.cpp \
 	ecdsa.cpp \
 	keyregistry.cpp \

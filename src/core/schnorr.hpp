@@ -8,20 +8,19 @@
 
 #include "common.hpp"
 #include "common_error.hpp"
+#include "keypair_common.hpp"
 
 #include <optional>
 
-#include "interpreter.h"
-
 namespace l15::core {
 
-class SchnorrKeyPair
+class SchnorrKeyPair : public KeyPairBase
 {
     const secp256k1_context* m_ctx;
     seckey m_local_sk;
 public:
-    static secp256k1_context* GetStaticSecp256k1Context();
     static secp256k1_xonly_pubkey unspendable_base;
+    static bool unspendable_is_initialized;
 
     explicit SchnorrKeyPair(): m_ctx(GetStaticSecp256k1Context()), m_local_sk(GetStrongRandomKey()) {}
     explicit SchnorrKeyPair(seckey local_sk): m_ctx(GetStaticSecp256k1Context()), m_local_sk(std::move(local_sk)) {}
@@ -42,7 +41,6 @@ public:
 
     xonly_pubkey GetPubKey() const;
 
-    static seckey GetStrongRandomKey(const secp256k1_context* ctx = GetStaticSecp256k1Context()) ;
     static xonly_pubkey CreateUnspendablePubKey(const seckey& random_factor);
 
     static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const std::optional<uint256>& merkle_root = {});

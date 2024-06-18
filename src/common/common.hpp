@@ -28,6 +28,7 @@ namespace l15 {
 
 using std::get;
 using std::move;
+using std::forward;
 
 typedef std::vector<uint8_t> bytevector;
 typedef std::vector<std::string> stringvector;

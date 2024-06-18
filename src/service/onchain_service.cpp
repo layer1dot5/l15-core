@@ -57,19 +57,6 @@ void OnChainService::Start()
 }
 
 
-template<typename T>
-cex::stream<std::deque<std::byte>>& operator>> (cex::stream<std::deque<std::byte>>& stream, T& obj) {
-    ::Unserialize(stream, obj);
-    return stream;
-}
-
-class SerializeSream : public cex::stream<std::deque<std::byte>>
-{
-public:
-    int GetVersion() const
-    { return 0; }
-};
-
 void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unnecessary-value-param)
 {
     zmq::socket_t sock(*zmq_ctx, zmq::socket_type::sub);
@@ -79,21 +66,20 @@ void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unneces
     sock.connect(STOP_ADDR);
 
     bool next_block = false;
-    //cex::stream<std::deque<std::byte>> buffer;
-    SerializeSream buffer;
+    DataStream buffer;
 
     for (;;) {
 
         if (!next_block && !buffer.empty()) {
             CBlock block;
-            block.Unserialize(buffer);
+            buffer >> TX_WITH_WITNESS(block);
             buffer.clear();
 
             m_block_handler(block.GetBlockHeader());
-            for (const CTransactionRef tx: block.vtx) {
+            for (const CTransactionRef& tx: block.vtx) {
                 m_tx_handler(*tx);
             }
-;        }
+        }
 
         zmq::message_t msg;
         auto len = sock.recv(msg, zmq::recv_flags::none);
@@ -105,7 +91,7 @@ void OnChainService::MainCycle(std::string&& addr) // NOLINT(performance-unneces
             std::clog << ">>>> New block <<<<" << std::endl;
         }
         else {
-             buffer.append(msg.data<uint8_t>(), msg.data<uint8_t>() + msg.size());
+             buffer.write(Span<std::byte>(msg.data<std::byte>(), msg.data<std::byte>() + msg.size()));
         }
 
         next_block = msg.more();

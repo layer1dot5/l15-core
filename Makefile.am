@@ -1,10 +1,12 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
-SUBDIRS = contrib $(NODE_PATH) src test
+SUBDIRS =
 
 if BUILD_SECP256K1
 SUBDIRS += $(SECP256K1_PATH)
 endif
+
+SUBDIRS += $(NODE_PATH) src test
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \

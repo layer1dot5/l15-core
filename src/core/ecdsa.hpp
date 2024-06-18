@@ -6,17 +6,17 @@
 #include "random.h"
 
 #include "common.hpp"
-#include "schnorr.hpp"
+#include "keypair_common.hpp"
 
 namespace l15::core {
 
-class EcdsaKeyPair
+class EcdsaKeyPair : public KeyPairBase
 {
     const secp256k1_context* m_ctx;
     seckey m_sk;
 public:
-    EcdsaKeyPair() : m_ctx(core::SchnorrKeyPair::GetStaticSecp256k1Context()), m_sk(core::SchnorrKeyPair::GetStrongRandomKey(m_ctx)) {}
-    explicit EcdsaKeyPair(seckey sk): m_ctx(core::SchnorrKeyPair::GetStaticSecp256k1Context()), m_sk(std::move(sk)) {}
+    EcdsaKeyPair() : m_ctx(GetStaticSecp256k1Context()), m_sk(GetStrongRandomKey(m_ctx)) {}
+    explicit EcdsaKeyPair(seckey sk): m_ctx(GetStaticSecp256k1Context()), m_sk(std::move(sk)) {}
     explicit EcdsaKeyPair(const secp256k1_context* secp256k1_ctx, seckey sk): m_ctx(secp256k1_ctx), m_sk(std::move(sk)) {}
 
     EcdsaKeyPair(const EcdsaKeyPair&) = default;

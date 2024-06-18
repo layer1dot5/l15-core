@@ -6,7 +6,7 @@ namespace l15::signer_service {
 
 void SignerService::Accept(const xonly_pubkey &pk, p2p::frost_message_ptr msg)
 {
-    auto it = m_signers.find(&pk);
+    auto it = m_signers.find(pk);
     if (it != m_signers.end()) {
         std::shared_ptr<core::SignerApi> signer = it->second;
 
@@ -19,7 +19,7 @@ void SignerService::Accept(const xonly_pubkey &pk, p2p::frost_message_ptr msg)
 
 std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey &signer_key)
 {
-    auto ps = m_signers[&signer_key];
+    auto ps = m_signers[signer_key];
 
     std::promise<const xonly_pubkey&> p;
     auto res = p.get_future();
@@ -41,7 +41,7 @@ std::future<const xonly_pubkey&> SignerService::NegotiateKey(const xonly_pubkey 
 
 std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, size_t count)
 {
-    auto ps = m_signers[&signer_key];
+    auto ps = m_signers[signer_key];
 
     std::promise<void> p;
     auto res = p.get_future();
@@ -58,7 +58,7 @@ std::future<void> SignerService::PublishNonces(const xonly_pubkey &signer_key, s
 std::future<signature> SignerService::Sign(const xonly_pubkey &signer_key, const uint256 &message, core::operation_id opid)
 {
 
-    auto ps = m_signers[&signer_key];
+    auto ps = m_signers[signer_key];
 
     std::promise<signature> p;
     auto res = p.get_future();

@@ -17,13 +17,13 @@ namespace l15::core {
 
 using namespace p2p;
 
-SignerApi::SignerApi(ChannelKeys &&keypair,
+SignerApi::SignerApi(KeyPair &&keypair,
                      size_t cluster_size,
                      size_t threshold_size,
                      error_handler e)
 
     : m_ctx(keypair.Secp256k1Context())
-    , mKeypair(keypair)
+    , mKeypair(m_ctx, keypair.PrivKey())
     , mKeyShare(m_ctx)
     , m_nonce_count(0)
     , m_threshold_size(threshold_size)
@@ -41,7 +41,7 @@ SignerApi::SignerApi(ChannelKeys &&keypair,
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_COMMITMENT] = &SignerApi::AcceptSignatureCommitment;
     mHandlers[(size_t)FROST_MESSAGE::SIGNATURE_SHARE] = &SignerApi::AcceptSignatureShare;
 
-    AddPeer(xonly_pubkey(mKeypair.GetLocalPubKey()), [this](p2p::frost_message_ptr&& m){ Accept(*m); });
+    AddPeer(mKeypair.GetPubKey(), [this](p2p::frost_message_ptr&& m){ Accept(*m); });
 }
 
 void SignerApi::Accept(const FrostMessage& m)
@@ -135,7 +135,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
     if (peer_it == m_peers_data.end()) {
         m_err_handler(PeerNotFoundError(message.pubkey));
     }
-    else if ((mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) // Means aggregated pub key is assigned
+    else if (m_aggpubkey // Means aggregated pub key is assigned
             && (peer_it->second.ephemeral_pubkeys.find(message.operation_id) != peer_it->second.ephemeral_pubkeys.end()))
     {
         secp256k1_xonly_pubkey peer_pk = message.pubkey.get(m_ctx);
@@ -151,7 +151,7 @@ void SignerApi::AcceptSignatureCommitment(const p2p::FrostMessage& m)
                 std::make_unique<std::mutex>(),
                 std::unique_ptr<MovingBinderBase>(),
                 std::unique_ptr<MovingBinderBase>()};
-            get<1>(peers_cache).emplace(move(peer_pk), sigshare_cache());
+            get<1>(peers_cache).emplace(peer_pk, sigshare_cache());
 
             m_sigops_cache.emplace(message.operation_id, move(peers_cache));
 
@@ -184,7 +184,7 @@ void SignerApi::AcceptSignatureShare(const FrostMessage &m)
     if (peer_it == m_peers_data.end()) {
         m_err_handler(PeerNotFoundError(message.pubkey));
     }
-    else if (mKeyShare.GetPubKey() != mKeyShare.GetLocalPubKey()) // Means aggregated pub key is assigned
+    else if (m_aggpubkey) // Means aggregated pub key is assigned
     {
         sigops_cache::value_type* op;
         {
@@ -248,7 +248,7 @@ void SignerApi::CommitNonces(size_t count)
     message->nonce_commitments.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
-        seckey session_key = mKeypair.GetStrongRandomKey();
+        seckey session_key = SchnorrKeyPair::GetStrongRandomKey(m_ctx);
         secp256k1_frost_secnonce secnonce;
         secp256k1_frost_pubnonce pubnonce;
 
@@ -271,7 +271,7 @@ void SignerApi::DistributeKeySharesImpl()
     GetStrongRandBytes(session);
 
     secp256k1_keypair keypair;
-    if (!secp256k1_keypair_create(m_ctx, &keypair, mKeypair.GetLocalPrivKey().data())) {
+    if (!secp256k1_keypair_create(m_ctx, &keypair, mKeypair.GetPrivKey().data())) {
         throw WrongKeyError();
     }
 
@@ -351,8 +351,8 @@ void SignerApi::AggregateKey()
     xonly_pubkey agg_pubkey;
     agg_pubkey.set(m_ctx, agg_pk);
 
-    mKeyShare = ChannelKeys(m_ctx, std::move(share));
-    mKeyShare.SetAggregatePubKey(std::move(agg_pubkey));
+    mKeyShare = SchnorrKeyPair(m_ctx, std::move(share));
+    m_aggpubkey.emplace(std::move(agg_pubkey));
 }
 
 signature SignerApi::AggregateSignature(operation_id opid)
@@ -393,7 +393,7 @@ signature SignerApi::AggregateSignature(operation_id opid)
 
 void SignerApi::InitSignatureImpl(operation_id opid)
 {
-    Publish(std::make_unique<SignatureCommitment>(xonly_pubkey(mKeypair.GetLocalPubKey()), opid));
+    Publish(std::make_unique<SignatureCommitment>(xonly_pubkey(mKeypair.GetPubKey()), opid));
 }
 
 void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
@@ -441,7 +441,7 @@ void SignerApi::PreprocessSignature(const uint256 &datahash, operation_id opid)
 
     secp256k1_xonly_pubkey pubkey_agg = mKeyShare.GetPubKey().get(m_ctx);
 
-    secp256k1_xonly_pubkey pubkey = mKeypair.GetLocalPubKey().get(m_ctx);
+    secp256k1_xonly_pubkey pubkey = mKeypair.GetPubKey().get(m_ctx);
 
     if (!secp256k1_frost_nonce_process(m_ctx, &(*SigOpSession(*op)), pubnonces.data(), m_threshold_size,
                                        datahash.data(), &pubkey_agg, &pubkey, pubkeys.data(), nullptr, nullptr)) {
@@ -468,7 +468,7 @@ void SignerApi::DistributeSigShares(operation_id opid)
     std::advance(secnonce_it, opid);
 
     secp256k1_frost_share keyshare;
-    std::copy(mKeyShare.GetLocalPrivKey().begin(), mKeyShare.GetLocalPrivKey().end(), keyshare.data);
+    std::copy(mKeyShare.GetPrivKey().begin(), mKeyShare.GetPrivKey().end(), keyshare.data);
 
     secp256k1_frost_partial_sig sigshare;
     if (!secp256k1_frost_partial_sign(m_ctx, &sigshare, &*secnonce_it, &keyshare, session, nullptr)) {
