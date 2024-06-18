@@ -1,7 +1,7 @@
 AC_PREREQ([2.69])
 
 AC_INIT([L15 Core], [m4_esyscmd_s([./version.sh])], [l2xl@protonmail.com])
-AC_CONFIG_SRCDIR([src/core/channel_keys.cpp])
+AC_CONFIG_SRCDIR([src/core/schnorr.cpp])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
@@ -151,6 +151,7 @@ AM_CONDITIONAL([BUILD_TOOLS], [test "$enable_build_tools" = "yes"])
 AM_CONDITIONAL([BUILD_PLUGIN_API], [test "$enable_plugin_api" = "yes"])
 AM_CONDITIONAL([BUILD_SECP256K1], [test "$with_secp256k1" != "node"])
 AM_CONDITIONAL([BUILD_FROST], [test "$enable_build_frost_signer" = "yes"])
+AM_CONDITIONAL([WASM], [test "$with_emscripten" = "yes"])
 
 
 dnl Enable debug
@@ -202,7 +203,7 @@ fi
 if test "$enable_wasm_binding" = "yes"; then
   CPPFLAGS="$DEBUG_CPPFLAGS $CPPFLAGS"
   CXXFLAGS="$DEBUG_CXXFLAGS $CXXFLAGS -fexceptions -Wno-unqualified-std-cast-call"
-  LDFLAGS="$LDFLAGS -fexceptions"
+  LDFLAGS="$LDFLAGS -fexceptions -sEXPORT_EXCEPTION_HANDLING_HELPERS -sLLD_REPORT_UNDEFINED  -sEXPORTED_FUNCTIONS=['_malloc'] -sEXPORT_NAME='L15' -sMODULARIZE=1 -sNO_FILESYSTEM=1"
 
   if test "$enable_debug" != "yes"; then
       CFLAGS=" -O3 $CFLAGS"
@@ -257,8 +258,7 @@ AC_CONFIG_FILES([Makefile
                  src/common/Makefile
                  src/core/Makefile
                  test/Makefile
-                 test/p2p/Makefile
-                 contrib/Makefile])
+                 test/p2p/Makefile])
 
 if test "$enable_build_tools" = "yes"; then
     AC_CONFIG_FILES([src/tools/Makefile])
@@ -331,7 +331,7 @@ AS_IF([test "x$with_zmq" = "xyes"], [btc_zmq=--with-zmq],
 AX_SUBDIRS_CONFIGURE(
     [$NODE_PATH],
     [[--disable-shared], [--enable-c++20], [--without-gui],
-     [--with-libs], [--without-bdb], [$btc_sqlite], [$btc_zmq],
+     [--without-bdb], [$btc_sqlite],
      [--without-libmultiprocess], [--without-mpgen],
      [$btc_utils], [$btc_cli], [$btc_daemon],
      [--without-experimental-kernel-lib],[--disable-experimental-util-chainstate],
@@ -340,9 +340,8 @@ AX_SUBDIRS_CONFIGURE(
      [$btc_hardening],
      [--disable-tests], [--disable-gui-tests], [--disable-bench], [--disable-extended-functional-tests],
      [--disable-fuzz], [--disable-fuzz-binary],
-     [$btc_asm],
      [$limited_api]],
-    [[--disable-tests], [--disable-bench], [--with-pic]],
+    [[--disable-tests], [--disable-bench], [--with-pic], [$btc_zmq]],
     [[--disable-examples]],
     [[--with-blockchain-node=$with_blockchain_node],
      [--enable-wasm-binding],

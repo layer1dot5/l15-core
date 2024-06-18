@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <functional>
 #include <type_traits>
+#include <optional>
 
 #include <tbb/concurrent_unordered_map.h>
 #include <tbb/concurrent_vector.h>
@@ -20,7 +21,7 @@
 
 #include "common.hpp"
 #include "algorithm.hpp"
-#include "channel_keys.hpp"
+#include "keypair.hpp"
 #include "common_error.hpp"
 
 
@@ -127,8 +128,9 @@ public:
     typedef std::unordered_map<xonly_pubkey, RemoteSignerData, l15::hash<xonly_pubkey>> peers_data_type;
 private:
     const secp256k1_context* m_ctx;
-    ChannelKeys mKeypair;
-    ChannelKeys mKeyShare;
+    SchnorrKeyPair mKeypair;
+    SchnorrKeyPair mKeyShare;
+    std::optional<xonly_pubkey> m_aggpubkey;
 
     size_t m_nonce_count;
 
@@ -178,11 +180,12 @@ private:
 
     template<typename DATA>
     void SendToPeers(std::function<void(DATA&, const xonly_pubkey&, const RemoteSignerData&)> datagen) {
+        xonly_pubkey local_pubkey = mKeypair.GetPubKey();
         cex::for_each(std::execution::par, m_peers_data.begin(), m_peers_data.end(), [&](const auto& peer)
         {
-            std::unique_ptr<DATA> data = std::make_unique<DATA>(xonly_pubkey(mKeypair.GetLocalPubKey()));
+            std::unique_ptr<DATA> data = std::make_unique<DATA>(xonly_pubkey(local_pubkey));
             datagen(*data, peer.first, peer.second);
-            if (mKeypair.GetLocalPubKey() != peer.first) {
+            if (local_pubkey != peer.first) {
                 peer.second.link(move(data));
             }
             else {
@@ -213,16 +216,16 @@ private:
     void InitSignatureImpl(operation_id opid);
 
 public:
-    SignerApi(ChannelKeys &&keypair,
+    SignerApi(KeyPair &&keypair,
               size_t cluster_size,
               size_t threshold_size,
               error_handler e);
 
-    const xonly_pubkey& GetLocalPubKey() const
-    { return mKeypair.GetLocalPubKey(); }
+    xonly_pubkey GetLocalPubKey() const
+    { return mKeypair.GetPubKey(); }
 
     const xonly_pubkey& GetAggregatedPubKey() const
-    { return mKeyShare.GetPubKey(); }
+    { return m_aggpubkey.value(); }
 
     size_t GetNonceCount() const noexcept
     { return m_nonce_count; }
@@ -235,7 +238,7 @@ public:
     // -----------------------------------------------
 
     const seckey& GetSecKey() const
-    { return mKeypair.GetLocalPrivKey(); }
+    { return mKeypair.GetPrivKey(); }
 
     const std::list<secp256k1_frost_secnonce>& GetSecNonceList() const
     { return m_secnonces; }
@@ -282,8 +285,8 @@ public:
                 m_sigops_cache.emplace(opid, move(peers_cache));
             }
             else {
-                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(move(all_sig_commitments_received_handler));
-                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(move(all_sig_shares_received_handler));
+                SigOpCommitmentsReceived(*opit) = std::make_unique<Callable1>(forward<Callable1>(all_sig_commitments_received_handler));
+                SigOpSigSharesReceived(*opit) = std::make_unique<Callable2>(forward<Callable2>(all_sig_shares_received_handler));
             }
         }
 

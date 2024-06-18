@@ -6,6 +6,7 @@
 #include "primitives/transaction.h"
 #include "consensus.h"
 #include "feerate.h"
+#include "transaction.h"
 
 #include "common_error.hpp"
 #include "policy.h"
@@ -16,12 +17,12 @@
 
 namespace l15 {
 
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::MAINNET>::value = "bc";
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::TESTNET>::value = "tb";
-const char* const Hrp<IBech32Coder::BTC, IBech32Coder::REGTEST>::value = "bcrt";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::MAINNET>::value = "l15";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::TESTNET>::value = "l15t";
-const char* const Hrp<IBech32Coder::L15, IBech32Coder::REGTEST>::value = "l15rt";
+const char* const Hrp<BTC, MAINNET>::value = "bc";
+const char* const Hrp<BTC, TESTNET>::value = "tb";
+const char* const Hrp<BTC, REGTEST>::value = "bcrt";
+const char* const Hrp<L15, MAINNET>::value = "l15";
+const char* const Hrp<L15, TESTNET>::value = "l15t";
+const char* const Hrp<L15, REGTEST>::value = "l15rt";
 
 inline bytevector ParsePubKey(const std::string &pubkeyhex)
 {
@@ -55,20 +56,12 @@ bytevector CreatePreimage()
     return random;
 }
 
-bytevector Hash160(const bytevector& preimage)
-{
-
-    bytevector hash160(CHash160::OUTPUT_SIZE);
-    CHash160().Write(preimage).Finalize(hash160);
-    return hash160;
-}
-
 CAmount GetOutputAmount(const std::string& txoutstr)
 {
     UniValue txout;
     txout.read(txoutstr);
 
-    const std::string &amountstr = find_value(txout, "value").getValStr();
+    const std::string &amountstr = txout.find_value("value").getValStr();
     return ParseAmount(amountstr);
 }
 
@@ -127,8 +120,8 @@ std::string FormatAmount(CAmount amount)
 template<typename T>
 CAmount CalculateTxFee(CAmount fee_rate, const T& tx)
 {
-    size_t tx_size = GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    size_t tx_wit_size = GetSerializeSize(tx, PROTOCOL_VERSION);
+    size_t tx_size = GetSerializeSize(TX_NO_WITNESS(tx));
+    size_t tx_wit_size = GetSerializeSize(TX_WITH_WITNESS(tx));
     size_t vsize = (tx_size * (WITNESS_SCALE_FACTOR - 1) + tx_wit_size + 3) / WITNESS_SCALE_FACTOR;
 
 //    std::clog << ">>>>>>>>>>>>>>>> vsize: " << vsize << std::endl;
@@ -164,6 +157,7 @@ void LogTx(const T& tx)
 
         std::clog << "\t\t" << in.prevout.hash.GetHex() << " : "
                   << in.prevout.n << "\n"
+                  << "\t\tnSequence: " << in.nSequence << "\n"
                   << "\t\tWitness {\n";
 
         for(const auto& wel: in.scriptWitness.stack)

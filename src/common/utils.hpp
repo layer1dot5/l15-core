@@ -27,65 +27,80 @@ constexpr CAmount Dust(const CAmount fee_rate = DUST_RELAY_TX_FEE) {return CFeeR
 
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();
-bytevector Hash160(const bytevector& preimage);
+
+template <typename DATA>
+bytevector Hash160(const DATA& preimage)
+{
+    bytevector hash160(CHash160::OUTPUT_SIZE);
+    CHash160().Write(preimage).Finalize(hash160);
+    return hash160;
+}
+
 CAmount GetOutputAmount(const std::string& txoutstr);
 uint32_t GetCsvInBlocks(uint32_t blocks);
 
 template <typename T> void LogTx(const T& tx);
 
-class IBech32Coder {
+enum ChainType {BTC, L15};
+enum ChainMode {MAINNET, TESTNET, REGTEST};
 
-public:
-    enum ChainType {BTC, L15};
-    enum ChainMode {MAINNET, TESTNET, REGTEST};
-
-    virtual ~IBech32Coder() = default;
-    std::string Encode(const xonly_pubkey& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const
-    { return Encode(pk.get_vector(), encoding); }
-    virtual std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const = 0;
-    virtual bytevector Decode(const std::string& address) const = 0;
-};
-
-template <IBech32Coder::ChainType C, IBech32Coder::ChainMode M> struct Hrp;
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::MAINNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::TESTNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::BTC, IBech32Coder::REGTEST> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::MAINNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::TESTNET> { const static char* const value; };
-template <> struct Hrp<IBech32Coder::L15, IBech32Coder::REGTEST> { const static char* const value; };
+template <ChainType C, ChainMode M> struct Hrp;
+template <> struct Hrp<BTC, MAINNET> { const static char* const value; };
+template <> struct Hrp<BTC, TESTNET> { const static char* const value; };
+template <> struct Hrp<BTC, REGTEST> { const static char* const value; };
+template <> struct Hrp<L15, MAINNET> { const static char* const value; };
+template <> struct Hrp<L15, TESTNET> { const static char* const value; };
+template <> struct Hrp<L15, REGTEST> { const static char* const value; };
 
 
-template <IBech32Coder::ChainType C, IBech32Coder::ChainMode M> class Bech32Coder: public IBech32Coder
+class Bech32
 {
+    ChainType chaintype;
+    ChainMode chainmode;
+    const char* hrptag;
 public:
-    typedef Hrp<C,M> hrp;
+    Bech32() : Bech32(BTC, MAINNET) {}
+    Bech32(ChainType c, ChainMode m) : chaintype(c), chainmode(m),
+        hrptag(chaintype == L15
+            ? (m == MAINNET ? Hrp<L15, MAINNET>::value : (m == TESTNET ? Hrp<L15, TESTNET>::value : Hrp<L15, REGTEST>::value))
+            : (m == MAINNET ? Hrp<BTC, MAINNET>::value : (m == TESTNET ? Hrp<BTC, TESTNET>::value : Hrp<BTC, REGTEST>::value)))
+    {}
 
-    ~Bech32Coder() override = default;
-    using IBech32Coder::Encode;
-    std::string Encode(const bytevector& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const override {
+    Bech32(const Bech32& ) = default;
+    Bech32& operator=(const Bech32& o) = default;
+
+    ChainType GetChaintype() const
+    { return chaintype; }
+
+    ChainMode GetChainMode() const
+    { return chainmode; }
+
+    template <typename KeyType>
+    std::string Encode(const KeyType& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const {
         std::vector<unsigned char> bech32buf = {(encoding == bech32::Encoding::BECH32) ? (uint8_t)0 : (uint8_t)1};
         bech32buf.reserve(1 + ((pk.end() - pk.begin()) * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { bech32buf.push_back(c); }, pk.begin(), pk.end());
-        return bech32::Encode(encoding, hrp::value, bech32buf);
-
+        return bech32::Encode(encoding, hrptag, bech32buf);
     }
-    bytevector Decode(const std::string& address) const override {
+
+    std::tuple<unsigned, l15::bytevector> Decode(const std::string& address) const
+    {
         bech32::DecodeResult bech_result = bech32::Decode(address);
-        if(bech_result.hrp != hrp::value)
+        if(bech_result.hrp != hrptag)
         {
-            throw std::runtime_error(std::string("Address prefix should be ") + hrp::value + ". Address: " + address);
+            throw std::invalid_argument(std::string("Allowed prefix: ") + hrptag + ". Address: " + address);
         }
-        if(bech_result.data.size() < 1)
+        if(bech_result.data.empty())
         {
-            throw std::runtime_error(std::string("Wrong bech32 data (no data decoded): ") + address);
+            throw std::invalid_argument(std::string("Wrong bech32 data (no data decoded): ") + address);
         }
         if(bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
         {
-            throw std::runtime_error("Version 0 witness address must use Bech32 checksum");
+            throw std::invalid_argument("Version 0 witness address must use Bech32 checksum");
         }
         if(bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
         {
-            throw std::runtime_error("Version 1+ witness address must use Bech32m checksum");
+            throw std::invalid_argument("Version 1+ witness address must use Bech32m checksum");
         }
 
         bytevector data;
@@ -93,11 +108,16 @@ public:
         auto I = cex::smartinserter(data, data.end());
         if(!ConvertBits<5, 8, false>([&](unsigned char c) { *I = c; ++I; }, bech_result.data.begin() + 1, bech_result.data.end()))
         {
-            throw std::runtime_error(std::string("Wrong bech32 data: ") + address);
+            throw std::invalid_argument(std::string("Wrong bech32 data: ") + address);
         }
 
-        return data;
+        return std::tie(bech_result.data[0], data);
+    }
 
+    CScript PubKeyScript(const std::string& addr) const
+    {
+        auto res = Decode(addr);
+        return CScript() << get<0>(res) << get<1>(res);
     }
 };
 

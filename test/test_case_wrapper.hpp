@@ -35,28 +35,19 @@ struct TestcaseWrapper
     core::ChainApi mBtc;
     ExecHelper mCli;
     ExecHelper mBtcd;
-    std::unique_ptr<IBech32Coder> mBech;
+    Bech32 mBech;
 
     explicit TestcaseWrapper(const std::string& configpath, const std::string& clipath) :
             mConfFactory(configpath),
             mMode(mConfFactory.conf[config::option::CHAINMODE].as<std::string>()),
             mBtc(std::move(mConfFactory.conf.ChainValues(config::BITCOIN)), clipath),
             mCli(clipath, false),
-            mBtcd("bitcoind", false)
+            mBtcd("bitcoind", false),
+            mBech(mMode == "mainnet" ? Bech32(BTC, MAINNET) :
+                  (mMode == "testnet" ?
+                   Bech32(BTC, TESTNET) :
+                   Bech32(BTC, REGTEST)))
     {
-        if (mMode == "regtest") {
-            mBech.reset(new Bech32Coder<IBech32Coder::BTC, IBech32Coder::REGTEST>());
-        }
-        else if (mMode == "testnet") {
-            mBech.reset(new Bech32Coder<IBech32Coder::BTC, IBech32Coder::TESTNET>());
-        }
-        else if (mMode == "mainnet") {
-            mBech.reset(new Bech32Coder<IBech32Coder::BTC, IBech32Coder::MAINNET>());
-        }
-        else {
-            throw std::runtime_error("Wrong chain mode");
-        }
-
         bool is_connected = true;
         try {
             btc().CheckConnection();
@@ -95,12 +86,12 @@ struct TestcaseWrapper
 
     void StartRegtestBitcoinNode()
     {
-        StartNode(ChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
+        StartNode(NodeChainMode::MODE_REGTEST, mBtcd, conf().Subcommand(config::BITCOIND));
     }
 
     void StopRegtestBitcoinNode()
     {
-        StopNode(ChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
+        StopNode(NodeChainMode::MODE_REGTEST, mCli, conf().Subcommand(config::BITCOIN));
     }
 
     Config& conf()
@@ -109,8 +100,8 @@ struct TestcaseWrapper
     core::ChainApi& btc()
     { return mBtc; }
 
-    IBech32Coder& bech32() const
-    { return *mBech; }
+    const Bech32& bech32() const
+    { return mBech; }
 
     void ResetRegtestMemPool()
     {

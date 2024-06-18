@@ -1,10 +1,12 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
-SUBDIRS = contrib $(NODE_PATH) src test
+SUBDIRS =
 
 if BUILD_SECP256K1
 SUBDIRS += $(SECP256K1_PATH)
 endif
+
+SUBDIRS += $(NODE_PATH) src test
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
@@ -34,7 +36,7 @@ endif
 L15_LIBS += \
 $(top_builddir)/src/core/libl15-core.la  \
 $(top_builddir)/src/common/libl15-common.la \
-$(top_builddir)/$(NODE_PATH)/src/libbitcoinconsensus.la \
+$(top_builddir)/$(NODE_PATH)/src/libbitcoin_consensus.a \
 $(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
 $(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la
 

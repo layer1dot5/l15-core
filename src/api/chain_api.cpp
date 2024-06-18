@@ -194,7 +194,7 @@ std::string ChainApi::TestTxSequence(const std::vector<CMutableTransaction>& txs
     bool first = true;
 
     tx_to_param << "[";
-    for(const auto tx: txs)
+    for(const auto& tx: txs)
     {
         //Log(tx);
 
@@ -450,7 +450,7 @@ std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const st
         throw std::runtime_error(std::string("channel UTXO nout not found. txid=")+txid);
     }
 
-    return { COutPoint(uint256S(txid), nout), CTxOut(amount, scriptPubKey) };
+    return { COutPoint(Txid::FromUint256(uint256S(txid)), nout), CTxOut(amount, scriptPubKey) };
 
 }
 

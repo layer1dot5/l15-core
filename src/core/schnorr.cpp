@@ -5,76 +5,39 @@
 #include "secp256k1_schnorrsig.h"
 
 #include "common.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
 
-#include <mutex>
-#include <atomic>
-
 namespace l15::core {
 
-namespace {
-
-std::atomic<volatile secp256k1_context*> ctx = nullptr;
-std::mutex ctx_mutex;
-
-}
-
-secp256k1_xonly_pubkey ChannelKeys::unspendable_base;
-
-secp256k1_context *ChannelKeys::GetStaticSecp256k1Context()
-{
-    secp256k1_context* res = const_cast<secp256k1_context *>(ctx.load());
-    if (!res) {
-        std::lock_guard lock(ctx_mutex);
-        if (!ctx) {
-            res = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-            std::vector<unsigned char, secure_allocator<unsigned char>> vseed(32);
-            RandomInit();
-            GetRandBytes(vseed);
-            int ret = secp256k1_context_randomize(res, vseed.data());
-            assert(ret);
-            ctx = res;
-
-            bytevector unspend_key_bytes = unhex<bytevector>("0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0");
-            secp256k1_pubkey unspend_pubkey;
-            if (!secp256k1_ec_pubkey_parse(res, &unspend_pubkey, unspend_key_bytes.data(), unspend_key_bytes.size()))
-            {
-                throw WrongKeyError();
-            }
-            if (!secp256k1_xonly_pubkey_from_pubkey(res, &unspendable_base, NULL, &unspend_pubkey))
-            {
-                throw WrongKeyError();
-            }
-        }
-    }
-    return res;
-}
+secp256k1_xonly_pubkey SchnorrKeyPair::unspendable_base;
+bool SchnorrKeyPair::unspendable_is_initialized = false;
 
 const CSHA256 TAPTWEAK_HASH = PrecalculatedTaggedHash("TapTweak");
 
 
-void ChannelKeys::CachePubkey()
+xonly_pubkey SchnorrKeyPair::GetPubKey() const
 {
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, m_local_sk.data())) {
         throw WrongKeyError();
     }
 
-    secp256k1_xonly_pubkey xonly_pubkey;
-    if (!secp256k1_xonly_pubkey_from_pubkey(m_ctx, &xonly_pubkey, NULL, &pubkey)) {
+    secp256k1_xonly_pubkey secp_xonly_pubkey;
+    if (!secp256k1_xonly_pubkey_from_pubkey(m_ctx, &secp_xonly_pubkey, nullptr, &pubkey)) {
         throw WrongKeyError();
     }
 
-    if (!secp256k1_xonly_pubkey_serialize(m_ctx, m_local_pk.data(), &xonly_pubkey)) {
+    xonly_pubkey pk;
+    if (!secp256k1_xonly_pubkey_serialize(m_ctx, pk.data(), &secp_xonly_pubkey)) {
         throw WrongKeyError();
     }
 
-    m_pubkey_agg = m_local_pk;
+    return pk;
 }
 
-//void ChannelKeys::AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys)
+//void SchnorrKeyPair::AggregateMuSigPubKey(const std::vector<xonly_pubkey>& pubkeys)
 //{
 //    size_t n = pubkeys.size() + 1;
 //    secp256k1_xonly_pubkey* xonly_pubkeys[n];
@@ -112,7 +75,7 @@ void ChannelKeys::CachePubkey()
 //}
 
 
-std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const std::optional<uint256>& merkle_root)
+std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const std::optional<uint256>& merkle_root)
 {
     HashWriter hash(TAPTWEAK_HASH);
     hash << Span(GetPubKey());
@@ -151,13 +114,11 @@ std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const std::optional<ui
     }
 
     m_local_sk = move(tweaked_sk);
-    m_local_pk.set(m_ctx, tweaked_pk);
-    m_pubkey_agg = m_local_pk;
 
     return std::make_pair(GetPubKey(), static_cast<bool>(parity));
 }
 
-std::pair<ChannelKeys, uint8_t> ChannelKeys::NewKeyAddTapTweak(const std::optional<uint256>& merkle_root) const
+std::pair<SchnorrKeyPair, uint8_t> SchnorrKeyPair::NewKeyAddTapTweak(const std::optional<uint256>& merkle_root) const
 {
     HashWriter hash(TAPTWEAK_HASH);
     hash << Span(GetPubKey());
@@ -193,38 +154,42 @@ std::pair<ChannelKeys, uint8_t> ChannelKeys::NewKeyAddTapTweak(const std::option
         std::rethrow_exception(std::current_exception());
     }
 
-    ChannelKeys tweaked_key(move(tweaked_sk));
+    SchnorrKeyPair tweaked_key(move(tweaked_sk));
     return std::make_pair(move(tweaked_key), static_cast<bool>(parity));
 }
 
-seckey ChannelKeys::GetStrongRandomKey(const secp256k1_context* ctx)
-{
-    seckey key;
-    do {
-        GetStrongRandBytes(key);
-    } while (!secp256k1_ec_seckey_verify(ctx, key.data()));
-    return key;
-}
 
-
-xonly_pubkey ChannelKeys::CreateUnspendablePubKey(const seckey &random_factor)
+xonly_pubkey SchnorrKeyPair::CreateUnspendablePubKey(const seckey &random_factor)
 {
+    static bytevector unspend_key_bytes = unhex<bytevector>("0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0");
     const secp256k1_context* ctx = GetStaticSecp256k1Context();
+    if (!unspendable_is_initialized) {
+        secp256k1_pubkey unspend_pubkey;
+
+        if (!secp256k1_ec_pubkey_parse(ctx, &unspend_pubkey, unspend_key_bytes.data(), unspend_key_bytes.size()))
+            throw WrongKeyError();
+
+        if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &unspendable_base, nullptr, &unspend_pubkey))
+            throw WrongKeyError();
+
+        unspendable_is_initialized = true;
+    }
+
     secp256k1_pubkey unspendable;
 
     if (!secp256k1_xonly_pubkey_tweak_add(ctx, &unspendable, &unspendable_base, random_factor.data())) {
         throw KeyError();
     }
     secp256k1_xonly_pubkey out_xonly;
-    if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &out_xonly, NULL, &unspendable)) {
+    if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &out_xonly, nullptr, &unspendable)) {
         throw KeyError();
     }
 
-    return xonly_pubkey(ctx, out_xonly);
+    return {ctx, out_xonly};
 }
 
 
-std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const xonly_pubkey &pk, const std::optional<uint256>& merkle_root)
+std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const xonly_pubkey &pk, const std::optional<uint256>& merkle_root)
 {
     const secp256k1_context* ctx = GetStaticSecp256k1Context();
 
@@ -260,7 +225,7 @@ std::pair<xonly_pubkey, uint8_t> ChannelKeys::AddTapTweak(const xonly_pubkey &pk
 }
 
 
-signature ChannelKeys::SignSchnorr(const uint256& data) const
+signature SchnorrKeyPair::SignSchnorr(const uint256& data) const
 {
     signature sig;
     seckey aux = GetStrongRandomKey();
@@ -290,7 +255,7 @@ signature ChannelKeys::SignSchnorr(const uint256& data) const
     return sig;
 }
 
-signature ChannelKeys::SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& spend_script, int hashtype) const
+signature SchnorrKeyPair::SignTaprootTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& spend_script, int hashtype) const
 {
     uint256 sighash;
     PrecomputedTransactionData txdata;

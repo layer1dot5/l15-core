@@ -13,7 +13,7 @@
 #include "exechelper.hpp"
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 #include "onchain_service.hpp"
 
 using namespace l15;
@@ -106,13 +106,13 @@ struct TestcaseWrapper
 
     void CleanUpNode() {
         ExecHelper cli("l15node-cli", false);
-        StopNode(ChainMode::MODE_REGTEST, cli, conf().Subcommand(config::L15CLIENT));
+        StopNode(NodeChainMode::MODE_REGTEST, cli, conf().Subcommand(config::L15CLIENT));
         std::filesystem::remove_all(mConfFactory.GetDataDir() + "/regtest");
     }
 
     void StartNode() {
         ExecHelper node("l15noded", false);
-        l15::StartNode(ChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
+        l15::StartNode(NodeChainMode::MODE_REGTEST, node, conf().Subcommand(config::L15NODE));
     }
 
     Config& conf() { return mConfFactory.conf; }
@@ -132,7 +132,7 @@ struct ChainTracer {
 
 TEST_CASE_METHOD(TestcaseWrapper, "Start/stop on-chain service")
 {
-    auto chain = std::make_unique<ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
+    auto chain = std::make_unique<ChainApi>(std::move(mConfFactory.conf.ChainValues(config::L15NODE)), "l15node-cli");
     size_t block_cnt = 0;
     size_t tx_cnt = 0;
 

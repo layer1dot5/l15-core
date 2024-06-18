@@ -5,6 +5,7 @@
 **/*.in
 .idea/*
 build/**
+build_*/**
 **/*.lo
 **/*.la
 **/.deps/**

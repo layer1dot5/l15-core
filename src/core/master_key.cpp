@@ -17,13 +17,13 @@ MasterKey::MasterKey(const secp256k1_context* ctx, const bytevector& seed) : m_c
     memory_cleanse(vout, sizeof(vout));
 }
 
-MasterKey::MasterKey(const bytevector& seed) : MasterKey(ChannelKeys::GetStaticSecp256k1Context(), seed)
+MasterKey::MasterKey(const bytevector& seed) : MasterKey(SchnorrKeyPair::GetStaticSecp256k1Context(), seed)
 {}
 
 MasterKey::MasterKey(const secp256k1_context* ctx, const ext_seckey& extkey) : m_ctx(ctx), mKey(extkey.begin(), extkey.begin() + 32), mChainCode(Span<uint8_t>(const_cast<uint8_t*>(extkey.data()) + 32, 32))
 {}
 
-MasterKey::MasterKey(const ext_seckey& extkey) : MasterKey(ChannelKeys::GetStaticSecp256k1Context(), extkey)
+MasterKey::MasterKey(const ext_seckey& extkey) : MasterKey(SchnorrKeyPair::GetStaticSecp256k1Context(), extkey)
 {}
 
 
@@ -61,9 +61,9 @@ void MasterKey::DeriveSelf(uint32_t branch)
     }
 }
 
-ChannelKeys MasterKey::MakeKey(bool do_tweak) const
+SchnorrKeyPair MasterKey::MakeKey(bool do_tweak) const
 {
-    ChannelKeys res(m_ctx, mKey);
+    SchnorrKeyPair res(m_ctx, mKey);
 
     if (do_tweak) {
         res.AddTapTweak();
@@ -90,7 +90,7 @@ ext_pubkey MasterKey::MakeExtPubKey() const
     return res;
 }
 
-ChannelKeys MasterKey::Derive(const string &path, bool for_script) const
+SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
 {
     auto branches = spanparsing::Split(path, '/');
 

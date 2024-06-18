@@ -12,7 +12,7 @@
 #include "exechelper.hpp"
 #include "wallet_api.hpp"
 #include "chain_api.hpp"
-#include "channel_keys.hpp"
+#include "schnorr.hpp"
 
 #include "test_case_wrapper.hpp"
 
@@ -66,9 +66,9 @@ TEST_CASE("Start/stop l15-node")
 
 TEST_CASE("Test transactions")
 {
-    ChannelKeys outkey;
+    SchnorrKeyPair outkey;
 
-    ChannelKeys key;
+    SchnorrKeyPair key;
     std::string address = w->bech32().Encode(key.GetPubKey());
 
     UniValue blocks;
