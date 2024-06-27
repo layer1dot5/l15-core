@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils.hpp"
+#include "bech32.hpp"
 #include "keypair_common.hpp"
 #include "schnorr.hpp"
 #include "ecdsa.hpp"

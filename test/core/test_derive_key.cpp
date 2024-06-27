@@ -7,7 +7,7 @@
 
 #include "util/translation.h"
 #include "master_key.hpp"
-#include "utils.hpp"
+#include "bech32.hpp"
 
 using namespace l15;
 using namespace l15::core;

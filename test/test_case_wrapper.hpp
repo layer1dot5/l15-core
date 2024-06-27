@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "bech32.hpp"
 #include "chain_api.hpp"
 #include "config.hpp"
 #include "exechelper.hpp"

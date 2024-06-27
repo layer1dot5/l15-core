@@ -36,7 +36,7 @@ class KeyRegistry
 
 public:
     KeyRegistry(const secp256k1_context* ctx, Bech32 bech, const bytevector& seed): m_ctx(ctx), mBech(bech), m_key_type_filters(10), mMasterKey(m_ctx, seed) {}
-    KeyRegistry(ChainMode bech, const std::string& seedhex): KeyRegistry(core::SchnorrKeyPair::GetStaticSecp256k1Context(), Bech32(BTC, bech), unhex<bytevector>(seedhex)) {}
+    KeyRegistry(ChainMode chain, const std::string& seedhex): KeyRegistry(core::SchnorrKeyPair::GetStaticSecp256k1Context(), Bech32(BTC, chain), unhex<bytevector>(seedhex)) {}
 
     const secp256k1_context* Secp256k1Context() const
     { return m_ctx; }

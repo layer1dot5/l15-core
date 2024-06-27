@@ -26,7 +26,8 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = libl15-common.la
 libl15_common_la_SOURCES = \
 	common.cpp \
-	utils.cpp
+	utils.cpp \
+	bech32_hrp.cpp
 
 nodist_libl15_common_la_SOURCES = $(VERSION_MODULE)
 

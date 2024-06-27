@@ -4,7 +4,7 @@
 
 #include "common.hpp"
 #include "common_error.hpp"
-#include "utils.hpp"
+#include "bech32.hpp"
 #include "transaction.hpp"
 
 #undef VERSION
