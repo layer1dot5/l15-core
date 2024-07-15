@@ -46,7 +46,7 @@ void ExecHelper::RunInternal() {
         pr::child check(m_command, m_args, pr::std_out > is, pr::std_in < pr::null);
 
         unsigned nline = 0;
-        while(check.running() && std::getline(is, line) && !line.empty())
+        while(!is.eof() && std::getline(is, line) && !line.empty())
         {
             if(nline++) outstream << std::endl;
             outstream << line;
