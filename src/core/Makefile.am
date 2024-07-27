@@ -28,7 +28,8 @@ libl15_core_la_SOURCES = \
 	ecdsa.cpp \
 	keyregistry.cpp \
 	master_key.cpp \
-	transaction.cpp
+	transaction.cpp \
+	mnemonic.cpp
 
 #	channel_contract.cpp
 #	channel.cpp

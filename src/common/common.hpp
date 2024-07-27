@@ -8,6 +8,7 @@
 #include <iostream>
 #include <tuple>
 #include <charconv>
+#include <ranges>
 
 #include "fixsizevector.hpp"
 
@@ -45,7 +46,7 @@ public:
     signature& operator=(signature&& ) noexcept = default;
 };
 
-typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<unsigned char>> seckey;
+typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<uint8_t>> seckey;
 typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
 
 class xonly_pubkey : public cex::fixsize_vector<uint8_t, 32>
@@ -230,42 +231,32 @@ struct hash<T*>/* : public std::__hash_base<size_t, T*>*/
     { return std::hash<std::string>()(hex(*val)); }
 };
 
-template <typename T>
-struct equal_to : public std::equal_to<T> {};
+}
 
-template <typename T>
-struct equal_to<T*>
-{
-    constexpr bool operator()(const T* x, const T* y) const
-    { return *x == *y; }
-};
-
-template <typename T>
-struct less : std::less<T> {};
+namespace std {
 
 template <>
-struct less<xonly_pubkey>
+struct equal_to<l15::xonly_pubkey>
 {
-    bool operator()(const xonly_pubkey& x, const xonly_pubkey& y) const
-    { return x.get_vector() < y.get_vector(); }
+    bool operator()(const l15::xonly_pubkey& x, const l15::xonly_pubkey& y) const
+    { return x.get_vector() == y.get_vector(); }
 };
 
-
-template<>
-struct hash<secp256k1_xonly_pubkey>/* : std::__hash_base<size_t, secp256k1_xonly_pubkey>*/
-{
-    size_t operator()(const secp256k1_xonly_pubkey& val) const
-    {
-        std::string hs = hex(val.data);
-        return std::hash<std::string>()(hs);
-    }
-};
-
-struct secp256k1_xonly_pubkey_equal
+template <>
+struct equal_to<secp256k1_xonly_pubkey>
 {
     bool operator() (const secp256k1_xonly_pubkey& p1, const secp256k1_xonly_pubkey& p2) const
     { return memcmp(p1.data, p2.data, sizeof(p1.data)) == 0; }
 };
 
+template <>
+struct less<l15::xonly_pubkey>
+{
+    bool operator()(const l15::xonly_pubkey& x, const l15::xonly_pubkey& y) const
+    { return x.get_vector() < y.get_vector(); }
+};
+
+template <> struct hash<l15::xonly_pubkey> : l15::hash<l15::xonly_pubkey> {};
+template <> struct hash<secp256k1_xonly_pubkey> : l15::hash<secp256k1_xonly_pubkey> {};
 
 }

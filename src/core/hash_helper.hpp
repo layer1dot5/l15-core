@@ -14,18 +14,18 @@ public:
 private:
     D mData;
 public:
-    Writer(const D& data) : mData(data) {}
-    virtual ~Writer() = default;
+    constexpr Writer(const D& data) : mData(data) {}
+    ~Writer() = default;
 
-    virtual void write(Span<const std::byte> src)
+    constexpr void write(Span<const std::byte> src)
     {
         mData.Write(reinterpret_cast<const unsigned char *>(src.data()), src.size());
     }
     D& get() { return mData; }
-    const D& get() const { return mData; }
+    constexpr const D& get() const { return mData; }
 
     template <typename T>
-    Writer& operator<<(const T& obj)
+    constexpr Writer& operator<<(const T& obj)
     {
         ::Serialize(*this, obj);
         return *this;
@@ -33,36 +33,16 @@ public:
 
 };
 
-//template <typename D>
-//class Writer <D&>
-//{
-//public:
-//    typedef D data_type;
-//private:
-//    D& mData;
-//public:
-//    Writer(D& data): mData(data) {}
-//    virtual ~Writer() = default;
-//
-//    virtual void write(Span<const uint8_t> src)
-//    {
-//        mData.Write(src.data(), src.size());
-//    }
-//    D& get() { return mData; }
-//    const D& get() const { return mData; }
-//
-//};
-
 template <typename H>
 class HashWriter : public Writer<H>
 {
 public:
-    HashWriter(const H& hashcache) : Writer<H>(hashcache) {}
+    constexpr HashWriter(const H& hashcache) : Writer<H>(hashcache) {}
 
     template <typename R>
-    operator R()
+    constexpr operator R()
     {
-        R result;
+        R result(H::OUTPUT_SIZE);
         Writer<H>::get().Finalize(result.begin());
         return result;
     }

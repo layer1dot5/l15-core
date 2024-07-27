@@ -24,12 +24,20 @@ constexpr CAmount Dust(const CAmount fee_rate = DUST_RELAY_TX_FEE) {return CFeeR
 bytevector ScriptHash(const CScript &script);
 bytevector CreatePreimage();
 
-template <typename DATA>
-bytevector Hash160(const DATA& preimage)
+template <typename R, typename D, typename H>
+constexpr R cryptohash(const D& data, H h = {})
 {
-    bytevector hash160(CHash160::OUTPUT_SIZE);
-    CHash160().Write(preimage).Finalize(hash160);
-    return hash160;
+    R out(H::OUTPUT_SIZE);
+    h.Write(data.data(), data.size()).Finalize(out.data());
+    return out;
+}
+
+template <typename R, typename DATA>
+constexpr R cryptohash(const DATA& preimage, CHash160 h)
+{
+    R out(CHash160::OUTPUT_SIZE);
+    h.Write(preimage).Finalize(out);
+    return out;
 }
 
 CAmount GetOutputAmount(const std::string& txoutstr);

@@ -1,5 +1,6 @@
 
 AM_CPPFLAGS = \
+ -I$(top_srcdir)/contrib/nlohmann_json \
  -I$(top_srcdir)/test \
  -I$(top_srcdir)/contrib \
  -I$(top_srcdir)/contrib/cex \
@@ -34,7 +35,7 @@ $(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
 $(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_taptree test_taproot test_node test_derive_key test_signing
+bin_PROGRAMS = test_taptree test_taproot test_node test_derive_key test_signing test_mnemonic
 #test_ptlc
 
 if BUILD_FROST
@@ -64,6 +65,10 @@ test_node_LDADD = $(L15_LIBS)
 
 test_derive_key_SOURCES = test_derive_key.cpp
 test_derive_key_LDADD = $(L15_LIBS)
+
+
+test_mnemonic_SOURCES = test_mnemonic.cpp
+test_mnemonic_LDADD = $(L15_LIBS)
 
 
 test_signing_SOURCES = test_signing.cpp

@@ -19,7 +19,7 @@ namespace signer_service {
 class SignerService
 {
     std::shared_ptr<service::GenericService> mBgService;
-    std::unordered_map<xonly_pubkey, std::shared_ptr<core::SignerApi>, l15::hash<xonly_pubkey>, l15::equal_to<xonly_pubkey>> m_signers;
+    std::unordered_map<xonly_pubkey, std::shared_ptr<core::SignerApi>> m_signers;
 public:
     explicit SignerService(std::shared_ptr<service::GenericService> bgService) : mBgService(move(bgService)), m_signers() {}
 

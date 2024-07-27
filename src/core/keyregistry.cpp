@@ -211,13 +211,13 @@ KeyPair KeyRegistry::Lookup(const l15::xonly_pubkey &pk, const std::string& hint
 KeyPair KeyRegistry::Lookup(const std::string& addr, const KeyLookupFilter& hint) const
 {
     unsigned witver;
-    l15::bytevector keyid;
+    bytevector keyid;
     std::tie(witver, keyid) = mBech.Decode(addr);
 
     if (witver == 0) {
-        return Lookup(keyid, hint, [&](const l15::core::SchnorrKeyPair &k, const l15::bytevector &id) {
+        return Lookup(keyid, hint, [&](const SchnorrKeyPair &k, const bytevector &id) {
             EcdsaKeyPair keypair(m_ctx, k.GetPrivKey());
-            return l15::Hash160(keypair.GetPubKey()) == id;
+            return cryptohash<bytevector>(keypair.GetPubKey(), CHash160()) == id;
         });
     }
 

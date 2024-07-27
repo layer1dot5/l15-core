@@ -125,7 +125,7 @@ struct RemoteSignerData
 class SignerApi
 {
 public:
-    typedef std::unordered_map<xonly_pubkey, RemoteSignerData, l15::hash<xonly_pubkey>> peers_data_type;
+    typedef std::unordered_map<xonly_pubkey, RemoteSignerData> peers_data_type;
 private:
     const secp256k1_context* m_ctx;
     SchnorrKeyPair mKeypair;
@@ -154,7 +154,7 @@ private:
 
     typedef tbb::concurrent_unordered_map<
                 secp256k1_xonly_pubkey,
-                sigshare_cache, l15::hash<secp256k1_xonly_pubkey>, l15::secp256k1_xonly_pubkey_equal
+                sigshare_cache
             > sigshare_peers_cache;
 
     typedef std::tuple<

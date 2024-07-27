@@ -39,7 +39,7 @@ public:
     { return bech.Encode(core::SchnorrKeyPair(m_ctx, m_sk).GetPubKey(), bech32::Encoding::BECH32M); }
 
     std::string GetP2WPKHAddress(Bech32 bech) const
-    { return bech.Encode(Hash160(EcdsaKeyPair(m_ctx, m_sk).GetPubKey()), bech32::Encoding::BECH32); }
+    { return bech.Encode(cryptohash<bytevector>(EcdsaKeyPair(m_ctx, m_sk).GetPubKey(), CHash160()), bech32::Encoding::BECH32); }
 
     SchnorrKeyPair GetSchnorrKeyPair() const
     { return SchnorrKeyPair(m_ctx, m_sk); }
