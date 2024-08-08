@@ -12,18 +12,10 @@
 
 namespace l15::core {
 
-MnemonicParser::MnemonicParser(std::string word_list_json)
+MnemonicParser::MnemonicParser(stringvector word_list)
 {
-    auto word_list = nlohmann::json::parse(move(word_list_json));
-    if (!word_list.is_array()) throw MnemonicDictionaryError("dictionary JSON is not an array");
     if (word_list.size() != 2048) throw MnemonicDictionaryError("wrong size: " + std::to_string(word_list.size()));
-
-    dictionary.reserve(word_list.size());
-
-    for (const auto&[i, word]: std::ranges::zip_view(std::ranges::iota_view(0), word_list)) {
-        if (!word.is_string()) throw MnemonicDictionaryError("item is not a string: " + std::to_string(i));
-        dictionary.emplace_back(word.get<std::string>());
-    }
+    dictionary = move(word_list);
 }
 
 

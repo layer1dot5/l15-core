@@ -1,3 +1,5 @@
+#include <exception>
+
 #include "master_key.hpp"
 #include "util/spanparsing.h"
 #include "hmac_sha512.h"

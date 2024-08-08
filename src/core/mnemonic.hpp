@@ -2,8 +2,6 @@
 
 #include <string>
 
-#include "nlohmann/json.hpp"
-
 #include "common.hpp"
 
 namespace l15::core {
@@ -51,7 +49,7 @@ class MnemonicParser
 public:
     typedef std::vector<uint8_t, secure_allocator<uint8_t>> entropy_type;
 
-    explicit MnemonicParser(std::string word_list_json);
+    explicit MnemonicParser(stringvector word_list);
     entropy_type DecodeEntropy(const stringvector& phrase) const;
     stringvector EncodeEntropy(entropy_type entropy) const;
 

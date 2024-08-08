@@ -1,3 +1,5 @@
+#include <exception>
+
 #include "script/interpreter.h"
 #include "secp256k1.h"
 
