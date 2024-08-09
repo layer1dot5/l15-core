@@ -2,12 +2,12 @@
 
 #include <vector>
 #include <string>
-#include <memory>
 #include <regex>
 
 
 #include "common.hpp"
 #include "utils.hpp"
+#include "exechelper.hpp"
 
 
 namespace l15::core {
@@ -28,16 +28,26 @@ public:
 
     void StopNode() const;
 
-    void CreateWallet(std::string&& name) const;
-    std::string GetWalletInfo() const;
-    void WalletPassPhrase(const std::string& phrase, const std::string& lifetime) const;
+    template <typename ... ARGS>
+    std::string Call(ARGS&&... args) const
+    {
+        ExecHelper exec(m_cli_path, false);
+        for (const std::string& v: m_default) { exec.Arguments().emplace_back(v); }
+        ([&]<typename T>(T&& arg){exec.Arguments().emplace_back(std::forward<T>(arg));}(std::forward<decltype(args)>(args)), ...);
 
-    void CheckConnection() const;
-    std::string SendToAddress(const std::string& address, const std::string& amount) const;
-    std::string GetTxOut(const std::string& txidhex, const std::string& out) const;
+        return exec.Run();
+    }
+
+    void CreateWallet(std::string name) const;
+    std::string GetWalletInfo() const;
+    void WalletPassPhrase(std::string phrase, std::string lifetime) const;
+
+    void CheckConnection() const { GetChainHeight(); }
+    std::string SendToAddress(std::string address, std::string amount) const;
+    std::string GetTxOut(std::string txidhex, std::string out) const;
     uint32_t GetChainHeight() const;
-    std::string GetNewAddress(const std::string& label = "", const std::string& address_type = "bech32m") const;
-    std::string GenerateToAddress(const std::string& address, const std::string &nblocks) const;
+    std::string GetNewAddress(std::string label = "", std::string address_type = "bech32m") const;
+    std::string GenerateToAddress(std::string address, std::string nblocks) const;
 
     // locktime < 500 000 000 - means lock time in block height
     // locktime >= 500 000 000 - means UNIX timestamp
@@ -47,15 +57,15 @@ public:
 
     std::string SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector>& witness_stack) const;
     std::string SpendTx(const CTransaction &tx) const;
-    CTransaction GetTx(const std::string& txid) const;
+    CTransaction GetTx(std::string txid) const;
     std::string TestTxSequence(const std::vector<CMutableTransaction> &txs) const;
 
-    std::string GetBlock(const std::string& block_hash, const std::string& verbosity = "2") const;
+    std::string GetBlock(string block_hash, string verbosity = "2") const;
     std::string GetZMQNotifications() const;
 
     std::tuple<COutPoint, CTxOut> CheckOutput(const string& txid, const string& address) const;
 
-    std::string EstimateSmartFee(const std::string& confirmation_target, const std::string& mode = "CONSERVATIVE") const;
+    std::string EstimateSmartFee(std::string confirmation_target, std::string mode = "CONSERVATIVE") const;
 };
 
 }

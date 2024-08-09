@@ -1,6 +1,5 @@
 #include "chain_api.hpp"
 #include "wallet_api.hpp"
-#include "exechelper.hpp"
 #include "transaction.hpp"
 
 #include "script/script.h"
@@ -37,7 +36,6 @@ namespace {
     const char* const CREATEWALLET = "createwallet";
     const char* const GETWALLETINFO = "getwalletinfo";
     const char* const WALLETPASSPHRASE = "walletpassphrase";
-
     const char* const GETBLOCK = "getblock";
     const char* const GETZMQNOTIFICATIONS = "getzmqnotifications";
     const char* const ESTIMATESMARTFEE = "estimatesmartfee";
@@ -49,56 +47,18 @@ std::regex ChainApi::sNewlineRegExp("\n+");
 
 uint32_t ChainApi::GetChainHeight() const
 {
-    ExecHelper check_connect(m_cli_path, false);
-
-    std::for_each(m_default.cbegin(), m_default.cend(), [&check_connect](const std::string& v)
-    {
-        check_connect.Arguments().emplace_back(v);
-    });
-
-    check_connect.Arguments().emplace_back(GETBLOCKCOUNT);
-
-    return std::stoul(check_connect.Run());
+    return std::stoul(Call(GETBLOCKCOUNT));
 }
 
-void ChainApi::CheckConnection() const
+std::string ChainApi::SendToAddress(std::string address, std::string amount) const
 {
-    GetChainHeight();
+    return std::regex_replace(Call(SENDTOADDRESS, move(address), move(amount)), sNewlineRegExp, "");
 }
 
-std::string ChainApi::SendToAddress(const std::string& address, const std::string& amount) const
+std::string ChainApi::GetTxOut(std::string txidhex, std::string out) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(SENDTOADDRESS);
-    btc_exec.Arguments().emplace_back(address);
-    btc_exec.Arguments().emplace_back(amount);
-
-    return std::regex_replace(btc_exec.Run(), sNewlineRegExp, "");
+    return Call(GETTXOUT, move(txidhex), move(out));
 }
-
-
-std::string ChainApi::GetTxOut(const std::string& txidhex, const std::string& out) const
-{
-    ExecHelper btc_exec(m_cli_path, false);
-
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GETTXOUT);
-    btc_exec.Arguments().emplace_back(txidhex);
-    btc_exec.Arguments().emplace_back(out);
-
-    return btc_exec.Run();
-}
-
 
 //transaction_ptr ChainApi::CreateSegwitTx(const CScript &script, const ChainApi::string_pair_t &utxo, const std::vector<string_pair_t>& outs_addr_amount, uint32_t locktime) const
 //{
@@ -205,60 +165,27 @@ std::string ChainApi::TestTxSequence(const std::vector<CMutableTransaction>& txs
     }
     tx_to_param << "]";
 
-    ExecHelper btc_exec(m_cli_path, false);
-
-    for(const auto& v: m_default)
-    {
-        btc_exec.Arguments().push_back(v);
-    }
-
-    btc_exec.Arguments().emplace_back(TESTMEMPOOLACCEPT);
-    btc_exec.Arguments().emplace_back(tx_to_param.str());
-
-    return btc_exec.Run();
+    return Call(TESTMEMPOOLACCEPT, tx_to_param.str());
 }
 
 std::string ChainApi::SpendTx(const CTransaction &tx) const
 {
-    //Log(tx);
-
-    ExecHelper btc_exec(m_cli_path, false);
-
-    for(const auto& v: m_default)
-    {
-        btc_exec.Arguments().push_back(v);
-    }
-
-    btc_exec.Arguments().emplace_back(SENDRAWTRANSACTION);
-    btc_exec.Arguments().emplace_back(EncodeHexTx(tx));
-
-    return btc_exec.Run();
+    return Call(SENDRAWTRANSACTION, EncodeHexTx(tx));
 }
 
-CTransaction ChainApi::GetTx(const std::string& txid) const
+CTransaction ChainApi::GetTx(std::string txid) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-
-    for(const auto& v: m_default)
-    {
-        btc_exec.Arguments().push_back(v);
-    }
-
-    btc_exec.Arguments().emplace_back(GETRAWTRANSACTION);
-    btc_exec.Arguments().emplace_back(txid);
-
-    CMutableTransaction tx = Deserialize(btc_exec.Run());
+    CMutableTransaction tx = Deserialize(Call(GETRAWTRANSACTION, move(txid)));
     return CTransaction(move(tx));
 }
 
 std::string ChainApi::SpendSegwitTx(CMutableTransaction &tx, const std::vector<bytevector> &witness_stack) const
 {
     auto& witness = tx.vin[0].scriptWitness.stack;
-//    nTransactions++;
 
-    for(auto I = witness_stack.crbegin(); I != witness_stack.crend(); ++I)
+    for(const auto& el: std::ranges::reverse_view(witness_stack))
     {
-        witness.emplace(witness.begin(), *I);
+        witness.emplace_back(el);
     }
 
     //Log(tx);
@@ -307,95 +234,35 @@ std::string ChainApi::SpendSegwitTx(CMutableTransaction &tx, const std::vector<b
  * address_type - The address type to use. Options are “legacy”, “p2sh-segwit”, and “bech32”.
  * 
 */
-std::string ChainApi::GetNewAddress(const std::string& label, const std::string& address_type) const
+std::string ChainApi::GetNewAddress(std::string label, std::string address_type) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GETNEWADDRESS);
-    btc_exec.Arguments().emplace_back(label);
-    btc_exec.Arguments().emplace_back(address_type);
-
-    return btc_exec.Run();
+    return Call(GETNEWADDRESS, move(label), move(address_type));
 }
 
-std::string ChainApi::GenerateToAddress(const std::string& address, const std::string &nblocks) const
+std::string ChainApi::GenerateToAddress(std::string address, std::string nblocks) const
 {
-
-    ExecHelper btc_exec(m_cli_path, false);
-
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GENERATETOADDRESS);
-    btc_exec.Arguments().emplace_back(nblocks);
-    btc_exec.Arguments().emplace_back(address);
-
-    return btc_exec.Run();
+    return Call(GENERATETOADDRESS, move(nblocks), move(address));
 }
-
 
 void ChainApi::StopNode() const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(STOP);
-
-    btc_exec.Run();
-
+    Call(STOP);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-void ChainApi::CreateWallet(std::string&& name) const
+void ChainApi::CreateWallet(std::string name) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(CREATEWALLET);
-    btc_exec.Arguments().emplace_back(name);
-
-    btc_exec.Run();
+    Call(CREATEWALLET, move(name));
 }
 
 std::string ChainApi::GetWalletInfo() const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GETWALLETINFO);
-
-    return btc_exec.Run();
+    return Call(GETWALLETINFO);
 }
 
-void ChainApi::WalletPassPhrase(const std::string& phrase, const std::string& lifetime) const
+void ChainApi::WalletPassPhrase(std::string phrase, std::string lifetime) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(WALLETPASSPHRASE);
-    btc_exec.Arguments().emplace_back(phrase);
-    btc_exec.Arguments().emplace_back(lifetime);
-
-    btc_exec.Run();
+    Call(WALLETPASSPHRASE, move(phrase), move(lifetime));
 }
 
 std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const string& address) const
@@ -454,47 +321,19 @@ std::tuple<COutPoint, CTxOut> ChainApi::CheckOutput(const string& txid, const st
 
 }
 
-std::string ChainApi::GetBlock(const string &block_hash, const string &verbosity) const
+std::string ChainApi::GetBlock(string block_hash, string verbosity) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GETBLOCK);
-    btc_exec.Arguments().emplace_back(block_hash);
-    btc_exec.Arguments().emplace_back(verbosity);
-
-    return btc_exec.Run();
+    return Call(GETBLOCK, move(block_hash), move(verbosity));
 }
 
 std::string ChainApi::GetZMQNotifications() const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(GETZMQNOTIFICATIONS);
-
-    return btc_exec.Run();
+    return Call(GETZMQNOTIFICATIONS);
 }
 
-std::string ChainApi::EstimateSmartFee(const std::string& confirmation_target, const std::string& mode) const
+std::string ChainApi::EstimateSmartFee(std::string confirmation_target, std::string mode) const
 {
-    ExecHelper btc_exec(m_cli_path, false);
-    std::for_each(m_default.cbegin(), m_default.cend(), [&btc_exec](const std::string& v)
-    {
-        btc_exec.Arguments().emplace_back(v);
-    });
-
-    btc_exec.Arguments().emplace_back(ESTIMATESMARTFEE);
-    btc_exec.Arguments().emplace_back(confirmation_target);
-    btc_exec.Arguments().emplace_back(mode);
-
-    std::string res = btc_exec.Run();
+    std::string res = Call(ESTIMATESMARTFEE, move(confirmation_target), move(mode));
 
     UniValue resRoot;
     resRoot.read(res);
@@ -502,9 +341,8 @@ std::string ChainApi::EstimateSmartFee(const std::string& confirmation_target, c
     if (resRoot.exists("feerate")) {
         return resRoot["feerate"].getValStr();
     }
-    else {
-        throw std::logic_error(resRoot["feerate"][0].getValStr());
-    }
+
+    throw std::logic_error(resRoot["feerate"][0].getValStr());
 }
 
 }
