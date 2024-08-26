@@ -181,6 +181,11 @@ if test "x$enable_build_apis" = "xyes"; then
 fi
 
 AC_LANG_PUSH([C++])
+AX_CHECK_COMPILE_FLAG([-fPIC],
+    [
+    CXXFLAGS="$CXXFLAGS -fPIC"
+    CFLAGS="$CFLAGS -fPIC"
+    ])
 AX_CHECK_COMPILE_FLAG([-Werror], [CXXFLAG_WERROR="-Werror"])
 
 if test "x$enable_debug" = "xyes"; then
@@ -224,7 +229,7 @@ else
   AX_TBB
 fi
 
-if test "$enable_plugin_api" != "yes"; then
+if test "$enable_build_services" = "yes"; then
   AX_ZMQ(,,[AC_MSG_ERROR([libzmq is required, but it was not found in your system])])
 fi
 

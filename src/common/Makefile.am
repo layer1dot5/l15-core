@@ -1,14 +1,14 @@
 
-VERSION_MODULE = version.cpp
-BUILT_SOURCES = $(VERSION_MODULE)
+#VERSION_MODULE = version.cpp
+#BUILT_SOURCES = $(VERSION_MODULE)
 
 #.PHONY: $(VERSION_MODULE)
 
-$(VERSION_MODULE): $(top_srcdir)/version.sh Makefile
-	echo '#include "version.hpp"' >$@
-	(echo 'const char* const l15::Version::core_version = "'; $< $(top_srcdir); echo '";') | tr -d '\n' >>$@; echo >>$@
-	(echo 'const char* const l15::Version::node_version = "'; $< $(top_srcdir)/$(NODE_PATH); echo '";')| tr -d '\n' >>$@; echo >>$@
-	(echo 'const char* const l15::Version::secp256k1_version = "'; $< $(top_srcdir)/$(SECP256K1_PATH); echo '";')| tr -d '\n' >>$@; echo >>$@
+#$(VERSION_MODULE): $(top_srcdir)/version.sh Makefile
+#	echo '#include "version.hpp"' >$@
+#	(echo 'const char* const l15::Version::core_version = "'; $< $(top_srcdir); echo '";') | tr -d '\n' >>$@; echo >>$@
+#	(echo 'const char* const l15::Version::node_version = "'; $< $(top_srcdir)/$(NODE_PATH); echo '";')| tr -d '\n' >>$@; echo >>$@
+#	(echo 'const char* const l15::Version::secp256k1_version = "'; $< $(top_srcdir)/$(SECP256K1_PATH); echo '";')| tr -d '\n' >>$@; echo >>$@
 
 AM_CPPFLAGS = \
  -I$(top_srcdir)/$(NODE_PATH)/src \
@@ -29,6 +29,6 @@ libl15_common_la_SOURCES = \
 	utils.cpp \
 	bech32_hrp.cpp
 
-nodist_libl15_common_la_SOURCES = $(VERSION_MODULE)
+#nodist_libl15_common_la_SOURCES = $(VERSION_MODULE)
 
-CLEANFILES = $(VERSION_MODULE)
+#CLEANFILES = $(VERSION_MODULE)
