@@ -47,13 +47,11 @@ class MnemonicParser
     stringvector dictionary;
 
 public:
-    typedef std::vector<uint8_t, secure_allocator<uint8_t>> entropy_type;
-
     explicit MnemonicParser(stringvector word_list);
-    entropy_type DecodeEntropy(const stringvector& phrase) const;
-    stringvector EncodeEntropy(entropy_type entropy) const;
+    sensitive_bytevector DecodeEntropy(const sensitive_stringvector& phrase) const;
+    sensitive_stringvector EncodeEntropy(sensitive_bytevector entropy) const;
 
-    entropy_type MakeSeed(const stringvector& phrase, const std::string& passphrase) const;
+    sensitive_bytevector MakeSeed(const sensitive_stringvector& phrase, const sensitive_string& passphrase) const;
 };
 
 }
