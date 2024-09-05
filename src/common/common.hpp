@@ -46,6 +46,10 @@ public:
     signature& operator=(signature&& ) noexcept = default;
 };
 
+typedef std::vector<uint8_t, secure_allocator<uint8_t>> sensitive_bytevector;;
+typedef std::basic_string<char, std::char_traits<char>, secure_allocator<char>> sensitive_string;
+typedef std::vector<sensitive_string> sensitive_stringvector;
+
 typedef cex::fixsize_vector<uint8_t, 32, secure_allocator<uint8_t>> seckey;
 typedef cex::fixsize_vector<uint8_t, 33> compressed_pubkey;
 
