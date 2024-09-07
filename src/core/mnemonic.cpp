@@ -12,14 +12,7 @@
 
 namespace l15::core {
 
-MnemonicParser::MnemonicParser(stringvector word_list)
-{
-    if (word_list.size() != 2048) throw MnemonicDictionaryError("wrong size: " + std::to_string(word_list.size()));
-    dictionary = move(word_list);
-}
-
-
-sensitive_bytevector MnemonicParser::DecodeEntropy(const sensitive_stringvector &phrase) const
+sensitive_bytevector MnemonicParserBase::DecodeEntropy(const sensitive_stringvector &phrase) const
 {
     switch(phrase.size()) {
     case 12: case 15: case 18: case 21: case 24:
@@ -32,8 +25,8 @@ sensitive_bytevector MnemonicParser::DecodeEntropy(const sensitive_stringvector 
     indexes.reserve(phrase.size());
     for(const auto& sens_word: phrase) {
         std::string word(sens_word);
-        if (auto pos = std::ranges::lower_bound(dictionary, word); pos != dictionary.end() && *pos == word) {
-            indexes.emplace_back(pos - dictionary.begin());
+        if (auto pos = std::ranges::lower_bound(GetDictionary(), word); pos != GetDictionary().end() && *pos == word) {
+            indexes.emplace_back(pos - GetDictionary().begin());
         }
         else throw MnemonicDictionaryError(word + " not found");
     }
@@ -54,7 +47,7 @@ sensitive_bytevector MnemonicParser::DecodeEntropy(const sensitive_stringvector 
     return entropy;
 }
 
-sensitive_stringvector MnemonicParser::EncodeEntropy(sensitive_bytevector entropy) const
+sensitive_stringvector MnemonicParserBase::EncodeEntropy(sensitive_bytevector entropy) const
 {
     switch (entropy.size()) {
     case 16: case 20: case 24: case 28: case 32:
@@ -74,7 +67,7 @@ sensitive_stringvector MnemonicParser::EncodeEntropy(sensitive_bytevector entrop
 
     sensitive_stringvector phrase;
     phrase.reserve(indexes.size());
-    std::ranges::transform(indexes, cex::smartinserter(phrase, phrase.end()), [&](auto i){return sensitive_string(dictionary[i]); });
+    std::ranges::transform(indexes, cex::smartinserter(phrase, phrase.end()), [&](auto i){return sensitive_string(GetDictionary()[i]); });
 
     return phrase;
 }
@@ -87,7 +80,7 @@ constexpr C convert_endian(C vals, const std::endian e) noexcept
     return vals;
 }
 
-sensitive_bytevector MnemonicParser::MakeSeed(const sensitive_stringvector& phrase, const sensitive_string& passphrase) const
+sensitive_bytevector MnemonicParserBase::MakeSeed(const sensitive_stringvector& phrase, const sensitive_string& passphrase) const
 {
     static const char* prefix = "mnemonic";
 

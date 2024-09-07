@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 
 #include "common.hpp"
 
@@ -42,16 +43,32 @@ public:
 
 };
 
-class MnemonicParser
+class MnemonicParserBase
 {
-    stringvector dictionary;
-
+protected:
+    virtual const stringvector& GetDictionary() const = 0;
 public:
-    explicit MnemonicParser(stringvector word_list);
+    virtual ~MnemonicParserBase() = default;
+
     sensitive_bytevector DecodeEntropy(const sensitive_stringvector& phrase) const;
     sensitive_stringvector EncodeEntropy(sensitive_bytevector entropy) const;
 
     sensitive_bytevector MakeSeed(const sensitive_stringvector& phrase, const sensitive_string& passphrase) const;
+};
+
+template <typename D>
+class MnemonicParser final : public MnemonicParserBase
+{
+    D m_word_list;
+protected:
+    const std::remove_reference_t<D>& GetDictionary() const
+    { return m_word_list; }
+public:
+    explicit MnemonicParser(D&& word_list) : m_word_list(std::forward<D>(word_list))
+    {
+        if (m_word_list.size() != 2048) throw MnemonicDictionaryError("wrong size: " + std::to_string(m_word_list.size()));
+    }
+    ~MnemonicParser() override = default;
 };
 
 }
