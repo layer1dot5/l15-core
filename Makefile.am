@@ -24,7 +24,7 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/$(NODE_PATH)/src/support
 
 
-AM_LDFLAGS=-L$(top_builddir)/$(NODE_PATH)/src -L$(top_builddir)/$(NODE_PATH)/src/crypto
+AM_LDFLAGS=-L$(top_builddir)/$(NODE_PATH)/src
 
 L15_LIBS =
 
@@ -42,8 +42,7 @@ L15_LIBS += \
 $(top_builddir)/src/core/libl15-core.la  \
 $(top_builddir)/src/common/libl15-common.la \
 $(top_builddir)/$(NODE_PATH)/src/libbitcoinconsensus.la \
-$(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
-$(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la
+$(top_builddir)/$(NODE_PATH)/src/libunivalue.la
 
 #$(top_builddir)/node/src/crypto/libbitcoin_crypto_base.la
 
@@ -73,6 +72,7 @@ $(VERSION_MODULE): $(top_srcdir)/version.sh Makefile
 
 
 nodist_libl15_la_SOURCES = $(VERSION_MODULE)
-libl15_la_LDFLAGS = -no-version -Wl,--whole-archive $(L15_LIBS)
+libl15_la_LDFLAGS = -avoid-version
+libl15_la_LIBADD = $(L15_LIBS)
 
 CLEANFILES = $(VERSION_MODULE)
