@@ -25,8 +25,8 @@ private:
     explicit MasterKey(const secp256k1_context* ctx) : m_ctx(ctx) {}
 
 public:
-    MasterKey(const secp256k1_context* ctx, const bytevector& seed);
-    explicit MasterKey(const bytevector& seed);
+    MasterKey(const secp256k1_context* ctx, const sensitive_bytevector& seed);
+    explicit MasterKey(const sensitive_bytevector& seed);
     MasterKey(const secp256k1_context* ctx, const ext_seckey& extkey);
     explicit MasterKey(const ext_seckey& extkey);
 

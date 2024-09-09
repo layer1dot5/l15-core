@@ -10,7 +10,7 @@ namespace {
     const unsigned char seed_hash_tag[] = {'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'};
 }
 
-MasterKey::MasterKey(const secp256k1_context* ctx, const bytevector& seed) : m_ctx(ctx), mKey(), mChainCode()
+MasterKey::MasterKey(const secp256k1_context* ctx, const sensitive_bytevector& seed) : m_ctx(ctx), mKey(), mChainCode()
 {
     uint8_t vout[64];
     CHMAC_SHA512{seed_hash_tag, sizeof(seed_hash_tag)}.Write(seed.data(), seed.size()).Finalize(vout);
@@ -19,7 +19,7 @@ MasterKey::MasterKey(const secp256k1_context* ctx, const bytevector& seed) : m_c
     memory_cleanse(vout, sizeof(vout));
 }
 
-MasterKey::MasterKey(const bytevector& seed) : MasterKey(SchnorrKeyPair::GetStaticSecp256k1Context(), seed)
+MasterKey::MasterKey(const sensitive_bytevector& seed) : MasterKey(SchnorrKeyPair::GetStaticSecp256k1Context(), seed)
 {}
 
 MasterKey::MasterKey(const secp256k1_context* ctx, const ext_seckey& extkey) : m_ctx(ctx), mKey(extkey.begin(), extkey.begin() + 32), mChainCode(Span<uint8_t>(const_cast<uint8_t*>(extkey.data()) + 32, 32))

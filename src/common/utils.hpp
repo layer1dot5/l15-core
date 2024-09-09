@@ -40,6 +40,14 @@ constexpr R cryptohash(const DATA& preimage, CHash160 h)
     return out;
 }
 
+template <typename R, typename DATA>
+constexpr R cryptohash(const DATA& preimage, CHash256 h)
+{
+    R out(CHash256::OUTPUT_SIZE);
+    h.Write(preimage).Finalize(out);
+    return out;
+}
+
 CAmount GetOutputAmount(const std::string& txoutstr);
 uint32_t GetCsvInBlocks(uint32_t blocks);
 
