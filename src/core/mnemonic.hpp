@@ -57,11 +57,11 @@ public:
 };
 
 template <typename D>
-class MnemonicParser final : public MnemonicParserBase
+class MnemonicParser : public MnemonicParserBase
 {
     D m_word_list;
 protected:
-    const std::remove_reference_t<D>& GetDictionary() const
+    const std::remove_reference_t<D>& GetDictionary() const override
     { return m_word_list; }
 public:
     explicit MnemonicParser(D&& word_list) : m_word_list(std::forward<D>(word_list))
