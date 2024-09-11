@@ -7,70 +7,9 @@
 #include <utility>
 #include <bit>
 
-#include "util/strencodings.h"
 #include "hmac_sha512.h"
 
 namespace l15::core {
-
-sensitive_bytevector MnemonicParserBase::DecodeEntropy(const sensitive_stringvector &phrase) const
-{
-    switch(phrase.size()) {
-    case 12: case 15: case 18: case 21: case 24:
-        break;
-    default:
-        throw MnemonicLengthError(std::to_string(phrase.size()));
-    }
-
-    std::vector<uint16_t, secure_allocator<uint16_t>> indexes;
-    indexes.reserve(phrase.size());
-    for(const auto& sens_word: phrase) {
-        std::string word(sens_word);
-        if (auto pos = std::ranges::lower_bound(GetDictionary(), word); pos != GetDictionary().end() && *pos == word) {
-            indexes.emplace_back(pos - GetDictionary().begin());
-        }
-        else throw MnemonicDictionaryError(word + " not found");
-    }
-
-    sensitive_bytevector entropy;
-    entropy.reserve(phrase.size() * 11 / 8 + 1);
-    ConvertBits<11, 8, true>([&entropy](uint8_t c){ entropy.push_back(c); }, indexes.begin(), indexes.end());
-
-    uint8_t checksum = entropy.back();
-    entropy.pop_back();
-
-    uint8_t checksum_mask = std::numeric_limits<uint8_t>::max() << (8 - entropy.size() / 4);
-
-    auto h = cryptohash<bytevector>(entropy, CSHA256());
-
-    if (checksum != (h.front() & checksum_mask)) throw MnemonicCheckSumError();
-
-    return entropy;
-}
-
-sensitive_stringvector MnemonicParserBase::EncodeEntropy(sensitive_bytevector entropy) const
-{
-    switch (entropy.size()) {
-    case 16: case 20: case 24: case 28: case 32:
-        break;
-    default:
-        throw MnemonicLengthError(std::to_string(entropy.size()));
-    }
-
-    uint8_t checksum_mask = std::numeric_limits<uint8_t>::max() << (8 - entropy.size() / 4);
-    bytevector h = cryptohash<bytevector>(entropy, CSHA256());
-    entropy.push_back(h.front() & checksum_mask);
-
-    std::vector<uint16_t, secure_allocator<uint16_t>> indexes;
-    indexes.reserve(entropy.size() * 8 / 11 + 1);
-
-    ConvertBits<8, 11, false>([&indexes](size_t i){ indexes.push_back(i); }, entropy.begin(), entropy.end());
-
-    sensitive_stringvector phrase;
-    phrase.reserve(indexes.size());
-    std::ranges::transform(indexes, cex::smartinserter(phrase, phrase.end()), [&](auto i){return sensitive_string(GetDictionary()[i]); });
-
-    return phrase;
-}
 
 
 template <typename C>
