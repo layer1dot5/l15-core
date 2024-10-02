@@ -18,6 +18,8 @@ class SchnorrKeyPair : public KeyPairBase
 {
     const secp256k1_context* m_ctx;
     seckey m_local_sk;
+
+    friend class KeyPair;
 public:
     static secp256k1_xonly_pubkey unspendable_base;
     static bool unspendable_is_initialized;
@@ -43,7 +45,7 @@ public:
 
     static xonly_pubkey CreateUnspendablePubKey(const seckey& random_factor);
 
-    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const xonly_pubkey& pk, const std::optional<uint256>& merkle_root = {});
+    static std::pair<xonly_pubkey, uint8_t> AddTapTweak(const secp256k1_context* ctx, const xonly_pubkey& pk, const std::optional<uint256>& merkle_root = {});
     std::pair<xonly_pubkey, uint8_t> AddTapTweak(const std::optional<uint256>& merkle_root = {});
 
     std::pair<SchnorrKeyPair, uint8_t> NewKeyAddTapTweak(const std::optional<uint256>& merkle_root = {}) const;

@@ -174,7 +174,7 @@ std::string hex(const T& s)
 template<typename R>
 constexpr R unhex(std::string_view str) {
     if (str.length()%2) {
-        throw std::out_of_range("Wrong hex string length");
+        throw IllegalArgument("Wrong hex string length");
     }
 
     R res;
@@ -184,7 +184,7 @@ constexpr R unhex(std::string_view str) {
     for (auto i = str.begin(); i != str.end(); i+=2) {
         auto conv_res = std::from_chars(i, i+2, *ins++, 16);
         if (conv_res.ec == std::errc::invalid_argument) {
-            throw std::invalid_argument("Wrong hex string");
+            throw IllegalArgument("Wrong hex string");
         }
     }
     return res;

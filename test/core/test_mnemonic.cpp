@@ -18,40 +18,38 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 extern const stringvector en_dict;
 
-using entropy_type = MnemonicParser::entropy_type;
-
 TEST_CASE("Mnemonic")
 {
-    MnemonicParser parser(en_dict);
+    MnemonicParser<const stringvector&> parser(en_dict);
 
-    auto condition = GENERATE(std::tuple<stringvector, string, entropy_type, string> {
+    auto condition = GENERATE(std::tuple<sensitive_stringvector, sensitive_string, sensitive_bytevector, string> {
             {"abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","abandon","about"}, "TREZOR",
             {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04"},
-        std::tuple<stringvector, string, entropy_type, string>{
+        std::tuple<sensitive_stringvector, sensitive_string, sensitive_bytevector, string>{
             {"legal", "winner", "thank", "year", "wave", "sausage", "worth", "useful", "legal", "winner", "thank", "yellow"}, "TREZOR",
-            { unhex<entropy_type>("7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f")}, "2e8905819b8723fe2c1d161860e5ee1830318dbf49a83bd451cfb8440c28bd6fa457fe1296106559a3c80937a1c1069be3a3a5bd381ee6260e8d9739fce1f607"},
-        std::tuple<stringvector, string, entropy_type, string>{
+            { unhex<sensitive_bytevector>("7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f")}, "2e8905819b8723fe2c1d161860e5ee1830318dbf49a83bd451cfb8440c28bd6fa457fe1296106559a3c80937a1c1069be3a3a5bd381ee6260e8d9739fce1f607"},
+        std::tuple<sensitive_stringvector, sensitive_string, sensitive_bytevector, string>{
             {"aerobic", "tuition", "throw", "near", "slim", "inner", "drama", "hover", "couple", "model", "hollow", "fix"}, "",
-            { unhex<entropy_type>("043d478549ccbce8d08b733131d1b3ac")}, "b37f263befa23efb352f0ba45a5e452363963fabc64c946a75df155244630ebaa1ac8056b873e79232486d5dd36809f8925c9c5ac8322f5380940badc64cc6fe"},
-        std::tuple<stringvector, string, entropy_type, string>{
+            { unhex<sensitive_bytevector>("043d478549ccbce8d08b733131d1b3ac")}, "b37f263befa23efb352f0ba45a5e452363963fabc64c946a75df155244630ebaa1ac8056b873e79232486d5dd36809f8925c9c5ac8322f5380940badc64cc6fe"},
+        std::tuple<sensitive_stringvector, sensitive_string, sensitive_bytevector, string>{
             {"gravity", "machine", "north", "sort", "system", "female", "filter", "attitude", "volume", "fold", "club", "stay", "feature", "office", "ecology", "stable", "narrow", "fog"}, "TREZOR",
-            { unhex<entropy_type>("6610b25967cdcca9d59875f5cb50b0ea75433311869e930b")}, "628c3827a8823298ee685db84f55caa34b5cc195a778e52d45f59bcf75aba68e4d7590e101dc414bc1bbd5737666fbbef35d1f1903953b66624f910feef245ac"},
-        std::tuple<stringvector, string, entropy_type, string>{
+            { unhex<sensitive_bytevector>("6610b25967cdcca9d59875f5cb50b0ea75433311869e930b")}, "628c3827a8823298ee685db84f55caa34b5cc195a778e52d45f59bcf75aba68e4d7590e101dc414bc1bbd5737666fbbef35d1f1903953b66624f910feef245ac"},
+        std::tuple<sensitive_stringvector, sensitive_string, sensitive_bytevector, string>{
             {"hamster", "diagram", "private", "dutch", "cause", "delay", "private", "meat", "slide", "toddler", "razor", "book", "happy", "fancy", "gospel", "tennis", "maple", "dilemma", "loan", "word", "shrug", "inflict", "delay", "length"}, "TREZOR",
-            { unhex<entropy_type>("68a79eaca2324873eacc50cb9c6eca8cc68ea5d936f98787c60c7ebc74e6ce7c")}, "64c87cde7e12ecf6704ab95bb1408bef047c22db4cc7491c4271d170a1b213d20b385bc1588d9c7b38f1b39d415665b8a9030c9ec653d75e65f847d8fc1fc440"}
+            { unhex<sensitive_bytevector>("68a79eaca2324873eacc50cb9c6eca8cc68ea5d936f98787c60c7ebc74e6ce7c")}, "64c87cde7e12ecf6704ab95bb1408bef047c22db4cc7491c4271d170a1b213d20b385bc1588d9c7b38f1b39d415665b8a9030c9ec653d75e65f847d8fc1fc440"}
         );
 
 
     SECTION("Decode")
     {
-        entropy_type test;
+        sensitive_bytevector test;
         CHECK_NOTHROW(test = parser.DecodeEntropy(get<0>(condition)));
 
         std::clog << hex(test) << std::endl;
 
         CHECK(test == get<2>(condition));
 
-        entropy_type seed;
+        sensitive_bytevector seed;
         CHECK_NOTHROW(seed = parser.MakeSeed(get<0>(condition), get<1>(condition)));
 
         CHECK(hex(seed) == get<3>(condition));
@@ -59,7 +57,7 @@ TEST_CASE("Mnemonic")
 
     SECTION("Encode")
     {
-        stringvector test;
+        sensitive_stringvector test;
 
         CHECK_NOTHROW(test = parser.EncodeEntropy(get<2>(condition)));
 

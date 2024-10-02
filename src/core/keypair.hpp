@@ -19,6 +19,9 @@ public:
     explicit KeyPair(seckey sk) : KeyPair(GetStaticSecp256k1Context(), move(sk)) {}
     KeyPair() : m_ctx(GetStaticSecp256k1Context()), m_sk(GetStrongRandomKey(m_ctx)) {}
 
+    explicit KeyPair(SchnorrKeyPair&& keypair) : m_ctx(keypair.Secp256k1Context()), m_sk(move(keypair.m_local_sk)) {}
+    explicit KeyPair(EcdsaKeyPair&& keypair) : m_ctx(keypair.Secp256k1Context()), m_sk(move(keypair.m_sk)) {}
+
     KeyPair(const KeyPair&) = default;
     KeyPair(KeyPair&&) noexcept = default;
 

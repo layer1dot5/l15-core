@@ -23,17 +23,17 @@ xonly_pubkey SchnorrKeyPair::GetPubKey() const
 {
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, m_local_sk.data())) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     secp256k1_xonly_pubkey secp_xonly_pubkey;
     if (!secp256k1_xonly_pubkey_from_pubkey(m_ctx, &secp_xonly_pubkey, nullptr, &pubkey)) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     xonly_pubkey pk;
     if (!secp256k1_xonly_pubkey_serialize(m_ctx, pk.data(), &secp_xonly_pubkey)) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     return pk;
@@ -93,11 +93,11 @@ std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const std::optional
 
     try {
         if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
-            throw WrongKeyError();
+            throw WrongKey();
         }
 
         if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
-            throw SignatureError("Tweak error");
+            throw KeyError("Tweak");
         }
 
         if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
@@ -135,11 +135,11 @@ std::pair<SchnorrKeyPair, uint8_t> SchnorrKeyPair::NewKeyAddTapTweak(const std::
     int parity = -1;
     try {
         if (!secp256k1_keypair_create(Secp256k1Context(), &keypair, m_local_sk.data())) {
-            throw WrongKeyError();
+            throw WrongKey();
         }
 
         if (!secp256k1_keypair_xonly_tweak_add(Secp256k1Context(), &keypair, tweak.data())) {
-            throw SignatureError("Tweak error");
+            throw KeyError("Tweak");
         }
 
         if (!secp256k1_keypair_sec(Secp256k1Context(), tweaked_sk.data(), &keypair)) {
@@ -169,10 +169,10 @@ xonly_pubkey SchnorrKeyPair::CreateUnspendablePubKey(const seckey &random_factor
         secp256k1_pubkey unspend_pubkey;
 
         if (!secp256k1_ec_pubkey_parse(ctx, &unspend_pubkey, unspend_key_bytes.data(), unspend_key_bytes.size()))
-            throw WrongKeyError();
+            throw WrongKey();
 
         if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &unspendable_base, nullptr, &unspend_pubkey))
-            throw WrongKeyError();
+            throw WrongKey();
 
         unspendable_is_initialized = true;
     }
@@ -191,10 +191,8 @@ xonly_pubkey SchnorrKeyPair::CreateUnspendablePubKey(const seckey &random_factor
 }
 
 
-std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const xonly_pubkey &pk, const std::optional<uint256>& merkle_root)
+std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const secp256k1_context* ctx, const xonly_pubkey &pk, const std::optional<uint256>& merkle_root)
 {
-    const secp256k1_context* ctx = GetStaticSecp256k1Context();
-
     secp256k1_pubkey out;
 
     HashWriter hash(TAPTWEAK_HASH);
@@ -206,7 +204,7 @@ std::pair<xonly_pubkey, uint8_t> SchnorrKeyPair::AddTapTweak(const xonly_pubkey 
     secp256k1_xonly_pubkey pubkey = pk.get(ctx);
 
     if (!secp256k1_xonly_pubkey_tweak_add(ctx, &out, &pubkey, tweak.data())) {
-        throw SignatureError("Tweak error");
+        throw KeyError("Tweak");
     }
 
     int parity = -1;

@@ -18,17 +18,19 @@ public:
 
 class KeyError : public Error {
 public:
-    KeyError() = default;
-    explicit KeyError(std::string&& details) : Error(move(details)) {}
+    KeyError() noexcept = default;
+    explicit KeyError(std::string&& details) noexcept : Error(move(details)) {}
     ~KeyError() override = default;
 
     const char* what() const noexcept override
     { return "KeyError"; }
 };
 
-class WrongKeyError : public KeyError {
+class WrongKey : public KeyError {
 public:
-    ~WrongKeyError() override = default;
+    WrongKey() noexcept = default;
+    explicit WrongKey(std::string&& details) noexcept : KeyError(move(details)) {}
+    ~WrongKey() override = default;
 
     const char* what() const noexcept override
     { return "WrongKeyError"; }
@@ -36,7 +38,8 @@ public:
 
 class SignatureError : public Error {
 public:
-    explicit SignatureError(std::string&& details) : Error(move(details)) {}
+    SignatureError() noexcept = default;
+    explicit SignatureError(std::string&& details) noexcept : Error(move(details)) {}
     ~SignatureError() override = default;
 
     const char* what() const noexcept override
@@ -46,7 +49,7 @@ public:
 
 class TransactionError : public Error {
 public:
-    explicit TransactionError(std::string&& details) : Error(move(details)) {}
+    explicit TransactionError(std::string&& details) noexcept : Error(move(details)) {}
     ~TransactionError() override = default;
 
     const char* what() const noexcept override
@@ -54,10 +57,10 @@ public:
 
 };
 
-class IllegalArgumentError : public Error {
+class IllegalArgument : public Error {
 public:
-    explicit IllegalArgumentError(std::string&& details) : Error(move(details)) {}
-    ~IllegalArgumentError() override = default;
+    explicit IllegalArgument(std::string&& details) noexcept : Error(move(details)) {}
+    ~IllegalArgument() override = default;
 
     const char* what() const noexcept override
     { return "IllegalArgumentError"; }

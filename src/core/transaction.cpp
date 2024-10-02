@@ -55,9 +55,8 @@ std::string GetTaprootAddress(const std::string& chain_mode, const std::string& 
     else if (chain_mode == "regtest") {
         return Bech32(BTC, REGTEST).Encode(unhex<xonly_pubkey>(pubkey));
     }
-    else {
-        throw IllegalArgumentError(std::string(chain_mode));
-    }
+
+    throw IllegalArgument(std::string("chain_mode: ") + chain_mode);
 }
 
 std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeyscript)
@@ -76,13 +75,11 @@ std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeysc
         else if (chain_mode == "regtest") {
             return Bech32(BTC, REGTEST).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
         }
-        else {
-            throw IllegalArgumentError(std::string(chain_mode));
-        }
+
+        throw IllegalArgument(std::string("chain_mode: " + chain_mode));
     }
     else {
         return "";
-        //throw TransactionError("Not SegWit");
     }
 }
 

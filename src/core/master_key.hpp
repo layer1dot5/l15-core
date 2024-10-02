@@ -9,6 +9,16 @@ enum BIP86Tweak {AUTO, FORCE, SUPPRESS};
 typedef cex::fixsize_vector<uint8_t, 64, secure_allocator<unsigned char>> ext_seckey;
 typedef cex::fixsize_vector<uint8_t, 65> ext_pubkey;
 
+class WrongDerivationPath : public Error
+{
+public:
+    WrongDerivationPath() = default;
+    explicit WrongDerivationPath(std::string&& details) : Error(move(details)) {}
+    ~WrongDerivationPath() override = default;
+
+    const char* what() const noexcept override
+    { return "WrongDerivationPath"; }
+};
 
 class MasterKey
 {

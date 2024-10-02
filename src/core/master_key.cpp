@@ -38,12 +38,12 @@ void MasterKey::DeriveSelf(uint32_t branch)
             secp256k1_pubkey pubkey;
 
             if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, mKey.data())) {
-                throw WrongKeyError();
+                throw WrongKey();
             }
             size_t pubkeylen = 33;
             bytevector pubkeydata(pubkeylen);
             if (!secp256k1_ec_pubkey_serialize(m_ctx, pubkeydata.data(), &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED)) {
-                throw KeyError("Master pubkey ");
+                throw WrongKey();
             }
             BIP32Hash(mChainCode, branch, *pubkeydata.begin(), pubkeydata.data() + 1, vout);
         }
@@ -54,7 +54,7 @@ void MasterKey::DeriveSelf(uint32_t branch)
         memcpy(mChainCode.begin(), vout + 32, 32);
 
         if (!secp256k1_ec_seckey_tweak_add(m_ctx, mKey.data(), vout)) {
-            throw KeyError("Derive tweak");
+            throw KeyError("derive tweak");
         }
     }
     catch(...) {
@@ -80,13 +80,13 @@ ext_pubkey MasterKey::MakeExtPubKey() const
 
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_create(m_ctx, &pubkey, mKey.data())) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     memcpy(res.data(), mChainCode.data(), 32);
     size_t pubkeylen = 33;
     if (!secp256k1_ec_pubkey_serialize(m_ctx, res.data()+32, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED)) {
-        throw KeyError("Master pubkey ");
+        throw KeyError("master pubkey ");
     }
 
     return res;
@@ -99,7 +99,7 @@ SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
     BIP86Tweak do_tweak = for_script ? SUPPRESS : AUTO;
 
     if (branches.front()[0] != 'm' || branches.front().size() != 1) {
-        throw KeyError("Derivation path");
+        throw WrongDerivationPath(std::string(path));
     }
     branches.erase(branches.begin());
 
@@ -112,7 +112,7 @@ SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
             //hardened
             auto conv_res = std::from_chars(branch.begin(), branch.end() - 1, index);
             if (conv_res.ec == std::errc::invalid_argument) {
-                throw std::invalid_argument("Wrong hex string");
+                throw WrongDerivationPath(path + ": " + std::string(branch.begin(), branch.end()));
             }
             index += BIP32_HARDENED_KEY_LIMIT;
         }
@@ -120,7 +120,7 @@ SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
             // non hardened
             auto conv_res = std::from_chars(branch.begin(), branch.end(), index);
             if (conv_res.ec == std::errc::invalid_argument) {
-                throw std::invalid_argument("Wrong hex string");
+                throw WrongDerivationPath(path + ": " + std::string(branch.begin(), branch.end()));
             }
         }
         uint_branches.push_back(index);
@@ -131,12 +131,12 @@ SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
 ext_pubkey MasterKey::Derive(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch)
 {
     if (branch >= BIP32_HARDENED_KEY_LIMIT) {
-        throw std::invalid_argument("Can not derive pubkey using hardened algo");
+        throw WrongDerivationPath("Can not derive pubkey using hardened algo");
     }
 
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_parse(ctx, &pubkey, extpk.data()+32, 33)) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     uint256 chaincode;
@@ -146,7 +146,7 @@ ext_pubkey MasterKey::Derive(const secp256k1_context* ctx, const ext_pubkey& ext
     BIP32Hash(chaincode, branch, extpk.data()[32], extpk.data() + 33, bip32hash);
 
     if (!secp256k1_ec_pubkey_tweak_add(ctx, &pubkey, bip32hash)) {
-        throw KeyError("BIP32 pubkey derivation");
+        throw KeyError("BIP32 derivation tweak");
     }
 
     ext_pubkey res;
@@ -162,12 +162,12 @@ ext_pubkey MasterKey::Derive(const secp256k1_context* ctx, const ext_pubkey& ext
 xonly_pubkey MasterKey::DerivePubKey(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch)
 {
     if (branch >= BIP32_HARDENED_KEY_LIMIT) {
-        throw std::invalid_argument("Can not derive pubkey using hardened algo");
+        throw WrongDerivationPath("Can not derive pubkey using hardened algo");
     }
 
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_parse(ctx, &pubkey, extpk.data() + 32, 33)) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     uint256 chaincode;
@@ -177,7 +177,7 @@ xonly_pubkey MasterKey::DerivePubKey(const secp256k1_context* ctx, const ext_pub
     BIP32Hash(chaincode, branch, extpk.data()[32], extpk.data() + 33, bip32hash);
 
     if (!secp256k1_ec_pubkey_tweak_add(ctx, &pubkey, bip32hash)) {
-        throw KeyError("BIP32 pubkey derivation");
+        throw KeyError("BIP32 derivation tweak");
     }
 
     secp256k1_xonly_pubkey xonlypubkey;
@@ -198,18 +198,18 @@ xonly_pubkey MasterKey::GetPubKey(const secp256k1_context *ctx, const ext_pubkey
 {
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_parse(ctx, &pubkey, extpk.data() + 32, 33)) {
-        throw WrongKeyError();
+        throw WrongKey();
     }
 
     secp256k1_xonly_pubkey xonlypubkey;
     int parity = 0;
     if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &xonlypubkey, &parity, &pubkey)) {
-        throw KeyError();
+        throw WrongKey();
     }
 
     xonly_pubkey res;
     if (!secp256k1_xonly_pubkey_serialize(ctx, res.data(), &xonlypubkey)) {
-        throw KeyError();
+        throw WrongKey();
     }
 
     return res;

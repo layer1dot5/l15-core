@@ -16,7 +16,7 @@ uint32_t derivation_index(const std::string& val)
     uint32_t res;
     if (val.back() == '\'') {
         std::from_chars(val.data(), val.data() + val.size() - 1, res);
-        res += l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT;
+        res += MasterKey::BIP32_HARDENED_KEY_LIMIT;
     }
     else {
         std::from_chars(val.data(), val.data() + val.size(), res);
@@ -57,7 +57,7 @@ KeyLookupFilter ParseKeyLookupFilter(const nlohmann::json& json)
             if (end_str.back() != '\'') throw std::invalid_argument(std::string("index_range: ") + index_range_str + ", end bound must be hardened too");
 
             std::from_chars(beg_str.data(), beg_str.data() + beg_str.size() - 1, index_begin);
-            index_begin += l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT;
+            index_begin += MasterKey::BIP32_HARDENED_KEY_LIMIT;
         }
         else {
             std::from_chars(beg_str.data(), beg_str.data() + beg_str.size(), index_begin);
@@ -67,7 +67,7 @@ KeyLookupFilter ParseKeyLookupFilter(const nlohmann::json& json)
             if (beg_str.back() != '\'') throw std::invalid_argument(std::string("index_range: ") + index_range_str + ", end bound must not be hardened too");
 
             std::from_chars(end_str.data(), end_str.data() + end_str.size() - 1, index_end);
-            index_end += l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT;
+            index_end += MasterKey::BIP32_HARDENED_KEY_LIMIT;
         }
         else {
             std::from_chars(end_str.data(), end_str.data() + end_str.size(), index_end);
@@ -77,113 +77,106 @@ KeyLookupFilter ParseKeyLookupFilter(const nlohmann::json& json)
         return {json["look_cache"], key_type, move(accounts), move(change), std::ranges::iota_view{index_begin, index_end}};
     }
     catch(std::exception& ex) {
-        std::throw_with_nested(std::invalid_argument("key filter json"));
+        std::throw_with_nested(WrongKeyLookupFilter());
     }
 }
 
 }
 
-KeyPair KeyRegistry::Derive(const std::string& path, bool for_script) const
-{
-    l15::core::SchnorrKeyPair keypair = mMasterKey.Derive(path, for_script);
-    return KeyPair(m_ctx, keypair.GetPrivKey());
-}
 
-KeyPair KeyRegistry::Lookup(const l15::bytevector &keyid, const KeyLookupFilter& hint, std::function<bool(const l15::core::SchnorrKeyPair&, const l15::bytevector&)> compare) const
+KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint, std::function<bool(const SchnorrKeyPair&, const bytevector&)> compare) const
 {
     if (hint.look_cache) {
         for (const auto &sk: m_keys_cache) {
-            l15::core::SchnorrKeyPair keypair(m_ctx, sk);
-            if (compare(keypair, keyid)) {
-                return KeyPair(m_ctx, keypair.GetPrivKey());
+            if (SchnorrKeyPair keypair(m_ctx, sk); compare(keypair, keyid)) {
+                return KeyPair(move(keypair));
             }
         }
     }
 
-    l15::core::MasterKey masterCopy(mMasterKey);
+    MasterKey masterCopy(mMasterKey);
     if (hint.type == KeyLookupFilter::TAPROOT || hint.type == KeyLookupFilter::TAPSCRIPT) {
-        masterCopy.DeriveSelf(l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT + l15::core::MasterKey::BIP86_TAPROOT);
+        masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP86_TAPROOT);
     }
     else {
-        masterCopy.DeriveSelf(l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT + l15::core::MasterKey::BIP84_P2WPKH);
+        masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP84_P2WPKH);
     }
 
     switch (mBech.GetChainMode()) {
     case MAINNET:
-        masterCopy.DeriveSelf(l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT);
+        masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT);
         break;
     case TESTNET:
     case REGTEST:
-        masterCopy.DeriveSelf(1 + l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT);
+        masterCopy.DeriveSelf(1 + MasterKey::BIP32_HARDENED_KEY_LIMIT);
         break;
     }
 
-    std::vector<l15::core::MasterKey> accountKeys;
+    std::vector<MasterKey> accountKeys;
     accountKeys.reserve(hint.accounts.size());
 
     for (uint32_t acc: hint.accounts) {
-        l15::core::MasterKey account(masterCopy);
-        account.DeriveSelf(/*l15::core::MasterKey::BIP32_HARDENED_KEY_LIMIT + */acc);
+        MasterKey account(masterCopy);
+        account.DeriveSelf(/*MasterKey::BIP32_HARDENED_KEY_LIMIT + */acc);
 
         for (uint32_t ch: hint.change) {
-            l15::core::MasterKey change(account);
+            MasterKey change(account);
             change.DeriveSelf(ch);
             accountKeys.emplace_back(std::move(change));
         }
     }
 
 #ifndef WASM
-    std::atomic<std::shared_ptr<l15::core::SchnorrKeyPair>> res;
+    std::atomic<std::shared_ptr<SchnorrKeyPair>> res(nullptr);
     const uint32_t step = 64;
     uint32_t indexes[step];
     for (uint32_t key_index = *hint.index_range.begin(); key_index < *hint.index_range.end(); key_index += step) {
         std::iota(indexes, indexes + step, key_index);
         std::for_each(std::execution::par_unseq, indexes, indexes + step, [&](const auto &k) {
-            for (const l15::core::MasterKey &account: accountKeys) {
+            for (const MasterKey &account: accountKeys) {
 
                 // For TAPROOT case lets look for both tweaked and untweaked keys just to provide more robustness
 
-                l15::core::SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{k}, l15::core::SUPPRESS);
+                SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{k}, SUPPRESS);
                 if (compare(keypair, keyid)) {
-                    res = std::make_shared<l15::core::SchnorrKeyPair>(std::move(keypair));
+                    res = std::make_shared<SchnorrKeyPair>(std::move(keypair));
                 }
                 else if (hint.type == KeyLookupFilter::TAPROOT) {
                     keypair.AddTapTweak();
                     if (compare(keypair, keyid)) {
-                        res = std::make_shared<l15::core::SchnorrKeyPair>(std::move(keypair));
+                        res = std::make_shared<SchnorrKeyPair>(std::move(keypair));
                     }
                 }
             }
         });
-        std::shared_ptr<l15::core::SchnorrKeyPair> keypair = res.load();
-        if (keypair) {
-            return KeyPair(m_ctx, keypair->GetPrivKey());
+        if (std::shared_ptr<SchnorrKeyPair> keypair = res.load()) {
+            return KeyPair(move(*keypair));
         }
     }
 #else
     for (uint32_t key_index: hint.index_range) {
-        for (const l15::core::MasterKey& account: accountKeys) {
+        for (const MasterKey& account: accountKeys) {
 
             // For TAPROOT case lets look for both tweaked and untweaked keys just to provide more robustness
 
-            l15::core::SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{key_index}, l15::core::SUPPRESS);
+            SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{key_index}, SUPPRESS);
             if (compare(keypair, keyid)) {
-                return KeyPair(m_ctx, keypair.GetPrivKey());
+                return KeyPair(move(keypair));
             }
             else if (hint.type == KeyLookupFilter::TAPROOT){
                 keypair.AddTapTweak();
                 if (compare(keypair, keyid)) {
-                    return KeyPair(m_ctx, keypair.GetPrivKey());
+                    return KeyPair(move(keypair));
                 }
             }
         }
     }
 #endif
-    throw l15::KeyError("derivation lookup");
+    throw KeyNotFoundError();
 }
 
 
-KeyPair KeyRegistry::Lookup(const l15::xonly_pubkey &pk, const KeyLookupFilter& hint) const
+KeyPair KeyRegistry::Lookup(const xonly_pubkey &pk, const KeyLookupFilter& hint) const
 {
     std::cout << "lookup for pk: " << hex(pk) << std::endl;
 
@@ -191,20 +184,20 @@ KeyPair KeyRegistry::Lookup(const l15::xonly_pubkey &pk, const KeyLookupFilter& 
     if (taproot_hint.type == KeyLookupFilter::DEFAULT) {
         taproot_hint.type = KeyLookupFilter::TAPROOT;
     }
-    return Lookup(pk.get_vector(), taproot_hint, [](const l15::core::SchnorrKeyPair& key, const l15::bytevector& id) { return key.GetPubKey() == id; });
+    return Lookup(pk.get_vector(), taproot_hint, [](const SchnorrKeyPair& key, const bytevector& id) { return key.GetPubKey() == id; });
 }
 
-KeyPair KeyRegistry::Lookup(const l15::xonly_pubkey &pk, const std::string& hint_json) const
+KeyPair KeyRegistry::Lookup(const xonly_pubkey &pk, const std::string& hint_json) const
 {
     try {
         auto json = nlohmann::json::parse(hint_json);
         return Lookup(pk.get_vector(), ParseKeyLookupFilter(json),
-                      [](const l15::core::SchnorrKeyPair &key, const l15::bytevector &id) { return key.GetPubKey() == id; });
+                      [](const SchnorrKeyPair &key, const bytevector &id) { return key.GetPubKey() == id; });
     }
     catch(const nlohmann::json::parse_error& e) {
-        if (!m_key_type_filters.contains(hint_json)) std::throw_with_nested(std::invalid_argument("key filter is unknown: " + hint_json));
+        if (!m_key_type_filters.contains(hint_json)) std::throw_with_nested(IllegalArgument("key filter is unknown: " + hint_json));
         return Lookup(pk.get_vector(), m_key_type_filters.at(hint_json),
-                      [](const l15::core::SchnorrKeyPair &key, const l15::bytevector &id) { return key.GetPubKey() == id; });
+                      [](const SchnorrKeyPair &key, const bytevector &id) { return key.GetPubKey() == id; });
     }
 }
 
@@ -225,7 +218,7 @@ KeyPair KeyRegistry::Lookup(const std::string& addr, const KeyLookupFilter& hint
     if (taproot_hint.type == KeyLookupFilter::DEFAULT) {
         taproot_hint.type = KeyLookupFilter::TAPROOT;
     }
-    return Lookup(keyid, taproot_hint, [](const l15::core::SchnorrKeyPair &k, const l15::bytevector &id) { return k.GetPubKey() == id; });
+    return Lookup(keyid, taproot_hint, [](const SchnorrKeyPair &k, const bytevector &id) { return k.GetPubKey() == id; });
 }
 
 KeyPair KeyRegistry::Lookup(const std::string& addr, const std::string& hint_json) const
@@ -242,14 +235,18 @@ KeyPair KeyRegistry::Lookup(const std::string& addr, const std::string& hint_jso
 
 void KeyRegistry::AddKeyType(std::string name, const string &filter_json)
 {
-    auto json = nlohmann::json::parse(filter_json);
-    AddKeyType(move(name), ParseKeyLookupFilter(json));
+    try {
+        auto json = nlohmann::json::parse(filter_json);
+        AddKeyType(move(name), ParseKeyLookupFilter(json));
+    } catch (const std::exception& e) {
+        std::throw_with_nested(WrongKeyLookupFilter(e.what()));
+    }
 }
 
 void KeyRegistry::RemoveKeyFromCache(const string &addr)
 {
     uint32_t witver;
-    l15::bytevector keyid;
+    bytevector keyid;
     std::tie(witver, keyid) = mBech.Decode(addr);
 
     if (witver == 1)
@@ -257,7 +254,7 @@ void KeyRegistry::RemoveKeyFromCache(const string &addr)
     else if (witver == 0)
         m_keys_cache.remove_if([&](const auto& el){ return KeyPair(m_ctx, el).GetP2WPKHAddress(mBech) == addr; });
     else
-        throw std::invalid_argument("address: " + addr);
+        throw IllegalArgument("address: " + addr);
 }
 
 template <ChainMode M> struct XPubPrefix;
@@ -265,25 +262,23 @@ template <> struct XPubPrefix<MAINNET> { const static uint8_t value[4]; };
 template <> struct XPubPrefix<TESTNET> { const static uint8_t value[4]; };
 template <> struct XPubPrefix<REGTEST> { const static uint8_t value[4]; };
 
-const uint8_t XPubPrefix<l15::MAINNET>::value[4] {0x04, 0x88, 0xb2, 0x1e};
-const uint8_t XPubPrefix<l15::TESTNET>::value[4] {0x04, 0x35, 0x87, 0xcf};
-const uint8_t XPubPrefix<l15::REGTEST>::value[4] {0x04, 0x35, 0x87, 0xcf};
+const uint8_t XPubPrefix<MAINNET>::value[4] {0x04, 0x88, 0xb2, 0x1e};
+const uint8_t XPubPrefix<TESTNET>::value[4] {0x04, 0x35, 0x87, 0xcf};
+const uint8_t XPubPrefix<REGTEST>::value[4] {0x04, 0x35, 0x87, 0xcf};
 
 
 ExtPubKey::ExtPubKey(ChainMode chainmode, const std::string &extpk) : m_chainmode(chainmode)
 {
-    l15::bytevector data;
+    bytevector data;
     if (!DecodeBase58Check(extpk, data, 78))
-        throw l15::KeyError("Bad base58chech encoding: " + extpk);
+        throw WrongKey("Bad base58chech encoding: " + extpk);
 
     const uint8_t* prefix = chainmode == ChainMode::MAINNET ? XPubPrefix<MAINNET>::value : XPubPrefix<TESTNET>::value;
     if (!std::equal(prefix, prefix+4, data.begin()))
-        throw l15::KeyError("Wrong extpubkey prefix: " + extpk);
+        throw WrongKey("Wrong extpubkey prefix: " + extpk);
 
     if (data.size() != 78)
-        throw l15::KeyError("Wrong extpubkey data size: " + std::to_string(data.size()));
-
-    std::clog << "Raw ExtPubKey data: " << l15::hex(data) << std::endl;
+        throw WrongKey("Wrong extpubkey data size: " + std::to_string(data.size()));
 
     std::copy(data.begin() + 13, data.end(), m_extpk.begin());
 }
@@ -296,12 +291,12 @@ std::string ExtPubKey::DeriveAddress(const string &path) const
 
     for (const auto& branch: branches) {
         uint32_t index;
-        if (branch[branch.size() - 1] == '\'') throw l15::KeyError("Pubkey derivation cannot use hardened algo");
+        if (branch[branch.size() - 1] == '\'') throw WrongDerivationPath("Can not derive pubkey using hardened algo: " + path);
 
             // non hardened
         auto conv_res = std::from_chars(branch.begin(), branch.end(), index);
         if (conv_res.ec == std::errc::invalid_argument) {
-            throw std::invalid_argument("Wrong hex string");
+            throw WrongDerivationPath(path + ": " + std::string(branch.begin(), branch.end()));
         }
         uint_branches.push_back(index);
     }
@@ -311,7 +306,7 @@ std::string ExtPubKey::DeriveAddress(const string &path) const
         extPk = extPk.Derive(b);
     }
 
-    auto tweaked_pk = l15::core::SchnorrKeyPair::AddTapTweak(extPk.GetPubKey());
+    auto tweaked_pk = SchnorrKeyPair::AddTapTweak(m_ctx, extPk.GetPubKey());
 
     Bech32 bech(BTC, m_chainmode);
 

@@ -255,7 +255,7 @@ TEST_CASE("PubKeyDerive")
     REQUIRE(btcExtPK1.pubkey.size() == 33);
 
     xonly_pubkey pk(btcExtPK1.pubkey.begin() + 1, btcExtPK1.pubkey.end());
-    auto twpk1 = l15::core::SchnorrKeyPair::AddTapTweak(pk);
+    auto twpk1 = l15::core::SchnorrKeyPair::AddTapTweak(SchnorrKeyPair::GetStaticSecp256k1Context(), pk);
 
     std::string btcpkaddr = Bech32(BTC, TESTNET).Encode(std::get<0>(twpk1));
 

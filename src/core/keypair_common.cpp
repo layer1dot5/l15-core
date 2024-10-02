@@ -25,11 +25,17 @@ secp256k1_context *KeyPairBase::GetStaticSecp256k1Context()
             GetRandBytes(vseed);
             int ret = secp256k1_context_randomize(res, vseed.data());
             assert(ret);
-            ctx = res;
+            SetStaticSecp256k1ContextInt(res);
+        }
+        else {
+            res = const_cast<secp256k1_context *>(ctx.load());
         }
     }
     return res;
 }
+
+void KeyPairBase::SetStaticSecp256k1ContextInt(secp256k1_context *arg)
+{ ctx = arg; }
 
 seckey KeyPairBase::GetStrongRandomKey(const secp256k1_context* ctx)
 {

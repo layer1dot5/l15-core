@@ -45,19 +45,19 @@ public:
         bech32::DecodeResult bech_result = bech32::Decode(address);
         if(bech_result.hrp != hrptag)
         {
-            throw std::invalid_argument(std::string("Allowed prefix: ") + hrptag + ". Address: " + address);
+            throw IllegalArgument(std::string("Allowed prefix: ") + hrptag + ". Address: " + address);
         }
         if(bech_result.data.empty())
         {
-            throw std::invalid_argument(std::string("Wrong bech32 data (no data decoded): ") + address);
+            throw IllegalArgument(std::string("Wrong bech32 data (no data decoded): ") + address);
         }
         if(bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
         {
-            throw std::invalid_argument("Version 0 witness address must use Bech32 checksum");
+            throw IllegalArgument("Version 0 witness address must use Bech32 checksum");
         }
         if(bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
         {
-            throw std::invalid_argument("Version 1+ witness address must use Bech32m checksum");
+            throw IllegalArgument("Version 1+ witness address must use Bech32m checksum");
         }
 
         bytevector data;
@@ -65,7 +65,7 @@ public:
         auto I = cex::smartinserter(data, data.end());
         if(!ConvertBits<5, 8, false>([&](unsigned char c) { *I = c; ++I; }, bech_result.data.begin() + 1, bech_result.data.end()))
         {
-            throw std::invalid_argument(std::string("Wrong bech32 data: ") + address);
+            throw IllegalArgument(std::string("Wrong bech32 data: ") + address);
         }
 
         return std::tie(bech_result.data[0], data);

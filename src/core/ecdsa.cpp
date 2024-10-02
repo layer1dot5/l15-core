@@ -63,13 +63,13 @@ compressed_pubkey EcdsaKeyPair::GetPubKey() const
 {
     secp256k1_pubkey pk;
     if (!secp256k1_ec_pubkey_create(m_ctx, &pk, m_sk.data()))
-        throw KeyError();
+        throw WrongKey();
 
     compressed_pubkey res;
     size_t len = 33;
 
     if (!secp256k1_ec_pubkey_serialize(m_ctx, res.data(), &len, &pk, SECP256K1_EC_COMPRESSED))
-        throw KeyError();
+        throw WrongKey();
 
     return res;
 }

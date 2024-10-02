@@ -14,6 +14,8 @@ class EcdsaKeyPair : public KeyPairBase
 {
     const secp256k1_context* m_ctx;
     seckey m_sk;
+
+    friend class KeyPair;
 public:
     EcdsaKeyPair() : m_ctx(GetStaticSecp256k1Context()), m_sk(GetStrongRandomKey(m_ctx)) {}
     explicit EcdsaKeyPair(seckey sk): m_ctx(GetStaticSecp256k1Context()), m_sk(std::move(sk)) {}
@@ -25,6 +27,9 @@ public:
     EcdsaKeyPair& operator= (const EcdsaKeyPair&) = default;
     EcdsaKeyPair& operator= (EcdsaKeyPair &&old) noexcept
     { m_ctx = old.m_ctx; m_sk = std::move(old.m_sk); return *this; }
+
+    const secp256k1_context* Secp256k1Context() const noexcept
+    { return m_ctx; }
 
     const seckey& GetPrivKey() const { return m_sk; }
     compressed_pubkey GetPubKey() const;
