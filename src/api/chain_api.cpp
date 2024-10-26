@@ -10,7 +10,6 @@
 #include "uint256.h"
 #include "univalue.h"
 #include "amount.h"
-#include "core_io.h"
 
 #include <string>
 #include <iostream>
@@ -156,12 +155,10 @@ std::string ChainApi::TestTxSequence(const std::vector<CMutableTransaction>& txs
     tx_to_param << "[";
     for(const auto& tx: txs)
     {
-        //Log(tx);
-
         if(first) first = false;
         else tx_to_param << ',';
 
-        tx_to_param << "\"" << EncodeHexTx(CTransaction(tx)) << "\"";
+        tx_to_param << "\"" << EncodeHexTx(tx) << "\"";
     }
     tx_to_param << "]";
 

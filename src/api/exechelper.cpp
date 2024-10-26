@@ -65,7 +65,7 @@ void ExecHelper::RunInternal() {
     if(m_exitcode != 0)
     {
         std::ostringstream buf;
-        buf << "Error connecting bitcoin: " << m_exitcode;
+        buf << "Error: " << m_exitcode;
         if(!m_out.empty())
             buf << " (" << m_out << ")";
         throw std::runtime_error(buf.str());

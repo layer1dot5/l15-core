@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "smartinserter.hpp"
-
+#include "streams.h"
 #include "util/strencodings.h"
 #include "amount.h"
 
@@ -55,5 +54,14 @@ template <typename T> void LogTx(const T& tx);
 
 enum ChainType {BTC, L15};
 enum ChainMode {MAINNET, TESTNET, REGTEST};
+
+template<typename T>
+std::string EncodeHexTx(const T& tx)
+{
+    DataStream ssTx;
+    ssTx << TX_WITH_WITNESS(tx);
+    return HexStr(ssTx);
+}
+
 
 }

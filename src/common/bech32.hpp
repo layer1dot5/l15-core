@@ -1,8 +1,8 @@
 #pragma once
 
-#include "crypto/sha256.h"
+#include "smartinserter.hpp"
+
 #include "script/script.h"
-#include "uint256.h"
 #include "bech32.h"
 
 #include "bech32_hrp.hpp"
