@@ -35,12 +35,10 @@ struct ConfigFactory
 struct NodeWrapper
 {
     ConfigFactory mConfFactory;
-    core::WalletApi wallet;
     onchain_service::OnChainService node_service;
 
     explicit NodeWrapper() :
             mConfFactory(configpath),
-            wallet(),
             node_service(
                     std::make_unique<core::ChainApi>(Bech32Coder<IBech32Coder::L15, IBech32Coder::REGTEST>(), std::move(mConfFactory.conf.ChainValues(config::L15NODE)),
                      "l15node-cli"))

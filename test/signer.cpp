@@ -14,7 +14,6 @@
 #include "common.hpp"
 #include "version.hpp"
 #include "schnorr.hpp"
-#include "wallet_api.hpp"
 #include "signer_api.hpp"
 #include "signer_service.hpp"
 #include "util/strencodings.h"
@@ -51,7 +50,6 @@ public:
     std::string mSecKey;
     std::string mListenAddress;
     std::shared_ptr<l15::service::GenericService> mTaskService;
-    WalletApi mWallet;
     boost::container::flat_map<xonly_pubkey, std::string, l15::less<xonly_pubkey>> m_peers;
     std::string mInput;
 
@@ -85,7 +83,6 @@ Signer::Signer()
 : mApp("Tool to generate threshold signature", "signer")
 , mVerbose(0), mTrace(false), mDryRun(false), mDoSign(false)
 , mTaskService(std::make_shared<service::GenericService>(10))
-, mWallet()
 {
     mApp.set_config(CONF, "signer.conf", "Read the configuration file");
     mApp.set_version_flag("--version", [](){ return std::string("Test Signer\nL15 components' versions:\n") + Version::MakeFullVersion(); });
@@ -152,8 +149,8 @@ int main(int argc, char* argv[])
 
         std::shared_ptr<SignerApi> signer = make_shared<SignerApi>(
                 config.mSecKey.empty()
-                ? l15::core::SchnorrKeyPair(config.mWallet.Secp256k1Context())
-                : l15::core::SchnorrKeyPair(config.mWallet.Secp256k1Context(), std::move(sk)),
+                ? l15::core::SchnorrKeyPair()
+                : l15::core::SchnorrKeyPair(std::move(sk)),
                 N, K,
                 error_hdl);
 
@@ -169,7 +166,7 @@ int main(int argc, char* argv[])
         }
 
         std::unique_ptr<ZmqService> peerService = std::make_unique<ZmqService>(
-                config.mWallet.Secp256k1Context(),
+                KeyPairBase::GetStaticSekp256k1Context(),
                 config.mTaskService,
                 signer->GetLocalPubKey(),
                 config.mDoSign ? p2p::FROST_MESSAGE::SIGNATURE_SHARE : p2p::FROST_MESSAGE::KEY_SHARE,

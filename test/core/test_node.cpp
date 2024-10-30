@@ -10,7 +10,6 @@
 #include "config.hpp"
 #include "nodehelper.hpp"
 #include "exechelper.hpp"
-#include "wallet_api.hpp"
 #include "chain_api.hpp"
 #include "schnorr.hpp"
 

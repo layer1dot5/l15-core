@@ -16,7 +16,6 @@
 #include "common.hpp"
 
 #include "signer_api.hpp"
-#include "wallet_api.hpp"
 
 
 #include "time_measure.hpp"
@@ -36,8 +35,6 @@ TEST_CASE("2-of-3 local")
     const size_t N = 3;
     const size_t K = 2;
 
-    WalletApi wallet;
-
     // Create peers
 
     general_handler key_hdl = []() {  };
@@ -45,9 +42,9 @@ TEST_CASE("2-of-3 local")
     sigop_handler sig_hdl = [](operation_id) { };
     error_handler error_hdl = [](Error&& e) { FAIL(std::string(e.what()) + ": " + e.details()); };
 
-    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer0(KeyPair(), N, K, error_hdl);
+    SignerApi signer1(KeyPair(), N, K, error_hdl);
+    SignerApi signer2(KeyPair(), N, K, error_hdl);
 
     signer0.SetPublisher([&](frost_message_ptr&& m) {
         signer1.Accept(*m);
@@ -156,8 +153,6 @@ TEST_CASE("Try sign without pubnonce")
     const size_t N = 3;
     const size_t K = 2;
 
-    WalletApi wallet;
-
     // Create peers
 
     general_handler key_hdl = []() {  };
@@ -171,9 +166,9 @@ TEST_CASE("Try sign without pubnonce")
         }
     };
 
-    SignerApi signer0(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer1(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
-    SignerApi signer2(ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+    SignerApi signer0(KeyPair(), N, K, error_hdl);
+    SignerApi signer1(KeyPair(), N, K, error_hdl);
+    SignerApi signer2(KeyPair(), N, K, error_hdl);
 
     signer0.SetPublisher([&](frost_message_ptr&& m) {
         signer1.Accept(*m);
@@ -267,8 +262,6 @@ TEST_CASE("500 of 1K local")
     const size_t N = 100;
     const size_t K = 50;
 
-    WalletApi wallet;
-
     std::vector<std::unique_ptr<SignerApi>> signers;
     signers.reserve(N);
 
@@ -284,7 +277,7 @@ TEST_CASE("500 of 1K local")
        cex::smartinserter(signers, signers.end()),
        [&](int i) {
            return std::make_unique<SignerApi> (
-                   ChannelKeys(wallet.Secp256k1Context()), N, K, error_hdl);
+                   KeyPair(), N, K, error_hdl);
        }
     );
 

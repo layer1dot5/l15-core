@@ -2,16 +2,16 @@
 
 #include "key.h"
 #include "random.h"
-#include "univalue.h"
-#include "primitives/transaction.h"
 #include "consensus.h"
 #include "feerate.h"
 #include "transaction.h"
-
-#include "common_error.hpp"
 #include "policy.h"
 
-#include <iostream>
+#include "common_error.hpp"
+#include "bech32.hpp"
+
+#include "nlohmann/json.hpp"
+
 #include <string>
 
 
@@ -49,14 +49,7 @@ bytevector CreatePreimage()
     return random;
 }
 
-CAmount GetOutputAmount(const std::string& txoutstr)
-{
-    UniValue txout;
-    txout.read(txoutstr);
 
-    const std::string &amountstr = txout.find_value("value").getValStr();
-    return ParseAmount(amountstr);
-}
 
 uint32_t GetCsvInBlocks(uint32_t blocks)
 {
@@ -136,58 +129,45 @@ CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMut
     return input_amount - fee;
 }
 
-template <typename T>
-void LogTx(const T& tx)
+template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx)
 {
-    std::clog << "Transaction " << tx.GetHash().GetHex() << " {\n"
-              << "\tnLockTime: " << tx.nLockTime << "\n"
-              << "\tvin {\n";
-    bool first_in = true;
+    J res;
+    res["txid"] = tx.GetHash().GetHex();
+    res["version"] = tx.nVersion;
+    res["nLockTime"] = tx.nLockTime;
     for(const auto& in: tx.vin)
     {
-        if(first_in) first_in = false;
-        else std::clog << "\t\t------------------------------------------------\n";
-
-        std::clog << "\t\t" << in.prevout.hash.GetHex() << " : "
-                  << in.prevout.n << "\n"
-                  << "\t\tnSequence: " << in.nSequence << "\n"
-                  << "\t\tWitness {\n";
+        nlohmann::ordered_json jin;
+        jin["txid"] = in.prevout.hash.GetHex();
+        jin["n"] = in.prevout.n;
+        jin["nSequence"] = in.nSequence;
 
         for(const auto& wel: in.scriptWitness.stack)
-        {
-            std::clog << "\t\t\t{" << HexStr(wel) << "}\n";
-        }
-        std::clog << "\t\t}\n";
-    }
-    std::clog << "\t}\n";
+            jin["witness"].emplace_back(HexStr(wel));
 
-    std::clog << "\tvout {\n";
-    bool first_out = true;
+        res["vin"].emplace_back(move(jin));
+    }
     for(const auto& out: tx.vout)
     {
-        if(first_out) first_out = false;
-        else std::clog << "\t\t------------------------------------------------\n";
-
-        std::clog << "\t\tAmount: " << out.nValue << "\n";
+        nlohmann::ordered_json jout;
+        jout["amount"] = out.nValue;
 
         bytevector wp;
         int wver;
         if(out.scriptPubKey.IsWitnessProgram(wver, wp))
         {
-            if(wver == 0 && wp.size() == 20) std::clog << "\t\tPubKeyHash Witness program: "  << HexStr(wp) << "\n";
-            else if (wver == 0 && wp.size() == 32) std::clog << "\t\tScriptHash Witness program: " << HexStr(wp) << "\n";
-            else std::clog << "\t\tWitness program v" << wver << ": " << HexStr(wp) << "\n";
-        } else
-        {
-            std::clog << "\t\tScriptPubKey: "<< HexStr(out.scriptPubKey) << "\n";
+            if(wver == 0) jout["address"] = Bech32(BTC, chain).Encode(wp, bech32::Encoding::BECH32);
+            else if (wver == 1) jout["address"] = Bech32(BTC, chain).Encode(wp, bech32::Encoding::BECH32M);
         }
+        jout["scriptPubKey"] = hex(out.scriptPubKey);
 
+        res["vout"].emplace_back(move(jout));
     }
-    std::clog << "\t}\n}" << std::endl;
+    return res;
 }
 
-template void LogTx<CTransaction>(const CTransaction& );
-template void LogTx<CMutableTransaction>(const CMutableTransaction& );
-
-
+template nlohmann::json JsonTx<nlohmann::json, CMutableTransaction>(ChainMode chain, const CMutableTransaction& tx);
+template nlohmann::json JsonTx<nlohmann::json, CTransaction>(ChainMode chain, const CTransaction& tx);
+template nlohmann::ordered_json JsonTx<nlohmann::ordered_json, CMutableTransaction>(ChainMode chain, const CMutableTransaction& tx);
+template nlohmann::ordered_json JsonTx<nlohmann::ordered_json, CTransaction>(ChainMode chain, const CTransaction& tx);
 }

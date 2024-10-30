@@ -11,7 +11,6 @@
 
 #include "hash_helper.hpp"
 #include "script_merkle_tree.hpp"
-#include "wallet_api.hpp"
 #include "schnorr.hpp"
 
 using namespace l15;
@@ -64,9 +63,7 @@ TEST_CASE("TapLeaf hash")
 
 TEST_CASE("TapTweak")
 {
-    WalletApi wallet;
-
-    SchnorrKeyPair key(wallet.Secp256k1Context());
+    SchnorrKeyPair key;
     XOnlyPubKey pk(key.GetPubKey());
 
     // Lets just simulate some uint256
@@ -83,16 +80,14 @@ TEST_CASE("TapTweak")
 
 TEST_CASE("TapRoot single script")
 {
-    WalletApi wallet;
-
     //get key pair Taproot
-    auto internal_sk = SchnorrKeyPair(wallet.Secp256k1Context());
+    SchnorrKeyPair internal_sk;
     xonly_pubkey internal_pk = internal_sk.GetPubKey();
 
     std::clog << "Internal PK: " << HexStr(internal_pk) << std::endl;
 
     //get key pair script
-    auto script_sk = SchnorrKeyPair(wallet.Secp256k1Context());
+    SchnorrKeyPair script_sk;
     const auto& script_pk = script_sk.GetPubKey();
     std::string script_pk_str = HexStr(script_pk);
 

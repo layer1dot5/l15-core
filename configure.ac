@@ -263,6 +263,7 @@ AC_CONFIG_FILES([Makefile
                  src/common/Makefile
                  src/core/Makefile
                  test/Makefile
+                 test/common/Makefile
                  test/p2p/Makefile])
 
 if test "$enable_build_tools" = "yes"; then

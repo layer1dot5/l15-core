@@ -11,13 +11,13 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/src/common \
  -I$(top_srcdir)/src/p2p \
  -I$(top_srcdir)/src/core \
+ -I$(top_srcdir)/contrib/nlohmann_json \
  -I$(top_srcdir)/contrib/cex
 
 
 noinst_LTLIBRARIES = libl15-api.la
 libl15_api_la_SOURCES = \
 	chain_api.cpp \
-	wallet_api.cpp \
 	exechelper.cpp
 
 if BUILD_FROST

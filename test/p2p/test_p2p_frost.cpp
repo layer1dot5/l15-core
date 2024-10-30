@@ -13,14 +13,11 @@
 #include "util/strencodings.h"
 
 #include "p2p_frost.hpp"
-#include "wallet_api.hpp"
 #include "random.h"
 
 
 using namespace l15;
 using namespace l15::p2p;
-
-core::WalletApi w;
 
 TEST_CASE("FrostMessage")
 {
@@ -40,7 +37,7 @@ TEST_CASE("FrostMessage")
         CHECK((elem == etalon[i++]));
     }
 
-    auto res = Unserialize(w.Secp256k1Context(), s);
+    auto res = Unserialize(KeyPairBase::GetStaticSecp256k1Context(), s);
 
     FrostMessage *m1 = nullptr;
     REQUIRE((m1 = dynamic_cast<FrostMessage *>(res.get())));

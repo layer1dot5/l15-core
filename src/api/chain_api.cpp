@@ -1,5 +1,4 @@
 #include "chain_api.hpp"
-#include "wallet_api.hpp"
 #include "transaction.hpp"
 
 #include "script/script.h"

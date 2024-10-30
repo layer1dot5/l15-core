@@ -32,7 +32,6 @@ TEST_CASE("2-of-3 local")
 {
     auto service = std::make_shared<service::GenericService>(3);
     signer_service::SignerService signerService(service);
-    WalletApi wallet;
 
     // Create peers
 
@@ -40,9 +39,9 @@ TEST_CASE("2-of-3 local")
         FAIL(std::string(e.what()) + ": " + e.details());
     };
 
-    std::shared_ptr<SignerApi> signer0 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
-    std::shared_ptr<SignerApi> signer1 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
-    std::shared_ptr<SignerApi> signer2 = std::make_shared<SignerApi>(ChannelKeys(wallet.Secp256k1Context()), 3, 2, error_hdl);
+    std::shared_ptr<SignerApi> signer0 = std::make_shared<SignerApi>(KeyPair(), 3, 2, error_hdl);
+    std::shared_ptr<SignerApi> signer1 = std::make_shared<SignerApi>(KeyPair(), 3, 2, error_hdl);
+    std::shared_ptr<SignerApi> signer2 = std::make_shared<SignerApi>(KeyPair(), 3, 2, error_hdl);
 
     signer0->SetPublisher([&](frost_message_ptr m) {
         service->Serve([=]() {

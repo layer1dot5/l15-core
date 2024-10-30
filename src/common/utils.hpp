@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+#include "wrapstream.hpp"
+
 #include "streams.h"
 #include "util/strencodings.h"
 #include "amount.h"
@@ -47,13 +50,27 @@ constexpr R cryptohash(const DATA& preimage, CHash256 h)
     return out;
 }
 
-CAmount GetOutputAmount(const std::string& txoutstr);
 uint32_t GetCsvInBlocks(uint32_t blocks);
-
-template <typename T> void LogTx(const T& tx);
 
 enum ChainType {BTC, L15};
 enum ChainMode {MAINNET, TESTNET, REGTEST};
+
+template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx);
+
+template <typename T, typename S> void LogTx(ChainMode chain, const T& tx, S& stream)
+{ stream << JsonTx<nlohmann::ordered_json>(chain, tx).dump(2); }
+
+template <typename T> void LogTx(ChainMode chain, const T& tx)
+{ LogTx(chain, tx, std::clog); }
+
+template <typename R, typename T> R LogTx(ChainMode chain, const T& tx)
+{
+    R res;
+    cex::stream<R&> os(res);
+    LogTx(chain, tx, os);
+    return res;
+}
+
 
 template<typename T>
 std::string EncodeHexTx(const T& tx)

@@ -75,4 +75,4 @@ nodist_libl15_la_SOURCES = $(VERSION_MODULE)
 libl15_la_LDFLAGS = -avoid-version
 libl15_la_LIBADD = $(L15_LIBS)
 
-CLEANFILES = $(VERSION_MODULE)
+#CLEANFILES = $(VERSION_MODULE)

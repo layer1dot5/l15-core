@@ -16,7 +16,6 @@
 
 namespace l15::core {
 
-class WalletApi;
 class Channel;
 class IChannelContract;
 

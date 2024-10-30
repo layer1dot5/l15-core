@@ -1,8 +1,4 @@
-SUBDIRS =
-
-if BUILD_APIS
-SUBDIRS += core p2p
-endif
+SUBDIRS = common core p2p
 
 if BUILD_SERVICES
 SUBDIRS += service

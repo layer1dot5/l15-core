@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <concepts>
+#include <ranges>
 
 #include "smartinserter.hpp"
 
@@ -12,7 +13,7 @@ namespace cex {
 template <typename C>
 class stream {
 public:
-    typedef C container_type;
+    typedef std::remove_cvref_t<C> container_type;
     typedef typename container_type::value_type value_type;
     typedef std::iter_difference_t<typename container_type::iterator> difference_type;
     typedef typename container_type::size_type size_type;
@@ -21,16 +22,16 @@ private:
     typedef typename container_type::const_iterator const_iterator;
 
 private:
-    container_type m_container;
-    iterator m_read_it;
+    C m_container;
+    const_iterator m_read_it;
 public:
     stream() : m_container(), m_read_it(m_container.begin()) {}
-    explicit stream(container_type&& container) : m_container(std::move(container)), m_read_it(m_container.cbegin()) {}
+    explicit stream(C&& container) : m_container(std::forward<C>(container)), m_read_it(m_container.cbegin()) {}
 
     void put(const value_type& element)
     {
         auto pos = position();
-        m_container.emplace_back(element);
+        m_container.push_back(element);
         m_read_it = m_container.begin();
         std::advance(m_read_it, pos);
     }
@@ -158,6 +159,13 @@ stream<V>& operator << (stream<V>& s, const std::integral auto& arg)
         }
     }
     s.put(static_cast<typename stream<V>::value_type>(v & mask));
+    return s;
+}
+
+template<typename V, std::ranges::range R>
+stream<V> operator << (stream<V>& s, const R& data)
+{
+    std::ranges::for_each(data, [&](const auto& d) {s << d;});
     return s;
 }
 

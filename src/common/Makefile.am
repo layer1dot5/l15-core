@@ -20,7 +20,8 @@ AM_CPPFLAGS = \
  -I$(top_srcdir)/$(NODE_PATH)/src/support \
  -I$(top_srcdir)/$(SECP256K1_PATH)/include \
  -I$(top_srcdir)/src/common \
- -I$(top_srcdir)/contrib/cex
+ -I$(top_srcdir)/contrib/cex \
+ -I$(top_srcdir)/contrib/nlohmann_json
 
 
 noinst_LTLIBRARIES = libl15-common.la
