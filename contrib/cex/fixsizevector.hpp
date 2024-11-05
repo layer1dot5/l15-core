@@ -9,7 +9,7 @@
 
 namespace cex {
 
-template<typename Tp, size_t SIZE, typename Alloc = std::allocator<Tp> >
+template<typename Tp, size_t S, typename Alloc = std::allocator<Tp> >
 class fixsize_vector : protected std::vector<Tp, Alloc> {
 public:
 
@@ -26,6 +26,7 @@ public:
     typedef typename base::size_type       size_type;
     typedef typename base::difference_type difference_type;
     typedef typename base::allocator_type  allocator_type;
+    static const size_type SIZE = S;
 
 private:
     template <typename T>
@@ -123,17 +124,17 @@ public:
     using base::data;
 };
 
-template< class T, size_t SIZE1, size_t SIZE2, class Alloc >
-bool operator==(const fixsize_vector<T, SIZE1, Alloc>& x1, const fixsize_vector<T, SIZE2, Alloc>& x2)
-{ return reinterpret_cast<const std::vector<T, Alloc>&>(x1) == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
+template< class T, size_t SIZE1, size_t SIZE2, class Alloc1, class Alloc2 >
+bool operator==(const fixsize_vector<T, SIZE1, Alloc1>& x1, const fixsize_vector<T, SIZE2, Alloc2>& x2)
+{ return reinterpret_cast<const std::vector<T, Alloc1>&>(x1) == reinterpret_cast<const std::vector<T, Alloc2>&>(x2); }
 
-template< class T, size_t SIZE, class Alloc >
-bool operator==(const fixsize_vector<T, SIZE, Alloc>& x1, const std::vector<T, Alloc>& x2)
-{ return reinterpret_cast<const std::vector<T, Alloc>&>(x1) == x2; }
+template< class T, size_t SIZE, class Alloc1, class Alloc2 >
+bool operator==(const fixsize_vector<T, SIZE, Alloc1>& x1, const std::vector<T, Alloc2>& x2)
+{ return reinterpret_cast<const std::vector<T, Alloc1>&>(x1) == x2; }
 
-template< class T, size_t SIZE, class Alloc >
-bool operator==(const std::vector<T, Alloc>& x1, const fixsize_vector<T, SIZE, Alloc>& x2)
-{ return x1 == reinterpret_cast<const std::vector<T, Alloc>&>(x2); }
+template< class T, size_t SIZE, class Alloc1, class Alloc2 >
+bool operator==(const std::vector<T, Alloc1>& x1, const fixsize_vector<T, SIZE, Alloc2>& x2)
+{ return x1 == reinterpret_cast<const std::vector<T, Alloc2>&>(x2); }
 
 template <class STREAM, class T, size_t SIZE, class Alloc>
 STREAM& operator << (STREAM& s, const fixsize_vector<T, SIZE, Alloc>& x)
@@ -142,6 +143,10 @@ STREAM& operator << (STREAM& s, const fixsize_vector<T, SIZE, Alloc>& x)
 template <class STREAM, class T, size_t SIZE, class Alloc>
 STREAM& operator >> (STREAM& s, fixsize_vector<T, SIZE, Alloc>& x)
 { return s.read(x.data(), SIZE); }
+
+template <typename Tp, size_t S1, size_t S2, typename Alloc1, typename Alloc2>
+bool operator <(const fixsize_vector<Tp, S1, Alloc1>& x, const fixsize_vector<Tp, S2, Alloc2>& y)
+{ return reinterpret_cast<const std::vector<Tp, Alloc1>&>(x) < reinterpret_cast<const std::vector<Tp, Alloc2>&>(y); }
 
 }
 
