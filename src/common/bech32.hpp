@@ -32,6 +32,9 @@ public:
     ChainMode GetChainMode() const
     { return chainmode; }
 
+    const char* GetHrp() const
+    { return hrptag; }
+
     template <typename KeyType>
     std::string Encode(const KeyType& pk, bech32::Encoding encoding = bech32::Encoding::BECH32M) const {
         std::vector<unsigned char> bech32buf = {(encoding == bech32::Encoding::BECH32) ? (uint8_t)0 : (uint8_t)1};

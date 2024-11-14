@@ -28,7 +28,8 @@ noinst_LTLIBRARIES = libl15-common.la
 libl15_common_la_SOURCES = \
 	common.cpp \
 	utils.cpp \
-	bech32_hrp.cpp
+	bech32_hrp.cpp \
+	base58.cpp
 
 #nodist_libl15_common_la_SOURCES = $(VERSION_MODULE)
 
