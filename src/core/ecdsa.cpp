@@ -49,6 +49,12 @@ bytevector EcdsaKeyPair::SignTxHash(const uint256 &sighash, unsigned char sighas
     return sig_der;
 }
 
+bytevector EcdsaKeyPair::SignNonSegwitTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& pubkeyscript, const int hashtype) const
+{
+    uint256 sighash = SignatureHash(pubkeyscript, tx, nin, hashtype, spent_outputs[nin].nValue, SigVersion::BASE, nullptr);
+    return SignTxHash(sighash, hashtype);
+}
+
 bytevector EcdsaKeyPair::SignSegwitV0Tx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& pubkeyscript, const int hashtype) const
 {
     PrecomputedTransactionData txdata;

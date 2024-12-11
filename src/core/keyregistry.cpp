@@ -7,6 +7,8 @@
 #include "utils.hpp"
 #include "base58.h"
 
+#include "base58.hpp"
+
 namespace l15::core {
 
 namespace {
@@ -84,25 +86,30 @@ KeyLookupFilter ParseKeyLookupFilter(const nlohmann::json& json)
 }
 
 
-KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint, std::function<bool(const SchnorrKeyPair&, const bytevector&)> compare) const
+KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint, std::function<bool(const KeyPair&, const bytevector&)> compare) const
 {
     if (hint.look_cache) {
         for (const auto &sk: m_keys_cache) {
-            if (SchnorrKeyPair keypair(m_ctx, sk); compare(keypair, keyid)) {
-                return KeyPair(move(keypair));
+            if (KeyPair keypair(m_ctx, sk); compare(keypair, keyid)) {
+                return keypair;
             }
         }
     }
 
     MasterKey masterCopy(mMasterKey);
-    if (hint.type == KeyLookupFilter::TAPROOT || hint.type == KeyLookupFilter::TAPSCRIPT) {
+    switch (hint.type) {
+    case KeyLookupFilter::TAPROOT:
+    case KeyLookupFilter::TAPSCRIPT:
         masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP86_TAPROOT);
-    }
-    else {
+        break;
+    case KeyLookupFilter::LEGACY:
+        masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP44_LEGACY);
+        break;
+    default:
         masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP84_P2WPKH);
     }
 
-    switch (mBech.GetChainMode()) {
+    switch (m_chain) {
     case MAINNET:
         masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT);
         break;
@@ -127,29 +134,34 @@ KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint
     }
 
 #ifndef WASM
-    std::atomic<std::shared_ptr<SchnorrKeyPair>> res(nullptr);
+    std::atomic<std::shared_ptr<KeyPair>> res(nullptr);
     const uint32_t step = 64;
     uint32_t indexes[step];
     for (uint32_t key_index = *hint.index_range.begin(); key_index < *hint.index_range.end(); key_index += step) {
         std::iota(indexes, indexes + step, key_index);
-        std::for_each(std::execution::par_unseq, indexes, indexes + step, [&](const auto &k) {
+        auto find_it = std::find_if(std::execution::par_unseq, indexes, indexes + step, [&](const auto &k) {
             for (const MasterKey &account: accountKeys) {
-
                 // For TAPROOT case lets look for both tweaked and untweaked keys just to provide more robustness
-
-                SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{k}, SUPPRESS);
+                KeyPair keypair = account.Derive(std::vector<uint32_t>{k}, SUPPRESS);
                 if (compare(keypair, keyid)) {
-                    res = std::make_shared<SchnorrKeyPair>(std::move(keypair));
+                    res = std::make_shared<KeyPair>(std::move(keypair));
+                    return true;
                 }
-                else if (hint.type == KeyLookupFilter::TAPROOT) {
-                    keypair.AddTapTweak();
+                if (hint.type == KeyLookupFilter::TAPROOT) {
+                    SchnorrKeyPair kp = keypair.GetSchnorrKeyPair();
+                    kp.AddTapTweak();
+                    keypair = move(kp);
                     if (compare(keypair, keyid)) {
-                        res = std::make_shared<SchnorrKeyPair>(std::move(keypair));
+                        res = std::make_shared<KeyPair>(std::move(keypair));
+                        return true;
                     }
                 }
             }
+            return false;
         });
-        if (std::shared_ptr<SchnorrKeyPair> keypair = res.load()) {
+
+        if (find_it != indexes + step) {
+            std::shared_ptr<KeyPair> keypair = res.load();
             return KeyPair(move(*keypair));
         }
     }
@@ -159,15 +171,16 @@ KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint
 
             // For TAPROOT case lets look for both tweaked and untweaked keys just to provide more robustness
 
-            SchnorrKeyPair keypair = account.Derive(std::vector<uint32_t>{key_index}, SUPPRESS);
-            if (compare(keypair, keyid)) {
-                return KeyPair(move(keypair));
-            }
-            else if (hint.type == KeyLookupFilter::TAPROOT){
-                keypair.AddTapTweak();
-                if (compare(keypair, keyid)) {
-                    return KeyPair(move(keypair));
-                }
+            KeyPair keypair = account.Derive(std::vector<uint32_t>{key_index}, SUPPRESS);
+            if (compare(keypair, keyid))
+                return keypair;
+
+            if (hint.type == KeyLookupFilter::TAPROOT){
+                SchnorrKeyPair k = keypair.GetSchnorrKeyPair();
+                k.AddTapTweak();
+                keypair = move(k);
+                if (compare(keypair, keyid))
+                     return keypair;
             }
         }
     }
@@ -184,7 +197,7 @@ KeyPair KeyRegistry::Lookup(const xonly_pubkey &pk, const KeyLookupFilter& hint)
     if (taproot_hint.type == KeyLookupFilter::DEFAULT) {
         taproot_hint.type = KeyLookupFilter::TAPROOT;
     }
-    return Lookup(pk.get_vector(), taproot_hint, [](const SchnorrKeyPair& key, const bytevector& id) { return key.GetPubKey() == id; });
+    return Lookup(pk.get_vector(), taproot_hint, [](const KeyPair& key, const bytevector& id) { return key.GetSchnorrKeyPair().GetPubKey() == id; });
 }
 
 KeyPair KeyRegistry::Lookup(const xonly_pubkey &pk, const std::string& hint_json) const
@@ -192,33 +205,49 @@ KeyPair KeyRegistry::Lookup(const xonly_pubkey &pk, const std::string& hint_json
     try {
         auto json = nlohmann::json::parse(hint_json);
         return Lookup(pk.get_vector(), ParseKeyLookupFilter(json),
-                      [](const SchnorrKeyPair &key, const bytevector &id) { return key.GetPubKey() == id; });
+                      [](const KeyPair &key, const bytevector &id) { return key.GetSchnorrKeyPair().GetPubKey() == id; });
     }
     catch(const nlohmann::json::parse_error& e) {
         if (!m_key_type_filters.contains(hint_json)) std::throw_with_nested(IllegalArgument("key filter is unknown: " + hint_json));
         return Lookup(pk.get_vector(), m_key_type_filters.at(hint_json),
-                      [](const SchnorrKeyPair &key, const bytevector &id) { return key.GetPubKey() == id; });
+                      [](const KeyPair &key, const bytevector &id) { return key.GetSchnorrKeyPair().GetPubKey() == id; });
     }
 }
 
 KeyPair KeyRegistry::Lookup(const std::string& addr, const KeyLookupFilter& hint) const
 {
-    unsigned witver;
-    bytevector keyid;
-    std::tie(witver, keyid) = mBech.Decode(addr);
+    try {
+        auto [witver, keyid] = Bech32(BTC, m_chain).Decode(addr);
+        if (witver == 0) {
+            return Lookup(keyid, hint, [&](const KeyPair &k, const bytevector &id) {
+                return cryptohash<bytevector>(k.GetEcdsaKeyPair().GetPubKey(), CHash160()) == id;
+            });
+        }
 
-    if (witver == 0) {
-        return Lookup(keyid, hint, [&](const SchnorrKeyPair &k, const bytevector &id) {
-            EcdsaKeyPair keypair(m_ctx, k.GetPrivKey());
-            return cryptohash<bytevector>(keypair.GetPubKey(), CHash160()) == id;
-        });
+        KeyLookupFilter taproot_hint = hint;
+        if (taproot_hint.type == KeyLookupFilter::DEFAULT) {
+            taproot_hint.type = KeyLookupFilter::TAPROOT;
+        }
+        return Lookup(keyid, taproot_hint, [](const KeyPair &k, const bytevector &id) { return k.GetSchnorrKeyPair().GetPubKey() == id; });
     }
+    catch (NotBech32Encoding& e) {
+        auto [type, hash] = Base58(m_chain).Decode(addr);
+        if (type == PUB_KEY_HASH) {
+            KeyLookupFilter p2pkh_hint = hint;
+            if (p2pkh_hint.type == KeyLookupFilter::DEFAULT)
+                p2pkh_hint.type = KeyLookupFilter::LEGACY;
 
-    KeyLookupFilter taproot_hint = hint;
-    if (taproot_hint.type == KeyLookupFilter::DEFAULT) {
-        taproot_hint.type = KeyLookupFilter::TAPROOT;
+            KeyPair keypair = Lookup(hash, p2pkh_hint, [&](const KeyPair &k, const bytevector &id) {
+                return cryptohash<bytevector>(k.GetEcdsaKeyPair().GetPubKey(), CHash160()) == id;
+            });
+            return keypair;
+        }
+        if (type == SCRIPT_HASH) {
+            //TODO: p2sh-p2wpkh
+            throw KeyNotFoundError();
+        }
+        throw IllegalArgument("Wrong address: " + addr);
     }
-    return Lookup(keyid, taproot_hint, [](const SchnorrKeyPair &k, const bytevector &id) { return k.GetPubKey() == id; });
 }
 
 KeyPair KeyRegistry::Lookup(const std::string& addr, const std::string& hint_json) const
@@ -245,14 +274,15 @@ void KeyRegistry::AddKeyType(std::string name, const string &filter_json)
 
 void KeyRegistry::RemoveKeyFromCache(const string &addr)
 {
+    Bech32 bech(BTC, m_chain);
     uint32_t witver;
     bytevector keyid;
-    std::tie(witver, keyid) = mBech.Decode(addr);
+    std::tie(witver, keyid) = bech.Decode(addr);
 
     if (witver == 1)
-        m_keys_cache.remove_if([&](const auto& el){ return KeyPair(m_ctx, el).GetP2TRAddress(mBech) == addr; });
+        m_keys_cache.remove_if([&](const auto& el){ return KeyPair(m_ctx, el).GetP2TRAddress(bech) == addr; });
     else if (witver == 0)
-        m_keys_cache.remove_if([&](const auto& el){ return KeyPair(m_ctx, el).GetP2WPKHAddress(mBech) == addr; });
+        m_keys_cache.remove_if([&](const auto& el){ return KeyPair(m_ctx, el).GetP2WPKHAddress(bech) == addr; });
     else
         throw IllegalArgument("address: " + addr);
 }

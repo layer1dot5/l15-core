@@ -37,7 +37,7 @@ public:
 
 struct KeyLookupFilter
 {
-    enum Type {DEFAULT, TAPROOT, TAPSCRIPT};
+    enum Type {DEFAULT, TAPROOT, TAPSCRIPT, LEGACY};
 
     bool look_cache;
     Type type;
@@ -49,7 +49,7 @@ struct KeyLookupFilter
 class KeyRegistry
 {
     const secp256k1_context* m_ctx;
-    Bech32 mBech;
+    ChainMode m_chain;
 
     std::unordered_map<std::string, KeyLookupFilter> m_key_type_filters;
 
@@ -57,8 +57,8 @@ class KeyRegistry
     std::list<seckey> m_keys_cache;
 
 public:
-    KeyRegistry(const secp256k1_context* ctx, Bech32 bech, const sensitive_bytevector& seed): m_ctx(ctx), mBech(bech), m_key_type_filters(10), mMasterKey(m_ctx, seed) {}
-    KeyRegistry(ChainMode chain, const std::string& seedhex): KeyRegistry(SchnorrKeyPair::GetStaticSecp256k1Context(), Bech32(BTC, chain), unhex<sensitive_bytevector>(seedhex)) {}
+    KeyRegistry(const secp256k1_context* ctx, ChainMode chain, const sensitive_bytevector& seed): m_ctx(ctx), m_chain(chain), m_key_type_filters(10), mMasterKey(m_ctx, seed) {}
+    KeyRegistry(ChainMode chain, const std::string& seedhex): KeyRegistry(KeyPair::GetStaticSecp256k1Context(), chain, unhex<sensitive_bytevector>(seedhex)) {}
 
     const secp256k1_context* Secp256k1Context() const
     { return m_ctx; }
@@ -86,7 +86,7 @@ public:
     KeyPair Derive(const std::string& path, bool for_script) const
     { return KeyPair(mMasterKey.Derive(path, for_script)); }
 
-    KeyPair Lookup(const bytevector& keyid, const KeyLookupFilter& hint, std::function<bool(const SchnorrKeyPair&, const bytevector&)>) const;
+    KeyPair Lookup(const bytevector& keyid, const KeyLookupFilter& hint, std::function<bool(const KeyPair&, const bytevector&)>) const;
     KeyPair Lookup(const xonly_pubkey& pk, const KeyLookupFilter& hint) const;
     KeyPair Lookup(const xonly_pubkey& pk, const std::string& hint_json) const;
     KeyPair Lookup(const std::string& addr, const KeyLookupFilter& hint) const;

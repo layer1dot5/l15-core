@@ -1,6 +1,9 @@
 #include <exception>
 
 #include "master_key.hpp"
+
+#include <keypair.hpp>
+
 #include "util/spanparsing.h"
 #include "hmac_sha512.h"
 
@@ -63,15 +66,15 @@ void MasterKey::DeriveSelf(uint32_t branch)
     }
 }
 
-SchnorrKeyPair MasterKey::MakeKey(bool do_tweak) const
+KeyPair MasterKey::MakeKey(bool do_tweak) const
 {
-    SchnorrKeyPair res(m_ctx, mKey);
-
     if (do_tweak) {
-        res.AddTapTweak();
+        SchnorrKeyPair k(m_ctx, mKey);
+        k.AddTapTweak();
+        return KeyPair(move(k));
     }
 
-    return res;
+    return KeyPair(m_ctx, mKey);
 }
 
 ext_pubkey MasterKey::MakeExtPubKey() const
@@ -92,7 +95,7 @@ ext_pubkey MasterKey::MakeExtPubKey() const
     return res;
 }
 
-SchnorrKeyPair MasterKey::Derive(const string &path, bool for_script) const
+KeyPair MasterKey::Derive(const string &path, bool for_script) const
 {
     auto branches = spanparsing::Split(path, '/');
 

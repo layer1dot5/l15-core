@@ -32,14 +32,14 @@ SchnorrKeyPair mockkey;
 TEST_CASE("Seed")
 {
     MasterKey extkey(mockkey.Secp256k1Context(), seed);
-    REQUIRE(bech.Encode(extkey.MakeKey(false).GetPubKey()) == "tb1pz6zkdhjmar4x243yve469lex9htp8j2qzcu79s7mm420hddmwxssmngtnz");
+    REQUIRE(bech.Encode(extkey.MakeKey(false).GetSchnorrKeyPair().GetPubKey()) == "tb1pz6zkdhjmar4x243yve469lex9htp8j2qzcu79s7mm420hddmwxssmngtnz");
 }
 
 TEST_CASE("Derive")
 {
     MasterKey master(mockkey.Secp256k1Context(), seed);
 
-    SchnorrKeyPair derived = master.Derive(derive_branches, AUTO);
+    SchnorrKeyPair derived = master.Derive(derive_branches, AUTO).GetSchnorrKeyPair();
 
     REQUIRE(bech.Encode(derived.GetPubKey()) == "tb1ptnn4tufj4yr8ql0e8w8tye7juxzsndnxgnlehfk2p0skftzks20sncm2dz");
 }
@@ -48,7 +48,7 @@ TEST_CASE("DerivePath")
 {
     MasterKey master(mockkey.Secp256k1Context(), seed);
 
-    SchnorrKeyPair derived = master.Derive(derive_path, false);
+    SchnorrKeyPair derived = master.Derive(derive_path, false).GetSchnorrKeyPair();
 
     REQUIRE(bech.Encode(derived.GetPubKey()) == "tb1ptnn4tufj4yr8ql0e8w8tye7juxzsndnxgnlehfk2p0skftzks20sncm2dz");
 }
@@ -66,7 +66,7 @@ TEST_CASE("DerivePubKey")
     xonly_pubkey derived_pk;
     REQUIRE_NOTHROW(derived_pk = MasterKey::DerivePubKey(mockkey.Secp256k1Context(), extpubkey, magic_branch));
 
-    SchnorrKeyPair derived_keypair = master.MakeKey(false);
+    SchnorrKeyPair derived_keypair = master.MakeKey(false).GetSchnorrKeyPair();
 
     REQUIRE(hex(derived_pk) == hex(derived_keypair.GetPubKey()));
 }
@@ -85,7 +85,7 @@ TEST_CASE("DeriveExtPubKey")
     REQUIRE_NOTHROW(derived_extpk = MasterKey::Derive(mockkey.Secp256k1Context(), extpubkey, magic_branch));
 
     xonly_pubkey derived_pk = MasterKey::GetPubKey(mockkey.Secp256k1Context(), derived_extpk);
-    SchnorrKeyPair derived_keypair = master.MakeKey(false);
+    SchnorrKeyPair derived_keypair = master.MakeKey(false).GetSchnorrKeyPair();
 
     REQUIRE(hex(derived_pk) == hex(derived_keypair.GetPubKey()));
 }

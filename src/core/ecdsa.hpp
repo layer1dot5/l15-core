@@ -35,6 +35,7 @@ public:
     compressed_pubkey GetPubKey() const;
 
     bytevector SignTxHash(const uint256 &sighash, unsigned char sighashtype) const;
+    bytevector SignNonSegwitTx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& pubkeyscript, const int hashtype) const;
     bytevector SignSegwitV0Tx(const CMutableTransaction &tx, uint32_t nin, std::vector<CTxOut> spent_outputs, const CScript& pubkeyscript, const int hashtype) const;
 };
 

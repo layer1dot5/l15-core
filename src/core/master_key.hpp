@@ -1,5 +1,7 @@
 #pragma once
 
+#include <keypair.hpp>
+
 #include "schnorr.hpp"
 
 namespace l15::core {
@@ -25,6 +27,7 @@ class MasterKey
 public:
     static const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
     static const uint32_t BIP32_BRANCH_MASK = 0x7fffffff;
+    static const uint32_t BIP44_LEGACY = 44;
     static const uint32_t BIP84_P2WPKH = 84;
     static const uint32_t BIP86_TAPROOT = 86;
 private:
@@ -43,13 +46,13 @@ public:
     MasterKey(const MasterKey&) = default;
     MasterKey(MasterKey&& ) = default;
 
-    SchnorrKeyPair MakeKey(bool do_tweak) const;
+    KeyPair MakeKey(bool do_tweak) const;
     ext_pubkey MakeExtPubKey() const;
 
     void DeriveSelf(uint32_t branch);
 
     template <std::ranges::range T>
-    SchnorrKeyPair Derive(const T& branches, BIP86Tweak bip86_tweak) const
+    KeyPair Derive(const T& branches, BIP86Tweak bip86_tweak) const
     {
         MasterKey branchKey(*this);
 
@@ -61,7 +64,7 @@ public:
         return branchKey.MakeKey(do_tweak);
     }
 
-    SchnorrKeyPair Derive(const std::string& path, bool for_script = false) const;
+    KeyPair Derive(const std::string& path, bool for_script = false) const;
 
     static ext_pubkey Derive(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);
     static xonly_pubkey DerivePubKey(const secp256k1_context* ctx, const ext_pubkey& extpk, uint32_t branch);

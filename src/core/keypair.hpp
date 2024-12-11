@@ -1,10 +1,10 @@
 #pragma once
 
+#include "base58.hpp"
 #include "bech32.hpp"
 #include "keypair_common.hpp"
 #include "schnorr.hpp"
 #include "ecdsa.hpp"
-#include "master_key.hpp"
 
 namespace l15::core {
 
@@ -27,6 +27,30 @@ public:
 
     KeyPair& operator=(const KeyPair& ) = default;
     KeyPair& operator=(KeyPair&&) noexcept = default;
+    KeyPair& operator=(const SchnorrKeyPair& k)
+    {
+        m_ctx = k.Secp256k1Context();
+        m_sk = k.GetPrivKey();
+        return *this;
+    }
+    KeyPair& operator=(SchnorrKeyPair&& k) noexcept
+    {
+        m_ctx = k.Secp256k1Context();
+        m_sk = move(k.m_local_sk);
+        return *this;
+    }
+    KeyPair& operator=(const EcdsaKeyPair& k)
+    {
+        m_ctx = k.Secp256k1Context();
+        m_sk = k.GetPrivKey();
+        return *this;
+    }
+    KeyPair& operator=(EcdsaKeyPair&& k) noexcept
+    {
+        m_ctx = k.Secp256k1Context();
+        m_sk = move(k.m_sk);
+        return *this;
+    }
 
     const secp256k1_context* Secp256k1Context() const noexcept
     { return m_ctx; }
@@ -39,10 +63,13 @@ public:
     { return SchnorrKeyPair(m_ctx, m_sk).GetPubKey(); }
 
     std::string GetP2TRAddress(Bech32 bech) const
-    { return bech.Encode(core::SchnorrKeyPair(m_ctx, m_sk).GetPubKey(), bech32::Encoding::BECH32M); }
+    { return bech.Encode(GetSchnorrKeyPair().GetPubKey(), bech32::Encoding::BECH32M); }
 
     std::string GetP2WPKHAddress(Bech32 bech) const
-    { return bech.Encode(cryptohash<bytevector>(EcdsaKeyPair(m_ctx, m_sk).GetPubKey(), CHash160()), bech32::Encoding::BECH32); }
+    { return bech.Encode(cryptohash<bytevector>(GetEcdsaKeyPair().GetPubKey(), CHash160()), bech32::Encoding::BECH32); }
+
+    std::string GetP2PKHAddress(ChainMode chain) const
+    { return Base58(chain).Encode(cryptohash<bytevector>(GetEcdsaKeyPair().GetPubKey(), CHash160()), PUB_KEY_HASH); }
 
     SchnorrKeyPair GetSchnorrKeyPair() const
     { return SchnorrKeyPair(m_ctx, m_sk); }

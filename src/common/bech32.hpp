@@ -9,6 +9,16 @@
 
 namespace l15 {
 
+class NotBech32Encoding : public IllegalArgument
+{
+public:
+    explicit NotBech32Encoding(std::string&& details) noexcept : IllegalArgument(move(details)) {}
+    ~NotBech32Encoding() override = default;
+
+    const char* what() const noexcept override
+    { return "NotBech32Encoding"; }
+
+};
 
 class Bech32
 {
@@ -43,25 +53,19 @@ public:
         return bech32::Encode(encoding, hrptag, bech32buf);
     }
 
-    std::tuple<unsigned, l15::bytevector> Decode(const std::string& address) const
+    std::tuple<unsigned, bytevector> Decode(const std::string& address) const
     {
         bech32::DecodeResult bech_result = bech32::Decode(address);
-        if(bech_result.hrp != hrptag)
-        {
+        if (bech_result.encoding == bech32::Encoding::INVALID)
+            throw NotBech32Encoding(std::string(address));
+        if (bech_result.hrp != hrptag)
             throw IllegalArgument(std::string("Allowed prefix: ") + hrptag + ". Address: " + address);
-        }
-        if(bech_result.data.empty())
-        {
+        if (bech_result.data.empty())
             throw IllegalArgument(std::string("Wrong bech32 data (no data decoded): ") + address);
-        }
-        if(bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
-        {
+        if (bech_result.data[0] == 0 && bech_result.encoding != bech32::Encoding::BECH32)
             throw IllegalArgument("Version 0 witness address must use Bech32 checksum");
-        }
-        if(bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
-        {
+        if (bech_result.data[0] != 0 && bech_result.encoding != bech32::Encoding::BECH32M)
             throw IllegalArgument("Version 1+ witness address must use Bech32m checksum");
-        }
 
         bytevector data;
         data.reserve(32);

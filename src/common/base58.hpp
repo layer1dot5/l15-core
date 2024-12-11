@@ -5,6 +5,8 @@
 
 #include "utils.hpp"
 
+#include "smartinserter.hpp"
+
 namespace l15 {
 
 enum LegacyAddressType {PUB_KEY_HASH, SCRIPT_HASH};
@@ -23,16 +25,18 @@ public:
     { return chainmode; }
 
     template <typename KeyType>
-    std::string Encode(const KeyType& pk, LegacyAddressType type) const
+    std::string Encode(const KeyType& data, LegacyAddressType type) const
     {
-        auto data = cryptohash<bytevector>(pk, CHash160());
-
+        bytevector buf;
+        buf.reserve(data.size() + 1);
         if (chainmode == MAINNET)
-            data.insert(data.begin(), type==PUB_KEY_HASH ? (uint8_t)0 : (uint8_t)5);
+            buf.push_back(type==PUB_KEY_HASH ? (uint8_t)0 : (uint8_t)5);
         else // Any chain has same prefix same except main
-            data.insert(data.begin(), type==PUB_KEY_HASH ? (uint8_t)111 : (uint8_t)196);
+            buf.push_back(type==PUB_KEY_HASH ? (uint8_t)111 : (uint8_t)196);
 
-        return EncodeBase58Check(data);
+        std::copy(data.begin(), data.end(), cex::smartinserter(buf, buf.end()));
+
+        return EncodeBase58Check(buf);
     }
 
     std::tuple<LegacyAddressType, bytevector> Decode(const std::string& address) const;
