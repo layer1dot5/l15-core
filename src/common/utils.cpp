@@ -118,14 +118,15 @@ CAmount CalculateTxFee(CAmount fee_rate, const T& tx)
 template CAmount CalculateTxFee<CMutableTransaction>(CAmount fee_rate, const CMutableTransaction& );
 template CAmount CalculateTxFee<CTransaction>(CAmount fee_rate, const CTransaction& );
 
+[[deprecated]]
 CAmount CalculateOutputAmount(CAmount input_amount, CAmount fee_rate, const CMutableTransaction& tx)
 {
     auto fee = CalculateTxFee(fee_rate, tx);
-    if ((fee + Dust(DUST_RELAY_TX_FEE)) >= input_amount) {
-        std::ostringstream buf;
-        buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
-        throw TransactionError(buf.str());
-    }
+    // if ((fee + Dust(DUST_RELAY_TX_FEE)) >= input_amount) {
+    //     std::ostringstream buf;
+    //     buf << "Input amount too small (dust): " << FormatAmount(input_amount) << ", calculated fee: " << FormatAmount(fee);
+    //     throw TransactionError(buf.str());
+    // }
     return input_amount - fee;
 }
 
