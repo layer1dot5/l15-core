@@ -28,6 +28,12 @@ public:
     stream() : m_container(), m_read_it(m_container.begin()) {}
     explicit stream(C&& container) : m_container(std::forward<C>(container)), m_read_it(m_container.cbegin()) {}
 
+    const container_type& raw() const
+    { return m_container; }
+
+    container_type&& raw()
+    { return move(m_container); }
+
     void put(const value_type& element)
     {
         auto pos = position();
@@ -146,7 +152,7 @@ public:
 template<typename V>
 stream<V>& operator << (stream<V>& s, const std::integral auto& arg)
 {
-    static_assert(std::is_integral_v<typename stream<V>::value_type>);
+    //static_assert(std::is_integral_v<typename stream<V>::value_type>);
 
     auto v = arg;
     const size_t shift_step = sizeof(typename stream<V>::value_type) * 8;
@@ -172,7 +178,7 @@ stream<V> operator << (stream<V>& s, const R& data)
 template<typename V>
 stream<V>& operator >> (stream<V>& s, std::integral auto& res)
 {
-    static_assert(std::is_integral_v<typename stream<V>::value_type>);
+    //static_assert(std::is_integral_v<typename stream<V>::value_type>);
 
     auto v = res;
 
@@ -190,5 +196,23 @@ stream<V>& operator >> (stream<V>& s, std::integral auto& res)
     res = v;
     return s;
 }
+
+template <typename V>
+stream<V>& operator << (stream<V>& s, const std::ranges::range auto& r)
+{
+    for(const auto& el: r) s << el;
+    return s;
+}
+
+template <typename V>
+stream<V>& operator >> (stream<V>& s, std::ranges::range auto& r)
+{
+    for(const auto& el: r) s >> el;
+    return s;
+}
+
+template <typename C>
+stream<C> make_stream(C&& container)
+{ return stream<C>(std::forward<C>(container)); }
 
 }

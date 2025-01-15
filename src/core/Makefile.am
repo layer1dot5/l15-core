@@ -29,7 +29,8 @@ libl15_core_la_SOURCES = \
 	keyregistry.cpp \
 	master_key.cpp \
 	transaction.cpp \
-	mnemonic.cpp
+	mnemonic.cpp \
+	psbt.cpp
 
 #	channel_contract.cpp
 #	channel.cpp

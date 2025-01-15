@@ -67,4 +67,14 @@ public:
 
 };
 
+class FormatError : public Error {
+public:
+    explicit FormatError(std::string&& details) noexcept : Error(move(details)) {}
+    ~FormatError() override = default;
+
+    const char* what() const noexcept override
+    { return "FormatError"; }
+
+};
+
 }
