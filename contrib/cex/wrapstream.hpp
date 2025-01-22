@@ -168,13 +168,6 @@ stream<V>& operator << (stream<V>& s, const std::integral auto& arg)
     return s;
 }
 
-template<typename V, std::ranges::range R>
-stream<V> operator << (stream<V>& s, const R& data)
-{
-    std::ranges::for_each(data, [&](const auto& d) {s << d;});
-    return s;
-}
-
 template<typename V>
 stream<V>& operator >> (stream<V>& s, std::integral auto& res)
 {
