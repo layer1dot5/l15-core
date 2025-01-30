@@ -6,7 +6,6 @@
 #include "nlohmann/json.hpp"
 #include "wrapstream.hpp"
 
-#include "streams.h"
 #include "util/strencodings.h"
 #include "amount.h"
 
@@ -55,30 +54,20 @@ uint32_t GetCsvInBlocks(uint32_t blocks);
 enum ChainType {BTC, L15};
 enum ChainMode {MAINNET, TESTNET, REGTEST};
 
-template<typename Stream>
-void WriteCompactSize(Stream& os, uint64_t nSize)
-{
-    if (nSize < 253)
-    {
-        ser_writedata8(os, nSize);
-    }
-    else if (nSize <= std::numeric_limits<uint16_t>::max())
-    {
-        ser_writedata8(os, 253);
-        ser_writedata16(os, nSize);
-    }
-    else if (nSize <= std::numeric_limits<unsigned int>::max())
-    {
-        ser_writedata8(os, 254);
-        ser_writedata32(os, nSize);
-    }
-    else
-    {
-        ser_writedata8(os, 255);
-        ser_writedata64(os, nSize);
-    }
-    return;
-}
+// template<typename S>
+// void WriteCompactSize(S& os, uint64_t v)
+// {
+//     static_assert(sizeof(typename S::value_type) == 1);
+//
+//     if (v < 253)
+//         os << static_cast<uint8_t>(v);
+//     else if (v <= std::numeric_limits<uint16_t>::max())
+//         os << 253 << static_cast<uint16_t>(v);
+//     else if (v <= std::numeric_limits<uint32_t>::max())
+//         os << 254 << static_cast<uint32_t>(v);
+//     else
+//         os << 255 << v;
+// }
 
 /**
  * Decode a CompactSize-encoded variable-length integer.
@@ -86,64 +75,39 @@ void WriteCompactSize(Stream& os, uint64_t nSize)
  * As these are primarily used to encode the size of vector-like serializations, by default a range
  * check is performed. When used as a generic number encoding, range_check should be set to false.
  */
-template<typename Stream>
-uint64_t ReadCompactSize(Stream& is, bool range_check = true)
-{
-    uint8_t chSize = ser_readdata8(is);
-    uint64_t nSizeRet = 0;
-    if (chSize < 253)
-    {
-        nSizeRet = chSize;
-    }
-    else if (chSize == 253)
-    {
-        nSizeRet = ser_readdata16(is);
-        if (nSizeRet < 253)
-            throw FormatError("non-canonical ReadCompactSize()");
-    }
-    else if (chSize == 254)
-    {
-        nSizeRet = ser_readdata32(is);
-        if (nSizeRet < 0x10000u)
-            throw FormatError("non-canonical ReadCompactSize()");
-    }
-    else
-    {
-        nSizeRet = ser_readdata64(is);
-        if (nSizeRet < 0x100000000ULL)
-            throw FormatError("non-canonical ReadCompactSize()");
-    }
-    if (range_check && nSizeRet > MAX_SIZE) {
-        throw FormatError("ReadCompactSize(): size too large");
-    }
-    return nSizeRet;
-}
-
-
-template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx);
-
-template <typename T, typename S> void LogTx(ChainMode chain, const T& tx, S& stream)
-{ stream << JsonTx<nlohmann::ordered_json>(chain, tx).dump(2); }
-
-template <typename T> void LogTx(ChainMode chain, const T& tx)
-{ LogTx(chain, tx, std::clog); }
-
-template <typename R, typename T> R LogTx(ChainMode chain, const T& tx)
-{
-    R res;
-    cex::stream<R&> os(res);
-    LogTx(chain, tx, os);
-    return res;
-}
-
-
-template<typename T>
-std::string EncodeHexTx(const T& tx)
-{
-    DataStream ssTx;
-    ssTx << TX_WITH_WITNESS(tx);
-    return HexStr(ssTx);
-}
-
+// template<typename S>
+// uint64_t ReadCompactSize(S& is, bool range_check = true)
+// {
+//     static_assert(sizeof(typename S::value_type) == 1);
+//
+//     uint64_t ret = 0;
+//     uint8_t first;
+//     is >> first;
+//
+//     if (first < 253)
+//         ret = first;
+//     else if (first == 253) {
+//         uint16_t v; is >> v;
+//         if (v < 253)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     else if (first == 254) {
+//         uint32_t v; is >> v;
+//         if (v < 0x10000u)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     else {
+//         uint64_t v; is >> v;
+//         if (v < 0x100000000ULL)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     if (range_check && ret > MAX_SIZE) {
+//         throw FormatError("ReadCompactSize(): size too large");
+//     }
+//     return ret;
+// }
 
 }

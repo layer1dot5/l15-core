@@ -5,17 +5,16 @@
 #pragma once
 
 #include "common.hpp"
+#include "utils.hpp"
 #include "master_key.hpp"
 
 #include "policy/feerate.h"
 #include "primitives/transaction.h"
 #include "script/keyorigin.h"
+#include "streams.h"
 
-#include <streams.h>
-
-#include <optional>
-#include <utils.hpp>
-#include <wrapstream.hpp>
+#include <deque>
+#include <ranges>
 
 namespace l15::core {
 
@@ -25,6 +24,10 @@ static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
 // Global types
 static constexpr uint8_t PSBT_GLOBAL_UNSIGNED_TX = 0x00;
 static constexpr uint8_t PSBT_GLOBAL_XPUB = 0x01;
+static constexpr uint8_t PSBT_GLOBAL_TX_VERSION = 0x02;
+static constexpr uint8_t PSBT_GLOBAL_FALLBACK_LOCKTIME = 0x03;
+static constexpr uint8_t PSBT_GLOBAL_INPUT_COUNT = 0x04;
+static constexpr uint8_t PSBT_GLOBAL_OUTPUT_COUNT = 0x05;
 static constexpr uint8_t PSBT_GLOBAL_VERSION = 0xFB;
 static constexpr uint8_t PSBT_GLOBAL_PROPRIETARY = 0xFC;
 
@@ -68,7 +71,7 @@ static constexpr uint8_t PSBT_SEPARATOR = 0x00;
 const std::streamsize MAX_FILE_SIZE_PSBT = 100000000; // 100 MB
 
 // PSBT version number
-static constexpr uint32_t PSBT_HIGHEST_VERSION = 0;
+static constexpr uint32_t PSBT_HIGHEST_VERSION = 2;
 
 /** A structure for PSBT proprietary types */
 struct PSBTProprietary
@@ -220,7 +223,7 @@ struct PSBTInput
     std::optional<int> sighash_type;
 
     PSBTInput()= default;
-    explicit PSBTInput(auto& s) {
+    explicit PSBTInput(DataStream& s) {
         Unserialize(s);
     }
 
@@ -229,11 +232,11 @@ struct PSBTInput
     //void FromSignatureData(const SignatureData& sigdata);
     void Merge(const PSBTInput& input);
 
-    void Serialize(auto& s) const {
+    void Serialize(DataStream& s) const {
         // Write the utxo
         if (non_witness_utxo) {
             SerializeToVector(s, CompactSizeWriter(PSBT_IN_NON_WITNESS_UTXO));
-            SerializeToVector(s, TX_NO_WITNESS(non_witness_utxo));
+            SerializeToVector(s, TX_WITH_WITNESS(non_witness_utxo));
         }
         if (witness_utxo) {
             SerializeToVector(s, CompactSizeWriter(PSBT_IN_WITNESS_UTXO));
@@ -327,7 +330,7 @@ struct PSBTInput
             // Write taproot internal key
             if (m_tap_internal_key) {
                 SerializeToVector(s, PSBT_IN_TAP_INTERNAL_KEY);
-                s << ToByteVector(*m_tap_internal_key);
+                s << m_tap_internal_key->get_vector();
             }
 
             // Write taproot merkle root
@@ -364,7 +367,7 @@ struct PSBTInput
     }
 
 
-    void Unserialize(auto& s) {
+    void Unserialize(DataStream& s) {
         // Used for duplicate key detection
         std::set<bytevector> key_lookup;
 
@@ -384,87 +387,75 @@ struct PSBTInput
 
             // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            uint64_t type = l15::ReadCompactSize(skey);
+            uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
             switch(type) {
                 case PSBT_IN_NON_WITNESS_UTXO:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input non-witness utxo already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Non-witness utxo key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input non-witness utxo already provided");
+                    if (key.size() != 1) throw TransactionError("Non-witness utxo key is more than one byte type");
+
                     // Set the stream to unserialize with witness since this is always a valid network transaction
                     UnserializeFromVector(s, TX_WITH_WITNESS(non_witness_utxo));
                     break;
                 }
                 case PSBT_IN_WITNESS_UTXO:
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input witness utxo already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Witness utxo key is more than one byte type");
-                    }
+                {
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input witness utxo already provided");
+                    if (key.size() != 1) throw TransactionError("Witness utxo key is more than one byte type");
+
                     witness_utxo.emplace();
                     UnserializeFromVector(s, *witness_utxo);
                     break;
+                }
                 case PSBT_IN_PARTIAL_SIG:
                 {
-                    // Make sure that the key is the size of pubkey + 1
-                    if (key.size() != compressed_pubkey::SIZE + 1) {
-                        throw KeyError("Size of key was not the expected size for the type partial signature pubkey");
-                    }
-                    // Read in the pubkey from key
+                    if (key.size() != compressed_pubkey::SIZE + 1) throw KeyError("Size of key was not the expected size for the type partial signature pubkey");
+
                     compressed_pubkey pubkey(key.begin() + 1, key.end());
                     // if (!pubkey.IsFullyValid()) {
                     //    throw TransactionError("Invalid pubkey");
                     // }
 
                     bytevector keyId = cryptohash<bytevector>(pubkey, CHash160());
-                    if (partial_sigs.count(keyId) > 0) {
-                        throw TransactionError("Duplicate Key, input partial signature for pubkey already provided");
-                    }
+                    if (partial_sigs.contains(keyId)) throw TransactionError("Duplicate Key, input partial signature for pubkey already provided");
 
                     // Read in the signature from value
                     bytevector sig;
                     s >> sig;
 
-                    // Add to list
                     partial_sigs.emplace(keyId, std::make_pair(pubkey, std::move(sig)));
                     break;
                 }
                 case PSBT_IN_SIGHASH:
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input sighash type already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Sighash type key is more than one byte type");
-                    }
+                {
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input sighash type already provided");
+                    if (key.size() != 1) throw TransactionError("Sighash type key is more than one byte type");
+
                     int sighash;
                     UnserializeFromVector(s, sighash);
                     sighash_type = sighash;
                     break;
+                }
                 case PSBT_IN_REDEEMSCRIPT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input redeemScript already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Input redeemScript key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input redeemScript already provided");
+                    if (key.size() != 1) throw TransactionError("Input redeemScript key is more than one byte type");
+
                     CScript script;
                     s >> script;
-                    redeem_script = move(script);
+                    redeem_script.emplace(script.begin(), script.end());
                     break;
                 }
                 case PSBT_IN_WITNESSSCRIPT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input witnessScript already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Input witnessScript key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input witnessScript already provided");
+                    if (key.size() != 1) throw TransactionError("Input witnessScript key is more than one byte type");
+
                     CScript script;
                     s >> script;
-                    witness_script = move(script);
+                    witness_script.emplace(script.begin(), script.end());
                     break;
                 }
                 case PSBT_IN_BIP32_DERIVATION:
@@ -474,23 +465,19 @@ struct PSBTInput
                 }
                 case PSBT_IN_SCRIPTSIG:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input final scriptSig already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Final scriptSig key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input final scriptSig already provided");
+                    if (key.size() != 1) throw TransactionError("Final scriptSig key is more than one byte type");
+
                     CScript script;
                     s >> script;
-                    final_script_sig = move(script);
+                    final_script_sig.emplace(script.begin(), script.end());
                     break;
                 }
                 case PSBT_IN_SCRIPTWITNESS:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input final scriptWitness already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Final scriptWitness key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input final scriptWitness already provided");
+                    if (key.size() != 1) throw TransactionError("Final scriptWitness key is more than one byte type");
+
                     final_script_witness.emplace();
                     UnserializeFromVector(s, final_script_witness->stack);
                     break;
@@ -498,13 +485,11 @@ struct PSBTInput
                 case PSBT_IN_RIPEMD160:
                 {
                     // Make sure that the key is the size of a ripemd160 hash + 1
-                    if (key.size() != CRIPEMD160::OUTPUT_SIZE + 1) {
-                        throw TransactionError("Size of key was not the expected size for the type ripemd160 preimage");
-                    }
+                    if (key.size() != CRIPEMD160::OUTPUT_SIZE + 1) throw TransactionError("Size of key was not the expected size for the type ripemd160 preimage");
+
                     // Read in the hash from key
-                    std::span hash_vec(key.begin() + 1, key.end());
-                    uint160 hash(hash_vec);
-                    if (ripemd160_preimages.count(hash) > 0) {
+                    uint160 hash(std::span(key.begin() + 1, key.end()));
+                    if (ripemd160_preimages.contains(hash)) {
                         throw TransactionError("Duplicate Key, input ripemd160 preimage already provided");
                     }
 
@@ -513,179 +498,146 @@ struct PSBTInput
                     s >> preimage;
 
                     // Add to preimages list
-                    ripemd160_preimages.emplace(hash, std::move(preimage));
+                    ripemd160_preimages.emplace(move(hash), std::move(preimage));
                     break;
                 }
                 case PSBT_IN_SHA256:
                 {
                     // Make sure that the key is the size of a sha256 hash + 1
-                    if (key.size() != CSHA256::OUTPUT_SIZE + 1) {
-                        throw TransactionError("Size of key was not the expected size for the type sha256 preimage");
-                    }
+                    if (key.size() != CSHA256::OUTPUT_SIZE + 1) throw TransactionError("Size of key was not the expected size for the type sha256 preimage");
+
                     // Read in the hash from key
-                    std::span hash_vec(key.begin() + 1, key.end());
-                    uint256 hash(hash_vec);
-                    if (sha256_preimages.count(hash) > 0) {
-                        throw TransactionError("Duplicate Key, input sha256 preimage already provided");
-                    }
+                    uint256 hash(std::span(key.begin() + 1, key.end()));
+                    if (sha256_preimages.contains(hash)) throw TransactionError("Duplicate Key, input sha256 preimage already provided");
 
                     // Read in the preimage from value
                     bytevector preimage;
                     s >> preimage;
 
                     // Add to preimages list
-                    sha256_preimages.emplace(hash, std::move(preimage));
+                    sha256_preimages.emplace(move(hash), std::move(preimage));
                     break;
                 }
                 case PSBT_IN_HASH160:
                 {
                     // Make sure that the key is the size of a hash160 hash + 1
-                    if (key.size() != CHash160::OUTPUT_SIZE + 1) {
-                        throw TransactionError("Size of key was not the expected size for the type hash160 preimage");
-                    }
+                    if (key.size() != CHash160::OUTPUT_SIZE + 1) throw TransactionError("Size of key was not the expected size for the type hash160 preimage");
+
                     // Read in the hash from key
-                    std::span hash_vec(key.begin() + 1, key.end());
-                    uint160 hash(hash_vec);
-                    if (hash160_preimages.count(hash) > 0) {
-                        throw TransactionError("Duplicate Key, input hash160 preimage already provided");
-                    }
+                    uint160 hash(std::span(key.begin() + 1, key.end()));
+                    if (hash160_preimages.contains(hash)) throw TransactionError("Duplicate Key, input hash160 preimage already provided");
 
                     // Read in the preimage from value
                     bytevector preimage;
                     s >> preimage;
 
                     // Add to preimages list
-                    hash160_preimages.emplace(hash, std::move(preimage));
+                    hash160_preimages.emplace(move(hash), std::move(preimage));
                     break;
                 }
                 case PSBT_IN_HASH256:
                 {
                     // Make sure that the key is the size of a hash256 hash + 1
-                    if (key.size() != CHash256::OUTPUT_SIZE + 1) {
-                        throw TransactionError("Size of key was not the expected size for the type hash256 preimage");
-                    }
+                    if (key.size() != CHash256::OUTPUT_SIZE + 1) throw TransactionError("Size of key was not the expected size for the type hash256 preimage");
+
                     // Read in the hash from key
-                    std::span hash_vec(key.begin() + 1, key.end());
-                    uint256 hash(hash_vec);
-                    if (hash256_preimages.count(hash) > 0) {
-                        throw TransactionError("Duplicate Key, input hash256 preimage already provided");
-                    }
+                    uint256 hash(std::span(key.begin() + 1, key.end()));
+                    if (hash256_preimages.contains(hash)) throw TransactionError("Duplicate Key, input hash256 preimage already provided");
 
                     // Read in the preimage from value
                     bytevector preimage;
                     s >> preimage;
 
                     // Add to preimages list
-                    hash256_preimages.emplace(hash, std::move(preimage));
+                    hash256_preimages.emplace(move(hash), std::move(preimage));
                     break;
                 }
                 case PSBT_IN_TAP_KEY_SIG:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot key signature already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Input Taproot key signature key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot key signature already provided");
+                    if (key.size() != 1) throw TransactionError("Input Taproot key signature key is more than one byte type");
 
                     signature sig;
                     s >> sig;
 
-                    if (sig.size() < 64) {
-                        throw TransactionError("Input Taproot key path signature is shorter than 64 bytes");
-                    } else if (sig.size() > 65) {
-                        throw TransactionError("Input Taproot key path signature is longer than 65 bytes");
-                    }
+                    if (sig.size() < 64) throw TransactionError("Input Taproot key path signature is shorter than 64 bytes");
+                    if (sig.size() > 65) throw TransactionError("Input Taproot key path signature is longer than 65 bytes");
+
                     m_tap_key_sig = move(sig);
                     break;
                 }
                 case PSBT_IN_TAP_SCRIPT_SIG:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot script signature already provided");
-                    } else if (key.size() != 65) {
-                        throw TransactionError("Input Taproot script signature key is not 65 bytes");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot script signature already provided");
+                    if (key.size() != 65) throw TransactionError("Input Taproot script signature key is not 65 bytes");
+
                     SpanReader s_key{std::span{key}.subspan(1)};
-                    xonly_pubkey xonly;
+                    xonly_pubkey pk;
                     uint256 hash;
-                    s_key >> xonly.get_vector();
-                    s_key >> hash;
+                    skey >> pk.get_vector();
+                    skey >> hash;
+
                     signature sig;
                     s >> sig;
-                    if (sig.size() < 64) {
-                        throw TransactionError("Input Taproot script path signature is shorter than 64 bytes");
-                    } else if (sig.size() > 65) {
-                        throw TransactionError("Input Taproot script path signature is longer than 65 bytes");
-                    }
-                    m_tap_script_sigs.emplace(std::make_pair(move(xonly), hash), sig);
+
+                    if (sig.size() < 64) throw TransactionError("Input Taproot script path signature is shorter than 64 bytes");
+                    if (sig.size() > 65) throw TransactionError("Input Taproot script path signature is longer than 65 bytes");
+
+                    m_tap_script_sigs.emplace(std::make_pair(move(pk), hash), move(sig));
                     break;
                 }
                 case PSBT_IN_TAP_LEAF_SCRIPT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot leaf script already provided");
-                    } else if (key.size() < 34) {
-                        throw TransactionError("Taproot leaf script key is not at least 34 bytes");
-                    } else if ((key.size() - 2) % 32 != 0) {
-                        throw TransactionError("Input Taproot leaf script key's control block size is not valid");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot leaf script already provided");
+                    if (key.size()-1 < 34) throw TransactionError("Taproot leaf script key is not at least 34 bytes");
+                    if ((key.size()-1 - 2) % 32 != 0) throw TransactionError("Input Taproot leaf script key's control block size is not valid");
+
                     bytevector script_v;
                     s >> script_v;
-                    if (script_v.empty()) {
-                        throw TransactionError("Input Taproot leaf script must be at least 1 byte");
-                    }
+                    if (script_v.empty()) throw TransactionError("Input Taproot leaf script must be at least 1 byte");
+
                     uint8_t leaf_ver = script_v.back();
-                    if (leaf_ver != 0x0C0) {
-                        throw TransactionError("Input Taproot leaf script version is not 0xC0");
-                    }
+                    if (leaf_ver != 0x0C0) throw TransactionError("Input Taproot leaf script version is not 0xC0");
                     script_v.pop_back();
-                    CScript leaf_script(script_v.begin(), script_v.end());
-                    if (!m_tap_scripts.emplace(leaf_script, bytevector(key.begin() + 1, key.end())).second) {
+
+                    if (!m_tap_scripts.emplace(CScript(script_v.begin(), script_v.end()), bytevector(key.begin() + 1, key.end())).second)
                         throw TransactionError("Input Taproot leaf script already exist");
-                    }
+
                     break;
                 }
                 case PSBT_IN_TAP_BIP32_DERIVATION:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot BIP32 keypath already provided");
-                    } else if (key.size() != 33) {
-                        throw TransactionError("Input Taproot BIP32 keypath key is not at 33 bytes");
-                    }
-                    SpanReader s_key{Span{key}.subspan(1)};
-                    xonly_pubkey xonly;
-                    s_key >> xonly.get_vector();
+                    // throw std::runtime_error("Input Taproot bip32 derivation path is not supported by PSBT");
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot BIP32 keypath already provided");
+                    if (key.size() != 33) throw TransactionError("Input Taproot BIP32 keypath key is not at 33 bytes");
+
+                    xonly_pubkey pk;
+                    skey >> pk.get_vector();
                     std::set<uint256> leaf_hashes;
                     uint64_t value_len = ReadCompactSize(s);
                     size_t before_hashes = s.size();
                     s >> leaf_hashes;
                     size_t after_hashes = s.size();
                     size_t hashes_len = before_hashes - after_hashes;
-                    if (hashes_len > value_len) {
-                        throw TransactionError("Input Taproot BIP32 keypath has an invalid length");
-                    }
+                    if (hashes_len > value_len) throw TransactionError("Input Taproot BIP32 keypath has an invalid length");
+
                     size_t origin_len = value_len - hashes_len;
-                    m_tap_bip32_paths.emplace(move(xonly), std::make_pair(leaf_hashes, DeserializeKeyOrigin(s, origin_len)));
+                    m_tap_bip32_paths.emplace(move(pk), std::make_pair(move(leaf_hashes), DeserializeKeyOrigin(s, origin_len)));
                     break;
                 }
                 case PSBT_IN_TAP_INTERNAL_KEY:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot internal key already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Input Taproot internal key key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot internal key already provided");
+                    if (key.size() != 1) throw TransactionError("Input Taproot internal key key is more than one byte type");
+
                     m_tap_internal_key.emplace();
-                    UnserializeFromVector(s, m_tap_internal_key->get_vector());
+                    s >> m_tap_internal_key->get_vector();
                     break;
                 }
                 case PSBT_IN_TAP_MERKLE_ROOT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, input Taproot merkle root already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Input Taproot merkle root key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input Taproot merkle root already provided");
+                    if (key.size() != 1) throw TransactionError("Input Taproot merkle root key is more than one byte type");
 
                     m_tap_merkle_root.emplace();
                     UnserializeFromVector(s, *m_tap_merkle_root);
@@ -695,32 +647,33 @@ struct PSBTInput
                 {
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
-                    this_prop.subtype = l15::ReadCompactSize(skey);
+                    this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
-                    if (m_proprietary.count(this_prop) > 0) {
-                        throw TransactionError("Duplicate Key, proprietary key already found");
-                    }
+                    if (m_proprietary.contains(this_prop)) throw TransactionError("Duplicate Key, proprietary key already found");
+
+                    uint64_t valuelen = ReadCompactSize(s);
+                    this_prop.value.resize(valuelen);
                     s >> this_prop.value;
                     m_proprietary.insert(this_prop);
                     break;
                 }
                 // Unknown stuff
                 default:
-                    if (unknown.count(key) > 0) {
-                        throw TransactionError("Duplicate Key, key for unknown value already provided");
-                    }
+                {
+                    if (unknown.contains(key)) throw TransactionError("Duplicate Key, key for unknown value already provided");
+
                     // Read in the value
                     bytevector val_bytes;
                     s >> val_bytes;
                     unknown.emplace(std::move(key), std::move(val_bytes));
                     break;
+                }
             }
         }
 
-        if (!found_sep) {
-            throw TransactionError("Separator is missing at the end of an input map");
-        }
+        if (!found_sep) throw TransactionError("Separator is missing at the end of an input map");
+
     }
 };
 
@@ -819,17 +772,14 @@ struct PSBTOutput
 
             // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            uint64_t type = l15::ReadCompactSize(skey);
+            uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
             switch(type) {
                 case PSBT_OUT_REDEEMSCRIPT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, output redeemScript already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Output redeemScript key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output redeemScript already provided");
+                    if (key.size() != 1) throw TransactionError("Output redeemScript key is more than one byte type");
 
                     redeem_script.emplace();
                     s >> *redeem_script;
@@ -837,11 +787,8 @@ struct PSBTOutput
                 }
                 case PSBT_OUT_WITNESSSCRIPT:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, output witnessScript already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Output witnessScript key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output witnessScript already provided");
+                    if (key.size() != 1) throw TransactionError("Output witnessScript key is more than one byte type");
 
                     witness_script.emplace();
                     s >> *witness_script;
@@ -854,27 +801,23 @@ struct PSBTOutput
                 }
                 case PSBT_OUT_TAP_INTERNAL_KEY:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, output Taproot internal key already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Output Taproot internal key key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output Taproot internal key already provided");
+                    if (key.size() != 1) throw TransactionError("Output Taproot internal key key is more than one byte type");
+
+                    m_tap_internal_key.emplace();
                     UnserializeFromVector(s, m_tap_internal_key->get_vector());
                     break;
                 }
                 case PSBT_OUT_TAP_TREE:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, output Taproot tree already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Output Taproot tree key is more than one byte type");
-                    }
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output Taproot tree already provided");
+                    if (key.size() != 1) throw TransactionError("Output Taproot tree key is more than one byte type");
+
                     bytevector tree_v;
                     s >> tree_v;
                     SpanReader s_tree{tree_v};
-                    if (s_tree.empty()) {
-                        throw TransactionError("Output Taproot tree must not be empty");
-                    }
+                    if (s_tree.empty()) throw TransactionError("Output Taproot tree must not be empty");
+
                     //TaprootBuilder builder;
                     while (!s_tree.empty()) {
                         uint8_t depth;
@@ -883,12 +826,10 @@ struct PSBTOutput
                         s_tree >> depth;
                         s_tree >> leaf_ver;
                         s_tree >> script;
-                        if (depth > TAPROOT_CONTROL_MAX_NODE_COUNT) {
-                            throw TransactionError("Output Taproot tree has as leaf greater than Taproot maximum depth");
-                        }
-                        if ((leaf_ver & ~TAPROOT_LEAF_MASK) != 0) {
-                            throw TransactionError("Output Taproot tree has a leaf with an invalid leaf version");
-                        }
+
+                        if (depth > TAPROOT_CONTROL_MAX_NODE_COUNT) throw TransactionError("Output Taproot tree has as leaf greater than Taproot maximum depth");
+                        if ((leaf_ver & ~TAPROOT_LEAF_MASK) != 0) throw TransactionError("Output Taproot tree has a leaf with an invalid leaf version");
+
                         m_tap_tree.emplace_back(depth, leaf_ver, script);
                         //builder.Add((int)depth, script, (int)leaf_ver, /*track=*/true);
                     }
@@ -899,44 +840,44 @@ struct PSBTOutput
                 }
                 case PSBT_OUT_TAP_BIP32_DERIVATION:
                 {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, output Taproot BIP32 keypath already provided");
-                    } else if (key.size() != 33) {
-                        throw TransactionError("Output Taproot BIP32 keypath key is not at 33 bytes");
-                    }
-                    xonly_pubkey xonly(key.end() - 32, key.end());
+                    // throw std::runtime_error("Output taproot BIP32 derivation path not implemented by PSBT");
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output Taproot BIP32 keypath already provided");
+                    if (key.size() != 33) throw TransactionError("Output Taproot BIP32 keypath key is not at 33 bytes");
+
+                    xonly_pubkey pk(key.end() - 32, key.end());
+
                     std::set<uint256> leaf_hashes;
                     uint64_t value_len = ReadCompactSize(s);
                     size_t before_hashes = s.size();
                     s >> leaf_hashes;
                     size_t after_hashes = s.size();
                     size_t hashes_len = before_hashes - after_hashes;
-                    if (hashes_len > value_len) {
-                        throw TransactionError("Output Taproot BIP32 keypath has an invalid length");
-                    }
+                    if (hashes_len > value_len) throw TransactionError("Output Taproot BIP32 keypath has an invalid length");
+
                     size_t origin_len = value_len - hashes_len;
-                    m_tap_bip32_paths.emplace(move(xonly), std::make_pair(leaf_hashes, DeserializeKeyOrigin(s, origin_len)));
+                    m_tap_bip32_paths.emplace(move(pk), std::make_pair(move(leaf_hashes), DeserializeKeyOrigin(s, origin_len)));
                     break;
                 }
                 case PSBT_OUT_PROPRIETARY:
                 {
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
-                    this_prop.subtype = l15::ReadCompactSize(skey);
+                    this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
-                    if (m_proprietary.count(this_prop) > 0) {
-                        throw TransactionError("Duplicate Key, proprietary key already found");
-                    }
+                    if (m_proprietary.contains(this_prop)) throw TransactionError("Duplicate Key, proprietary key already found");
+
+                    uint64_t valuelen = ReadCompactSize(s);
+                    this_prop.value.resize(valuelen);
                     s >> this_prop.value;
                     m_proprietary.insert(this_prop);
                     break;
                 }
                 // Unknown stuff
-                default: {
-                    if (unknown.count(key) > 0) {
-                        throw TransactionError("Duplicate Key, key for unknown value already provided");
-                    }
+                default:
+                {
+                    if (unknown.contains(key)) throw TransactionError("Duplicate Key, key for unknown value already provided");
+
                     // Read in the value
                     bytevector val_bytes;
                     s >> val_bytes;
@@ -945,12 +886,8 @@ struct PSBTOutput
                 }
             }
         }
-
-        if (!found_sep) {
-            throw TransactionError("Separator is missing at the end of an output map");
-        }
+        if (!found_sep) throw TransactionError("Separator is missing at the end of an output map");
     }
-
 };
 
 /** A version of CTransaction with the PSBT format*/
@@ -963,17 +900,18 @@ struct PartiallySignedTransaction
     std::vector<PSBTInput> inputs;
     std::vector<PSBTOutput> outputs;
     std::map<bytevector, bytevector> unknown;
-    std::optional<uint32_t> m_version;
+    uint32_t m_version = 0;
+    std::optional<uint32_t> m_fallback_locktime;
     std::set<PSBTProprietary> m_proprietary;
 
     PartiallySignedTransaction() = default;
     explicit PartiallySignedTransaction(const CMutableTransaction& tx);
-    // explicit PartiallySignedTransaction(auto& s) {
-    //     Unserialize(s);
-    // }
+    explicit PartiallySignedTransaction(const auto& s) {
+        Unserialize(s);
+    }
 
     bool IsNull() const;
-    uint32_t GetVersion() const { return m_version.value_or(0); }
+    uint32_t GetVersion() const { return m_version; }
 
     /** Merge psbt into this. The two psbts must have the same underlying CTransaction (i.e. the
       * same actual Bitcoin transaction.) Returns true if the merge succeeded, false otherwise. */
@@ -987,20 +925,38 @@ struct PartiallySignedTransaction
      * @param[in] input_index Index of the input to retrieve the UTXO of
      * @return Whether the UTXO for the specified input was found
      */
-    bool GetInputUTXO(CTxOut& utxo, int input_index) const;
+    const CTxOut& GetInputUTXO(size_t input_index) const;
 
     template<typename Container>
     Container Serialize() const {
 
-        cex::stream<Container> s;
+        DataStream s;
         // magic bytes
         s << PSBT_MAGIC_BYTES;
 
-        // unsigned tx flag
-        SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_UNSIGNED_TX));
+        switch (m_version) {
+        case 0:
+            SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_UNSIGNED_TX));
+            SerializeToVector(s, TX_NO_WITNESS(*tx));
 
-        // Write serialized tx to a stream
-        SerializeToVector(s, TX_NO_WITNESS(*tx));
+            if (m_fallback_locktime) throw TransactionError("Fallback locktime in PSBT v0");
+            break;
+        case 2:
+            SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_TX_VERSION));
+            SerializeToVector(s, tx->nVersion);
+
+            if (m_fallback_locktime) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_FALLBACK_LOCKTIME));
+                SerializeToVector(s, *m_fallback_locktime);
+            }
+
+            SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_INPUT_COUNT));
+            SerializeToVector(s, CompactSizeWriter(tx->vin.size()));
+
+            SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_OUTPUT_COUNT));
+            SerializeToVector(s, CompactSizeWriter(tx->vout.size()));
+            break;
+        }
 
         // Write xpubs
         // for (const auto& xpub_pair : m_xpubs) {
@@ -1009,7 +965,7 @@ struct PartiallySignedTransaction
         //         xpub.EncodeWithVersion(ser_xpub);
         //         // Note that the serialization swaps the key and value
         //         // The xpub is the key (for uniqueness) while the path is the value
-        //         SerializeToVector(s, PSBT_GLOBAL_XPUB, ser_xpub);
+        //         SerializeValue(s, PSBT_GLOBAL_XPUB, ser_xpub);
         //         SerializeHDKeypath(s, xpub_pair.first);
         //     }
         // }
@@ -1017,7 +973,7 @@ struct PartiallySignedTransaction
         // PSBT version
         if (GetVersion() > 0) {
             SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_VERSION));
-            SerializeToVector(s, *m_version);
+            SerializeToVector(s, m_version);
         }
 
         // Write proprietary things
@@ -1043,12 +999,15 @@ struct PartiallySignedTransaction
         for (const PSBTOutput& output : outputs) {
             output.Serialize(s);
         }
-        return s.raw();
+
+        Container res;
+        std::ranges::transform(s, cex::smartinserter(res, res.end()), [](const auto& v) { return static_cast<typename Container::value_type>(v); });
+        return res;
     }
 
-    void Unserialize(auto raw_data) {
+    void Unserialize(const auto& raw_data) {
 
-        auto s = cex::make_stream(raw_data);
+        auto s = DataStream(raw_data);
         
         // Read the magic bytes
         uint8_t magic[5];
@@ -1077,17 +1036,15 @@ struct PartiallySignedTransaction
 
             // Type is compact size uint at beginning of key
             SpanReader skey{key};
-            uint64_t type = l15::ReadCompactSize(skey);
+            uint64_t type = ReadCompactSize(skey);
 
             // Do stuff based on type
             switch(type) {
-                case PSBT_GLOBAL_UNSIGNED_TX:
-                {
-                    if (!key_lookup.emplace(key).second) {
-                        throw TransactionError("Duplicate Key, unsigned tx already provided");
-                    } else if (key.size() != 1) {
-                        throw TransactionError("Global unsigned tx key is more than one byte type");
-                    }
+            case PSBT_GLOBAL_UNSIGNED_TX: {
+                    if (m_version == 2) throw TransactionError("Unsigned Transaction is not allowed for PSBT v2");
+                    if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, unsigned tx already provided");
+                    if (key.size() != 1) throw TransactionError("Global unsigned tx key is more than one byte type");
+
                     CMutableTransaction mtx;
                     // Set the stream to serialize with non-witness since this should always be non-witness
                     UnserializeFromVector(s, TX_NO_WITNESS(mtx));
@@ -1100,8 +1057,7 @@ struct PartiallySignedTransaction
                     }
                     break;
                 }
-                case PSBT_GLOBAL_XPUB:
-                {
+            case PSBT_GLOBAL_XPUB: {
                     // if (key.size() != BIP32_EXTKEY_WITH_VERSION_SIZE + 1) {
                     //     throw TransactionError("Size of key was not the expected size for the type global xpub");
                     // }
@@ -1130,26 +1086,64 @@ struct PartiallySignedTransaction
                     // }
                     break;
                 }
-                case PSBT_GLOBAL_VERSION:
+            case PSBT_GLOBAL_TX_VERSION:
+                if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, unsigned tx already provided");
+                if (key.size() != 1) throw TransactionError("Global unsigned tx key is more than one byte type");
+
+                if (!tx) tx.emplace();
+                UnserializeFromVector(s, tx->nVersion);
+
+                break;
+            case PSBT_GLOBAL_FALLBACK_LOCKTIME:
+                if (m_fallback_locktime) throw TransactionError("Duplicate Key, fallback locktime already provided");
+                if (key.size() != 1) throw TransactionError("Fallback locktime key is more than one byte type");
+
+                m_fallback_locktime.emplace();
+                UnserializeFromVector(s, *m_fallback_locktime);
+
+                break;
+            case PSBT_GLOBAL_INPUT_COUNT:
+                if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, input count already provided");
+                if (key.size() != 1) throw TransactionError("Input count key is more than one byte type");
+
                 {
-                    if (m_version) {
-                        throw TransactionError("Duplicate Key, version already provided");
-                    }
-                    if (key.size() != 1) {
-                        throw TransactionError("Global version key is more than one byte type");
-                    }
-                    uint32_t v;
-                    UnserializeFromVector(s, v);
-                    m_version = v;
-                    if (*m_version > PSBT_HIGHEST_VERSION)  throw TransactionError("Unsupported version number");
+                    uint64_t len = ReadCompactSize(s);
+                    size_t before = s.size();
+                    if (!tx) tx.emplace();
+                    tx->vin.resize(ReadCompactSize(s));
+                    //inputs.resize(tx->vin.size());
+
+                    if (s.size() + len != before) throw TransactionError("Input count value length mismatch");
+                }
+                break;
+            case PSBT_GLOBAL_OUTPUT_COUNT:
+                if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, output count already provided");
+                if (key.size() != 1) throw TransactionError("Output count key is more than one byte type");
+
+                {
+                    uint64_t len = ReadCompactSize(s);
+                    size_t before = s.size();
+                    if (!tx) tx.emplace();
+                    tx->vout.resize(ReadCompactSize(s));
+                    //outputs.resize(tx->vout.size());
+
+                    if (s.size() + len != before) throw TransactionError("Output count value length mismatch");
+                }
+                break;
+
+                case PSBT_GLOBAL_VERSION:
+                    if (!key_lookup.emplace(key).second)  throw TransactionError("Duplicate Key, version already provided");
+                    if (key.size() != 1) throw TransactionError("Global version key is more than one byte type");
+
+                    UnserializeFromVector(s, m_version);
+                    if (m_version > PSBT_HIGHEST_VERSION)  throw TransactionError("Unsupported version number");
 
                     break;
-                }
                 case PSBT_GLOBAL_PROPRIETARY:
                 {
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
-                    this_prop.subtype = l15::ReadCompactSize(skey);
+                    this_prop.subtype = ReadCompactSize(skey);
                     this_prop.key = key;
 
                     if (m_proprietary.count(this_prop) > 0)  throw TransactionError("Duplicate Key, proprietary key already found");
@@ -1178,13 +1172,12 @@ struct PartiallySignedTransaction
         // Read input data
         unsigned int i = 0;
         while (!s.empty() && i < tx->vin.size()) {
-            PSBTInput input(s);
+            inputs.emplace_back(PSBTInput(s));
 
             // Make sure the non-witness utxo matches the outpoint
-            if (input.non_witness_utxo && input.non_witness_utxo->GetHash() != tx->vin[i].prevout.hash)
+            if (inputs.back().non_witness_utxo && inputs.back().non_witness_utxo->GetHash() != tx->vin[i].prevout.hash)
                 throw TransactionError("Non-witness UTXO does not match outpoint hash");
 
-            inputs.push_back(input);
             ++i;
         }
         // Make sure that the number of inputs matches the number of inputs in the transaction
@@ -1194,8 +1187,7 @@ struct PartiallySignedTransaction
         // Read output data
         i = 0;
         while (!s.empty() && i < tx->vout.size()) {
-            PSBTOutput output(s);
-            outputs.push_back(output);
+            outputs.emplace_back(PSBTOutput(s));
             ++i;
         }
         // Make sure that the number of outputs matches the number of outputs in the transaction

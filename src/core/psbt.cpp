@@ -71,24 +71,23 @@ bool PartiallySignedTransaction::AddOutput(const CTxOut& txout, const PSBTOutput
     return true;
 }
 
-bool PartiallySignedTransaction::GetInputUTXO(CTxOut& utxo, int input_index) const
+const CTxOut& PartiallySignedTransaction::GetInputUTXO(size_t input_index) const
 {
     const PSBTInput& input = inputs[input_index];
     uint32_t prevout_index = tx->vin[input_index].prevout.n;
     if (input.non_witness_utxo) {
         if (prevout_index >= input.non_witness_utxo->vout.size()) {
-            return false;
+            throw std::out_of_range("UTXO not found");
         }
         if (input.non_witness_utxo->GetHash() != tx->vin[input_index].prevout.hash) {
-            return false;
+            throw std::out_of_range("UTXO not found");
         }
-        utxo = input.non_witness_utxo->vout[prevout_index];
-    } else if (input.witness_utxo) {
-        utxo = *input.witness_utxo;
-    } else {
-        return false;
+        return input.non_witness_utxo->vout[prevout_index];
     }
-    return true;
+    if (input.witness_utxo) {
+        return  *input.witness_utxo;
+    }
+    throw std::out_of_range("UTXO not found");
 }
 
 bool PSBTInput::IsNull() const

@@ -69,19 +69,35 @@ public:
     {
         if (m_container.end() - m_read_it < count) throw std::range_error("Not enough data to read");
 
-        iterator end_it = m_read_it + count;
+        auto end_it = m_read_it + count;
         std::transform(m_read_it, end_it, p, [&](const auto& v){ return v; });
         m_read_it = end_it;
         return *this;
     }
 
+    // stream& read(auto span)
+    // {
+    //     return read(span.data(), span.size());
+    // }
+
     template <typename V>
-    stream& read(const V& elements)
+    stream& read(V& elements)
     {
         if (m_container.end() - m_read_it < elements.size()) throw std::range_error("Not enough data to read");
 
-        iterator end_it = m_read_it + elements.size();
-        std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return v; });
+        auto end_it = m_read_it + elements.size();
+        std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return static_cast<typename V::value_type>(v); });
+        m_read_it = end_it;
+        return *this;
+    }
+
+    template <typename V>
+    stream& read(V&& elements)
+    {
+        if (m_container.end() - m_read_it < elements.size()) throw std::range_error("Not enough data to read");
+
+        auto end_it = m_read_it + elements.size();
+        std::transform(m_read_it, end_it, elements.begin(), [&](const auto& v){ return static_cast<typename V::value_type>(v); });
         m_read_it = end_it;
         return *this;
     }
@@ -152,8 +168,6 @@ public:
 template<typename V>
 stream<V>& operator << (stream<V>& s, const std::integral auto& arg)
 {
-    //static_assert(std::is_integral_v<typename stream<V>::value_type>);
-
     auto v = arg;
     const size_t shift_step = sizeof(typename stream<V>::value_type) * 8;
     auto mask = v;
@@ -169,10 +183,15 @@ stream<V>& operator << (stream<V>& s, const std::integral auto& arg)
 }
 
 template<typename V>
+stream<V>& operator >> (stream<V>& s, std::byte& res)
+{
+    res = static_cast<std::byte>(s.get());
+    return s;
+}
+
+template<typename V>
 stream<V>& operator >> (stream<V>& s, std::integral auto& res)
 {
-    //static_assert(std::is_integral_v<typename stream<V>::value_type>);
-
     auto v = res;
 
     const size_t shift_step = sizeof(typename stream<V>::value_type) * 8;
@@ -183,7 +202,7 @@ stream<V>& operator >> (stream<V>& s, std::integral auto& res)
     v = 0;
     for (size_t i = 0; i < steps; ++i) {
         v = v << shift_step;
-        auto a = s.get();
+        auto a = static_cast<decltype(v)>(s.get());
         v |= (a & mask);
     }
     res = v;
@@ -200,7 +219,7 @@ stream<V>& operator << (stream<V>& s, const std::ranges::range auto& r)
 template <typename V>
 stream<V>& operator >> (stream<V>& s, std::ranges::range auto& r)
 {
-    for(const auto& el: r) s >> el;
+    for(auto& el: r) s >> el;
     return s;
 }
 
