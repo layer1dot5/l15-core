@@ -104,13 +104,13 @@ public:
 
 CScript& operator<<(CScript& script, const xonly_pubkey& pk);
 
-template <class STREAM>
-STREAM& operator << (STREAM& s, const xonly_pubkey& x)
-{ return operator<<(s, reinterpret_cast<const xonly_pubkey::base&>(x)); }
-
-template <class STREAM>
-STREAM& operator >> (STREAM& s, xonly_pubkey& x)
-{ return operator>>(s, reinterpret_cast<xonly_pubkey::base&>(x)); }
+// template <class STREAM>
+// STREAM& operator << (STREAM& s, const xonly_pubkey& x)
+// { return operator<<(s, reinterpret_cast<const xonly_pubkey::base&>(x)); }
+//
+// template <class STREAM>
+// STREAM& operator >> (STREAM& s, xonly_pubkey& x)
+// { return operator>>(s, reinterpret_cast<xonly_pubkey::base&>(x)); }
 
 
 typedef std::unique_ptr<CMutableTransaction> transaction_ptr;

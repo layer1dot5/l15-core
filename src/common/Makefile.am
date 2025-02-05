@@ -28,6 +28,7 @@ noinst_LTLIBRARIES = libl15-common.la
 libl15_common_la_SOURCES = \
 	common.cpp \
 	utils.cpp \
+	transaction.cpp \
 	bech32_hrp.cpp \
 	base58.cpp
 

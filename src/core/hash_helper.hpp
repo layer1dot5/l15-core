@@ -3,6 +3,8 @@
 #include "serialize.h"
 #include "crypto/sha256.h"
 
+#include <span>
+
 namespace l15 {
 
 
@@ -20,6 +22,10 @@ public:
     constexpr void write(Span<const std::byte> src)
     {
         mData.Write(reinterpret_cast<const unsigned char *>(src.data()), src.size());
+    }
+    constexpr void write(std::span<const uint8_t> src)
+    {
+        mData.Write(src.data(), src.size());
     }
     D& get() { return mData; }
     constexpr const D& get() const { return mData; }
@@ -43,14 +49,14 @@ public:
     constexpr operator R()
     {
         R result(H::OUTPUT_SIZE);
-        Writer<H>::get().Finalize(result.begin());
+        Writer<H>::get().Finalize(result.data());
         return result;
     }
 
     using Writer<H>::operator<<;
 };
 
-inline CSHA256 PrecalculatedTaggedHash(const std::string &tag) noexcept
+inline constexpr CSHA256 PrecalculatedTaggedHash(const std::string &tag) noexcept
 {
     uint256 taghash;
     CSHA256().Write((const unsigned char*)tag.data(), tag.size()).Finalize(taghash.data());

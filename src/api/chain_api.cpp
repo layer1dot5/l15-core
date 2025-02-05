@@ -171,7 +171,7 @@ std::string ChainApi::SpendTx(const CTransaction &tx) const
 
 CTransaction ChainApi::GetTx(std::string txid) const
 {
-    CMutableTransaction tx = Deserialize(Call(GETRAWTRANSACTION, move(txid)));
+    CMutableTransaction tx = DecodeHexTx(Call(GETRAWTRANSACTION, move(txid)));
     return CTransaction(move(tx));
 }
 

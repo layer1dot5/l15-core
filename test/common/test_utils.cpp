@@ -9,6 +9,7 @@
 #include "transaction.h"
 
 #include "utils.hpp"
+#include "transaction.hpp"
 
 using namespace l15;
 

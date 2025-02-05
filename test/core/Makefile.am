@@ -36,7 +36,7 @@ $(top_builddir)/$(NODE_PATH)/src/libunivalue.la \
 $(top_builddir)/$(SECP256K1_PATH)/libsecp256k1.la \
 $(BOOST_FILESYSTEM_LIB)
 
-bin_PROGRAMS = test_taptree test_taproot test_node test_derive_key test_signing test_mnemonic
+bin_PROGRAMS = test_taptree test_taproot test_node test_derive_key test_signing test_mnemonic test_psbt
 #test_ptlc
 
 if BUILD_FROST
@@ -74,3 +74,7 @@ test_mnemonic_LDADD = $(L15_LIBS)
 
 test_signing_SOURCES = test_signing.cpp
 test_signing_LDADD = $(L15_LIBS)
+
+
+test_psbt_SOURCES = test_psbt.cpp
+test_psbt_LDADD = $(L15_LIBS)

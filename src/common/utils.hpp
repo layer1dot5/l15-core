@@ -6,7 +6,6 @@
 #include "nlohmann/json.hpp"
 #include "wrapstream.hpp"
 
-#include "streams.h"
 #include "util/strencodings.h"
 #include "amount.h"
 
@@ -55,30 +54,60 @@ uint32_t GetCsvInBlocks(uint32_t blocks);
 enum ChainType {BTC, L15};
 enum ChainMode {MAINNET, TESTNET, REGTEST};
 
-template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx);
+// template<typename S>
+// void WriteCompactSize(S& os, uint64_t v)
+// {
+//     static_assert(sizeof(typename S::value_type) == 1);
+//
+//     if (v < 253)
+//         os << static_cast<uint8_t>(v);
+//     else if (v <= std::numeric_limits<uint16_t>::max())
+//         os << 253 << static_cast<uint16_t>(v);
+//     else if (v <= std::numeric_limits<uint32_t>::max())
+//         os << 254 << static_cast<uint32_t>(v);
+//     else
+//         os << 255 << v;
+// }
 
-template <typename T, typename S> void LogTx(ChainMode chain, const T& tx, S& stream)
-{ stream << JsonTx<nlohmann::ordered_json>(chain, tx).dump(2); }
-
-template <typename T> void LogTx(ChainMode chain, const T& tx)
-{ LogTx(chain, tx, std::clog); }
-
-template <typename R, typename T> R LogTx(ChainMode chain, const T& tx)
-{
-    R res;
-    cex::stream<R&> os(res);
-    LogTx(chain, tx, os);
-    return res;
-}
-
-
-template<typename T>
-std::string EncodeHexTx(const T& tx)
-{
-    DataStream ssTx;
-    ssTx << TX_WITH_WITNESS(tx);
-    return HexStr(ssTx);
-}
-
+/**
+ * Decode a CompactSize-encoded variable-length integer.
+ *
+ * As these are primarily used to encode the size of vector-like serializations, by default a range
+ * check is performed. When used as a generic number encoding, range_check should be set to false.
+ */
+// template<typename S>
+// uint64_t ReadCompactSize(S& is, bool range_check = true)
+// {
+//     static_assert(sizeof(typename S::value_type) == 1);
+//
+//     uint64_t ret = 0;
+//     uint8_t first;
+//     is >> first;
+//
+//     if (first < 253)
+//         ret = first;
+//     else if (first == 253) {
+//         uint16_t v; is >> v;
+//         if (v < 253)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     else if (first == 254) {
+//         uint32_t v; is >> v;
+//         if (v < 0x10000u)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     else {
+//         uint64_t v; is >> v;
+//         if (v < 0x100000000ULL)
+//             throw FormatError("non-canonical ReadCompactSize()");
+//         ret = v;
+//     }
+//     if (range_check && ret > MAX_SIZE) {
+//         throw FormatError("ReadCompactSize(): size too large");
+//     }
+//     return ret;
+// }
 
 }
