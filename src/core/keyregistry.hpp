@@ -37,7 +37,7 @@ public:
 
 struct KeyLookupFilter
 {
-    enum Type {DEFAULT, TAPROOT, TAPSCRIPT, LEGACY};
+    enum Type {DEFAULT, TAPROOT, TAPSCRIPT, NESTED_SEGWIT, LEGACY};
 
     bool look_cache;
     Type type;

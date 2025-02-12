@@ -71,6 +71,13 @@ public:
     std::string GetP2PKHAddress(ChainMode chain) const
     { return Base58(chain).Encode(cryptohash<bytevector>(GetEcdsaKeyPair().GetPubKey(), CHash160()), PUB_KEY_HASH); }
 
+    std::string GetP2WPKH_P2SHAddress(ChainMode chain) const
+    {
+        CScript redeemScript;
+        redeemScript << 0 << cryptohash<bytevector>(GetEcdsaKeyPair().GetPubKey(), CHash160());
+        return Base58(chain).Encode(cryptohash<bytevector>(redeemScript, CHash160()), SCRIPT_HASH);
+    }
+
     SchnorrKeyPair GetSchnorrKeyPair() const
     { return SchnorrKeyPair(m_ctx, m_sk); }
 

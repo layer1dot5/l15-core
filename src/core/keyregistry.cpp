@@ -102,6 +102,9 @@ KeyPair KeyRegistry::Lookup(const bytevector &keyid, const KeyLookupFilter& hint
     case KeyLookupFilter::TAPSCRIPT:
         masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP86_TAPROOT);
         break;
+    case KeyLookupFilter::NESTED_SEGWIT:
+        masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP49_P2WPKH_P2SH);
+        break;
     case KeyLookupFilter::LEGACY:
         masterCopy.DeriveSelf(MasterKey::BIP32_HARDENED_KEY_LIMIT + MasterKey::BIP44_LEGACY);
         break;
@@ -243,8 +246,17 @@ KeyPair KeyRegistry::Lookup(const std::string& addr, const KeyLookupFilter& hint
             return keypair;
         }
         if (type == SCRIPT_HASH) {
-            //TODO: p2sh-p2wpkh
-            throw KeyNotFoundError();
+            KeyLookupFilter p2pkh_hint = hint;
+            if (p2pkh_hint.type == KeyLookupFilter::DEFAULT)
+                p2pkh_hint.type = KeyLookupFilter::NESTED_SEGWIT;
+
+            KeyPair keypair = Lookup(hash, p2pkh_hint, [&](const KeyPair &k, const bytevector &id) {
+                CScript redeemScript;
+                redeemScript << 0 << cryptohash<bytevector>(k.GetEcdsaKeyPair().GetPubKey(), CHash160());
+                bytevector scripthash = cryptohash<bytevector>(redeemScript, CHash160());
+                return scripthash == id;
+            });
+            return keypair;
         }
         throw IllegalArgument("Wrong address: " + addr);
     }

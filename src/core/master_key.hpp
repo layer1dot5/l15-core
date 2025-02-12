@@ -28,6 +28,7 @@ public:
     static const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
     static const uint32_t BIP32_BRANCH_MASK = 0x7fffffff;
     static const uint32_t BIP44_LEGACY = 44;
+    static const uint32_t BIP49_P2WPKH_P2SH = 49;
     static const uint32_t BIP84_P2WPKH = 84;
     static const uint32_t BIP86_TAPROOT = 86;
 private:
