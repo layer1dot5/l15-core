@@ -1,6 +1,3 @@
-//
-// Created by lexis on 11.04.23.
-//
 
 #include "common.hpp"
 #include "common_error.hpp"
@@ -22,65 +19,6 @@ CMutableTransaction DecodeHexTx(const std::string &hex)
     return tx;
 }
 
-bool IsTaproot(const CTxOut &out)
-{
-    int witversion;
-    std::vector<unsigned char> witnessprogram;
-    bool segwit =  out.scriptPubKey.IsWitnessProgram(witversion, witnessprogram);
-    return segwit && witversion == 1;
-}
-
-std::string GetTaprootPubKey(const CTxOut &out)
-{
-    int witversion;
-    bytevector witnessprogram;
-    if (!out.scriptPubKey.IsWitnessProgram(witversion, witnessprogram)) {
-        throw TransactionError("Not SegWit output");
-    }
-    if (witversion != 1) {
-        throw TransactionError("Wrong SegWit version: " + std::to_string(witversion));
-    }
-    return hex(witnessprogram);
-}
-
-std::string GetTaprootAddress(const std::string& chain_mode, const std::string& pubkey)
-{
-    if (chain_mode == "testnet") {
-        return Bech32(BTC, TESTNET).Encode(unhex<xonly_pubkey>(pubkey));
-    }
-    else if (chain_mode == "mainnet") {
-        return Bech32(BTC, MAINNET).Encode(unhex<xonly_pubkey>(pubkey));
-    }
-    else if (chain_mode == "regtest") {
-        return Bech32(BTC, REGTEST).Encode(unhex<xonly_pubkey>(pubkey));
-    }
-
-    throw IllegalArgument(std::string("chain_mode: ") + chain_mode);
-}
-
-std::string GetAddress(const std::string& chain_mode, const bytevector& pubkeyscript)
-{
-    int witver;
-    bytevector witnessprogram;
-    CScript script(pubkeyscript.begin(), pubkeyscript.end());
-    bool segwit =  script.IsWitnessProgram(witver, witnessprogram);
-    if (segwit) {
-        if (chain_mode == "testnet") {
-            return Bech32(BTC, TESTNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
-        }
-        else if (chain_mode == "mainnet") {
-            return Bech32(BTC, MAINNET).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
-        }
-        else if (chain_mode == "regtest") {
-            return Bech32(BTC, REGTEST).Encode(witnessprogram, witver == 0 ? bech32::Encoding::BECH32 : bech32::Encoding::BECH32M);
-        }
-
-        throw IllegalArgument(std::string("chain_mode: " + chain_mode));
-    }
-    else {
-        return "";
-    }
-}
 
 template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx)
 {
