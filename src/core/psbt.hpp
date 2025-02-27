@@ -101,7 +101,7 @@ struct PSBTOutput
 /** A version of CTransaction with the PSBT format*/
 struct PSBT
 {
-    std::optional<CMutableTransaction> tx;
+    std::optional<CMutableTransaction> base_tx;
     // We use a vector of CExtPubKey in the event that there happens to be the same KeyOriginInfos for different CExtPubKeys
     // Note that this map swaps the key and values from the serialization
     //std::map<KeyOriginInfo, std::set<CExtPubKey>> m_xpubs;

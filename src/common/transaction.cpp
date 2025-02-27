@@ -32,10 +32,10 @@ template <typename J, typename T> J JsonTx(ChainMode chain, const T& tx)
         jin["txid"] = in.prevout.hash.GetHex();
         jin["n"] = in.prevout.n;
         jin["nSequence"] = in.nSequence;
-        jin["scriptSig"] = in.scriptSig;
+        jin["scriptSig"] = hex(in.scriptSig);
 
         for(const auto& wel: in.scriptWitness.stack)
-            jin["witness"].emplace_back(HexStr(wel));
+            jin["witness"].emplace_back(hex(wel));
 
         res["vin"].emplace_back(move(jin));
     }

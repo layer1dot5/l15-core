@@ -176,21 +176,25 @@ void SerializeHDKeypaths(Stream& s, const std::map<compressed_pubkey, KeyOriginI
 
 }
 
-PSBT::PSBT(const CMutableTransaction& tx) : tx(tx)
+PSBT::PSBT(const CMutableTransaction& tx) : base_tx(tx)
 {
+    for (auto& in: base_tx->vin) {
+        in.scriptSig.clear();
+        in.scriptWitness.stack.clear();
+    }
     inputs.resize(tx.vin.size());
     outputs.resize(tx.vout.size());
 }
 
 bool PSBT::IsNull() const
 {
-    return !tx && inputs.empty() && outputs.empty() && unknown.empty();
+    return !base_tx && inputs.empty() && outputs.empty() && unknown.empty();
 }
 
 bool PSBT::Merge(const PSBT& psbt)
 {
     // Prohibited to merge two PSBTs over different transactions
-    if (tx->GetHash() != psbt.tx->GetHash()) {
+    if (base_tx->GetHash() != psbt.base_tx->GetHash()) {
         return false;
     }
 
@@ -214,10 +218,10 @@ bool PSBT::Merge(const PSBT& psbt)
 
 bool PSBT::AddInput(const CTxIn& txin, PSBTInput& psbtin)
 {
-    if (std::find(tx->vin.begin(), tx->vin.end(), txin) != tx->vin.end()) {
+    if (std::find(base_tx->vin.begin(), base_tx->vin.end(), txin) != base_tx->vin.end()) {
         return false;
     }
-    tx->vin.push_back(txin);
+    base_tx->vin.push_back(txin);
     psbtin.partial_sigs.clear();
     psbtin.final_script_sig.reset();
     psbtin.final_script_witness.reset();
@@ -227,7 +231,7 @@ bool PSBT::AddInput(const CTxIn& txin, PSBTInput& psbtin)
 
 bool PSBT::AddOutput(const CTxOut& txout, const PSBTOutput& psbtout)
 {
-    tx->vout.push_back(txout);
+    base_tx->vout.push_back(txout);
     outputs.push_back(psbtout);
     return true;
 }
@@ -235,12 +239,12 @@ bool PSBT::AddOutput(const CTxOut& txout, const PSBTOutput& psbtout)
 const CTxOut& PSBT::GetInputUTXO(size_t input_index) const
 {
     const PSBTInput& input = inputs[input_index];
-    uint32_t prevout_index = tx->vin[input_index].prevout.n;
+    uint32_t prevout_index = base_tx->vin[input_index].prevout.n;
     if (input.non_witness_utxo) {
         if (prevout_index >= input.non_witness_utxo->vout.size()) {
             throw std::out_of_range("UTXO not found");
         }
-        if (input.non_witness_utxo->GetHash() != tx->vin[input_index].prevout.hash) {
+        if (input.non_witness_utxo->GetHash() != base_tx->vin[input_index].prevout.hash) {
             throw std::out_of_range("UTXO not found");
         }
         return input.non_witness_utxo->vout[prevout_index];
@@ -258,13 +262,13 @@ void PSBT::Serialize(DataStream &s) const
     switch (m_version) {
     case 0:
         SerializeAsValue(s, CompactSizeWriter(PSBT_GLOBAL_UNSIGNED_TX));
-        SerializeAsValue(s, TX_NO_WITNESS(*tx));
+        SerializeAsValue(s, TX_NO_WITNESS(*base_tx));
 
         if (m_fallback_locktime) throw TransactionError("Fallback locktime in PSBT v0");
         break;
     case 2:
         SerializeAsValue(s, CompactSizeWriter(PSBT_GLOBAL_TX_VERSION));
-        SerializeAsValue(s, tx->nVersion);
+        SerializeAsValue(s, base_tx->nVersion);
 
         if (m_fallback_locktime) {
             SerializeAsValue(s, CompactSizeWriter(PSBT_GLOBAL_FALLBACK_LOCKTIME));
@@ -272,10 +276,10 @@ void PSBT::Serialize(DataStream &s) const
         }
 
         SerializeAsValue(s, CompactSizeWriter(PSBT_GLOBAL_INPUT_COUNT));
-        SerializeAsValue(s, CompactSizeWriter(tx->vin.size()));
+        SerializeAsValue(s, CompactSizeWriter(base_tx->vin.size()));
 
         SerializeAsValue(s, CompactSizeWriter(PSBT_GLOBAL_OUTPUT_COUNT));
-        SerializeAsValue(s, CompactSizeWriter(tx->vout.size()));
+        SerializeAsValue(s, CompactSizeWriter(base_tx->vout.size()));
         break;
     }
 
@@ -362,9 +366,9 @@ void PSBT::Deserialize(DataStream &s)
             CMutableTransaction mtx;
             // Set the stream to serialize with non-witness since this should always be non-witness
             DeserializeAsValue(s, TX_NO_WITNESS(mtx));
-            tx = std::move(mtx);
+            base_tx = std::move(mtx);
             // Make sure that all scriptSigs and scriptWitnesses are empty
-            for (const CTxIn &txin: tx->vin) {
+            for (const CTxIn &txin: base_tx->vin) {
                 if (!txin.scriptSig.empty() || !txin.scriptWitness.IsNull())
                     throw TransactionError("Unsigned tx does not have empty scriptSigs and scriptWitnesses.");
             }
@@ -403,8 +407,8 @@ void PSBT::Deserialize(DataStream &s)
             if (!key_lookup.emplace(key).second) throw TransactionError("Duplicate Key, unsigned tx already provided");
             if (key.size() != 1) throw TransactionError("Global unsigned tx key is more than one byte type");
 
-            if (!tx) tx.emplace();
-            DeserializeAsValue(s, tx->nVersion);
+            if (!base_tx) base_tx.emplace();
+            DeserializeAsValue(s, base_tx->nVersion);
 
             break;
         case PSBT_GLOBAL_FALLBACK_LOCKTIME:
@@ -420,8 +424,8 @@ void PSBT::Deserialize(DataStream &s)
             if (key.size() != 1) throw TransactionError("Input count key is more than one byte type"); {
                 uint64_t len = ReadCompactSize(s);
                 size_t before = s.size();
-                if (!tx) tx.emplace();
-                tx->vin.resize(ReadCompactSize(s));
+                if (!base_tx) base_tx.emplace();
+                base_tx->vin.resize(ReadCompactSize(s));
                 //inputs.resize(tx->vin.size());
 
                 if (s.size() + len != before) throw TransactionError("Input count value length mismatch");
@@ -432,8 +436,8 @@ void PSBT::Deserialize(DataStream &s)
             if (key.size() != 1) throw TransactionError("Output count key is more than one byte type"); {
                 uint64_t len = ReadCompactSize(s);
                 size_t before = s.size();
-                if (!tx) tx.emplace();
-                tx->vout.resize(ReadCompactSize(s));
+                if (!base_tx) base_tx.emplace();
+                base_tx->vout.resize(ReadCompactSize(s));
                 //outputs.resize(tx->vout.size());
 
                 if (s.size() + len != before) throw TransactionError("Output count value length mismatch");
@@ -475,30 +479,30 @@ void PSBT::Deserialize(DataStream &s)
     if (!found_sep) throw TransactionError("Separator is missing at the end of the global map");
 
     // Make sure that we got an unsigned tx
-    if (!tx) throw TransactionError("No unsigned transaction was provided");
+    if (!base_tx) throw TransactionError("No unsigned transaction was provided");
 
     // Read input data
     unsigned int i = 0;
-    while (!s.empty() && i < tx->vin.size()) {
+    while (!s.empty() && i < base_tx->vin.size()) {
         inputs.emplace_back(PSBTInput(s));
 
         // Make sure the non-witness utxo matches the outpoint
-        if (inputs.back().non_witness_utxo && inputs.back().non_witness_utxo->GetHash() != tx->vin[i].prevout.hash)
+        if (inputs.back().non_witness_utxo && inputs.back().non_witness_utxo->GetHash() != base_tx->vin[i].prevout.hash)
             throw TransactionError("Non-witness UTXO does not match outpoint hash");
 
         ++i;
     }
     // Make sure that the number of inputs matches the number of inputs in the transaction
-    if (inputs.size() != tx->vin.size()) throw TransactionError( "Inputs provided does not match the number of inputs in transaction.");
+    if (inputs.size() != base_tx->vin.size()) throw TransactionError( "Inputs provided does not match the number of inputs in transaction.");
 
     // Read output data
     i = 0;
-    while (!s.empty() && i < tx->vout.size()) {
+    while (!s.empty() && i < base_tx->vout.size()) {
         outputs.emplace_back(PSBTOutput(s));
         ++i;
     }
     // Make sure that the number of outputs matches the number of outputs in the transaction
-    if (outputs.size() != tx->vout.size()) throw TransactionError( "Outputs provided does not match the number of outputs in transaction.");
+    if (outputs.size() != base_tx->vout.size()) throw TransactionError( "Outputs provided does not match the number of outputs in transaction.");
 
 }
 
@@ -1208,7 +1212,7 @@ bool PSBTInputSignedAndVerified(const PSBT psbt, unsigned int input_index, const
 
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
-        COutPoint prevout = psbt.tx->vin[input_index].prevout;
+        COutPoint prevout = psbt.base_tx->vin[input_index].prevout;
         if (prevout.n >= input.non_witness_utxo->vout.size()) {
             return false;
         }
@@ -1223,9 +1227,9 @@ bool PSBTInputSignedAndVerified(const PSBT psbt, unsigned int input_index, const
     }
 
     if (txdata) {
-        return VerifyScript(input.final_script_sig.value_or(CScript()), utxo.scriptPubKey, input.final_script_witness ? &input.final_script_witness.value() : nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&(*psbt.tx), input_index, utxo.nValue, *txdata, MissingDataBehavior::FAIL});
+        return VerifyScript(input.final_script_sig.value_or(CScript()), utxo.scriptPubKey, input.final_script_witness ? &input.final_script_witness.value() : nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&(*psbt.base_tx), input_index, utxo.nValue, *txdata, MissingDataBehavior::FAIL});
     } else {
-        return VerifyScript(input.final_script_sig.value_or(CScript()), utxo.scriptPubKey, input.final_script_witness ? &input.final_script_witness.value() : nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&(*psbt.tx), input_index, utxo.nValue, MissingDataBehavior::FAIL});
+        return VerifyScript(input.final_script_sig.value_or(CScript()), utxo.scriptPubKey, input.final_script_witness ? &input.final_script_witness.value() : nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&(*psbt.base_tx), input_index, utxo.nValue, MissingDataBehavior::FAIL});
     }
 }
 
